@@ -4,17 +4,42 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+// Port 3000 is required in AI Studio preview environment.
+// In external deployments (e.g. Render), use process.env.PORT if specified.
+const PORT = process.env.NODE_ENV === 'production' && process.env.PORT && process.env.PORT !== '8080'
+  ? parseInt(process.env.PORT, 10)
+  : 3000;
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 async function startServer() {
   if (!isProduction) {
-    // In development mode, mount Vite middleware
+    // In development mode, mount Vite middleware with HMR disabled when DISABLE_HMR is set
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
+
+    // Explicit fallback for SPA routes to transform and serve index.html
+    app.use('*', async (req, res, next) => {
+      // Skip API routes so 404s stay JSON
+      if (req.originalUrl.startsWith('/api/')) {
+        return next();
+      }
+      try {
+        const indexPath = path.resolve(process.cwd(), 'index.html');
+        let template = fs.readFileSync(indexPath, 'utf-8');
+        template = await vite.transformIndexHtml(req.originalUrl, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        next(e);
+      }
+    });
+
     console.log('[Dev Server] Vite middleware integrated with Express');
   } else {
     // In production, serve built dist files
