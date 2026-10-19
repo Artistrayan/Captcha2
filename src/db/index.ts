@@ -15,6 +15,11 @@ export interface DBStatus {
   connectionError?: string;
 }
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+if (IS_PRODUCTION && !process.env.DATABASE_URL) {
+  throw new Error('[Database] DATABASE_URL is required in production; refusing to start with local file storage.');
+}
+
 const DATA_DIR = path.resolve(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'shieldcaptcha_db.json');
 
@@ -165,25 +170,32 @@ if (process.env.DATABASE_URL) {
     // Test connection asynchronously
     pgPool.query('SELECT 1')
       .then(async () => {
-        isPgConnected = true;
-        console.log('[Database] Connected to PostgreSQL via Drizzle ORM');
+        console.log('[Database] PostgreSQL connection verified');
 
-        // Automatically apply migrations to PostgreSQL if available
         try {
           const { migrate } = await import('drizzle-orm/node-postgres/migrator');
           const migrationsDir = path.resolve(process.cwd(), 'drizzle');
-          if (fs.existsSync(migrationsDir)) {
-            await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
-            console.log('[Database] Drizzle migrations applied successfully to PostgreSQL');
+          if (!fs.existsSync(migrationsDir)) {
+            throw new Error('Drizzle migrations directory is missing');
           }
+          await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
+          isPgConnected = true;
+          console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
         } catch (migErr: any) {
-          console.warn('[Database] Drizzle migration check note:', migErr.message);
+          lastPgError = migErr?.message || 'Migration failed';
+          console.error('[Database] PostgreSQL migration failed:', lastPgError);
+          if (IS_PRODUCTION) process.exit(1);
         }
       })
       .catch((err) => {
         isPgConnected = false;
         lastPgError = err.message;
-        console.warn('[Database] PostgreSQL connection failed, operating with persistent file repository fallback:', err.message);
+        console.error('[Database] PostgreSQL connection failed:', err.message);
+        if (IS_PRODUCTION) {
+          console.error('[Database] Refusing to use local file storage in production.');
+          process.exit(1);
+        }
+        console.warn('[Database] Development mode: using persistent file repository fallback.');
       });
   } catch (err: any) {
     lastPgError = err?.message;
