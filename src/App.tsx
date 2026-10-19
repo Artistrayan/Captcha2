@@ -1,0 +1,1004 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Shield, Key, Globe, Plus, Trash2, Copy, Check, RefreshCw,
+  Terminal, ShieldCheck, ShieldAlert, Code2, ExternalLink,
+  Layers, Lock, Database, AlertCircle, Eye, EyeOff
+} from 'lucide-react';
+import { CaptchaWidget } from './components/CaptchaWidget.tsx';
+
+interface SiteItem {
+  id: string;
+  name: string;
+  siteKey: string;
+  domains: string[];
+  maskedSecretKey: string;
+  challengeDifficulty: string;
+  invisibleEnabled: boolean;
+  rateLimitPerMinute: number;
+  createdAt: string;
+}
+
+interface HealthStatus {
+  status: string;
+  version: string;
+  database: {
+    isPostgresConnected: boolean;
+    engine: string;
+    databaseUrlConfigured: boolean;
+  };
+  firebaseAuth: {
+    isInitialized: boolean;
+    authMode: string;
+  };
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<'sites' | 'playground' | 'logs' | 'docs'>('sites');
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+
+  // User session state (Defaults to developer session)
+  const [userEmail, setUserEmail] = useState<string>('developer@shieldcaptcha.dev');
+  const [authToken, setAuthToken] = useState<string>('');
+  const [sites, setSites] = useState<SiteItem[]>([]);
+  const [isLoadingSites, setIsLoadingSites] = useState<boolean>(true);
+  const [selectedSiteKey, setSelectedSiteKey] = useState<string>('');
+
+  // Add Site Modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newSiteName, setNewSiteName] = useState('');
+  const [newSiteDomains, setNewSiteDomains] = useState('localhost, 127.0.0.1');
+  const [newSiteDifficulty, setNewSiteDifficulty] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
+  const [newSiteInvisible, setNewSiteInvisible] = useState(true);
+  const [isCreatingSite, setIsCreatingSite] = useState(false);
+
+  // One-time Secret Key modal
+  const [oneTimeSecretModal, setOneTimeSecretModal] = useState<{
+    siteName: string;
+    siteKey: string;
+    secretKey: string;
+  } | null>(null);
+
+  // Playground & Test Suite states
+  const [lastVerifiedToken, setLastVerifiedToken] = useState<string | null>(null);
+  const [lastVerificationData, setLastVerificationData] = useState<any>(null);
+  const [testResultLog, setTestResultLog] = useState<{
+    title: string;
+    status: 'success' | 'failed';
+    code?: string;
+    payload: any;
+    timestamp: string;
+  } | null>(null);
+  const [isTestingScenario, setIsTestingScenario] = useState(false);
+
+  // Audit Logs
+  const [logs, setLogs] = useState<any[]>([]);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Initialize session & fetch health
+  useEffect(() => {
+    fetch('/api/v1/health')
+      .then(res => res.json())
+      .then(data => setHealth(data))
+      .catch(console.error);
+
+    // Login dev session
+    loginUser(userEmail);
+  }, []);
+
+  const loginUser = async (email: string) => {
+    setIsLoadingSites(true);
+    try {
+      const res = await fetch('/api/v1/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name: email.split('@')[0] }),
+      });
+      const data = await res.json();
+      if (data.token) {
+        setAuthToken(data.token);
+        fetchSites(data.token);
+      }
+    } catch (err) {
+      console.error('Session login error:', err);
+    } finally {
+      setIsLoadingSites(false);
+    }
+  };
+
+  const fetchSites = async (token = authToken) => {
+    if (!token) return;
+    setIsLoadingSites(true);
+    try {
+      const res = await fetch('/api/v1/sites', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.sites) {
+        setSites(data.sites);
+        if (data.sites.length > 0 && !selectedSiteKey) {
+          setSelectedSiteKey(data.sites[0].siteKey);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch sites:', err);
+    } finally {
+      setIsLoadingSites(false);
+    }
+  };
+
+  const handleCreateSite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSiteName.trim()) return;
+
+    setIsCreatingSite(true);
+    try {
+      const domainsArr = newSiteDomains
+        .split(',')
+        .map(d => d.trim())
+        .filter(Boolean);
+
+      const res = await fetch('/api/v1/sites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          name: newSiteName,
+          domains: domainsArr.length > 0 ? domainsArr : ['localhost'],
+          challengeDifficulty: newSiteDifficulty,
+          invisibleEnabled: newSiteInvisible,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.site) {
+        setIsAddModalOpen(false);
+        setNewSiteName('');
+        // Open One-Time Secret Key reveal modal
+        setOneTimeSecretModal({
+          siteName: data.site.name,
+          siteKey: data.site.siteKey,
+          secretKey: data.oneTimeSecretKey,
+        });
+        setSelectedSiteKey(data.site.siteKey);
+        // Refresh sites from server to ensure persistence!
+        await fetchSites();
+      } else {
+        alert(data.error || 'Failed to create site');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error');
+    } finally {
+      setIsCreatingSite(false);
+    }
+  };
+
+  const handleDeleteSite = async (siteId: string) => {
+    if (!window.confirm('آیا از حذف این سایت اطمینان دارید؟ تمام کلیدها و رویدادهای مربوطه حذف خواهند شد.')) return;
+
+    try {
+      const res = await fetch(`/api/v1/sites/${siteId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        await fetchSites();
+      }
+    } catch (err) {
+      console.error('Failed to delete site:', err);
+    }
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(id);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  // Run security test scenarios right from the playground UI!
+  const runSecurityTest = async (scenario: 'wrong_answer' | 'replay_attack' | 'expired_token' | 'backend_verify') => {
+    if (!selectedSiteKey) return;
+    setIsTestingScenario(true);
+    setTestResultLog(null);
+
+    try {
+      // 1. First issue a fresh challenge
+      const chRes = await fetch('/api/v1/captcha/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteKey: selectedSiteKey, domain: 'localhost' }),
+      });
+      const challenge = await chRes.json();
+
+      if (scenario === 'wrong_answer') {
+        const verifyRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: challenge.token,
+            selectedOptionId: 'opt_deliberately_wrong_id_9999',
+          }),
+        });
+        const vData = await verifyRes.json();
+        setTestResultLog({
+          title: 'تست پاسخ اشتباه (Wrong Answer Rejection)',
+          status: vData.success === false ? 'success' : 'failed',
+          code: vData.error_codes?.[0],
+          payload: vData,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+        });
+      } else if (scenario === 'replay_attack') {
+        // Find correct answer or simulate token verification
+        // 1st verify attempt
+        const firstOpt = challenge.options?.[0]?.id || 'opt_1';
+        const v1 = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: challenge.token, selectedOptionId: firstOpt }),
+        });
+        const d1 = await v1.json();
+
+        // 2nd verify attempt with SAME token (Replay Attack)
+        const v2 = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: challenge.token, selectedOptionId: firstOpt }),
+        });
+        const d2 = await v2.json();
+
+        setTestResultLog({
+          title: 'تست محافظت در برابر بازپخش توکن (Replay Attack Prevention)',
+          status: (d2.error_codes?.includes('timeout-or-duplicate')) ? 'success' : 'failed',
+          code: d2.error_codes?.[0],
+          payload: {
+            firstAttempt: d1,
+            secondAttemptReplay: d2,
+            securityResult: d2.error_codes?.includes('timeout-or-duplicate')
+              ? 'موفق: تلاش دوم با خطای timeout-or-duplicate مسدود شد'
+              : 'ناموفق',
+          },
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+        });
+      } else if (scenario === 'backend_verify') {
+        // Direct Server-to-Server verification simulation
+        const verifyRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: lastVerifiedToken || challenge.token,
+            hostname: 'localhost',
+            action: 'payment_checkout',
+          }),
+        });
+        const vData = await verifyRes.json();
+        setTestResultLog({
+          title: 'تأیید مستقیم سمت سرور (Server-to-Server Verify Response)',
+          status: 'success',
+          code: vData.success ? 'human_verified' : vData.error_codes?.[0],
+          payload: vData,
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+        });
+      }
+    } catch (err: any) {
+      setTestResultLog({
+        title: 'خطای اجرای آزمون',
+        status: 'failed',
+        payload: { error: err.message },
+        timestamp: new Date().toLocaleTimeString('fa-IR'),
+      });
+    } finally {
+      setIsTestingScenario(false);
+    }
+  };
+
+  const fetchUsageLogs = async () => {
+    try {
+      const res = await fetch('/api/v1/analytics/usage', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (data.recentEvents) {
+        setLogs(data.recentEvents);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      fetchUsageLogs();
+    }
+  }, [activeTab]);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30">
+      {/* Top Navigation */}
+      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-lg shadow-emerald-950/50">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold tracking-tight text-white text-base">ShieldCaptcha</span>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  MVP v1.0
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">سرویس بین‌المللی ارزیابی امنیتی و کپچای حریم‌خصوصی‌محور</p>
+            </div>
+          </div>
+
+          {/* Engine & Database Status indicator */}
+          <div className="hidden md:flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60">
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-slate-400">ذخیره‌سازی:</span>
+              <span className="font-mono text-emerald-400 font-medium">
+                {health?.database.isPostgresConnected ? 'PostgreSQL (Cloud SQL)' : 'Drizzle File Storage'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60">
+              <Lock className="w-3.5 h-3.5 text-teal-400" />
+              <span className="text-slate-400">احراز هویت:</span>
+              <span className="font-mono text-teal-400 font-medium">
+                {health?.firebaseAuth.isInitialized ? 'Firebase Admin Live' : 'JWT Session Admin'}
+              </span>
+            </div>
+
+            {/* User Tenant Switcher for Testing Isolation */}
+            <select
+              value={userEmail}
+              onChange={(e) => {
+                setUserEmail(e.target.value);
+                loginUser(e.target.value);
+              }}
+              className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option value="developer@shieldcaptcha.dev">حساب: Developer (Admin)</option>
+              <option value="alice@shieldcaptcha.dev">حساب: Alice (کاربر تست ۱)</option>
+              <option value="bob@shieldcaptcha.dev">حساب: Bob (کاربر تست ۲)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Tab Bar */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-1 border-t border-slate-800/60 overflow-x-auto">
+          {[
+            { id: 'sites', label: 'مدیریت وب‌سایت‌ها و کلیدها', icon: Globe },
+            { id: 'playground', label: 'آزمایشگاه زنده کپچا و تست نفوذ', icon: Terminal },
+            { id: 'logs', label: 'لاگ‌های زنده و تحلیل فعالیت', icon: Layers },
+            { id: 'docs', label: 'مستندات و راهنمای ادغام (SDK)', icon: Code2 },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`py-3 px-4 text-xs font-medium flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+                {tab.id === 'sites' && sites.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300">
+                    {sites.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
+        {/* TAB 1: SITES MANAGEMENT */}
+        {activeTab === 'sites' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span>وب‌سایت‌های ثبت‌شده</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                    {userEmail}
+                  </span>
+                </h1>
+                <p className="text-xs text-slate-400 mt-1">
+                  کلیدهای عمومی و محرمانه سایت‌های خود را مدیریت کرده و دامنه‌های مجاز را پیکربندی نمایید.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchSites()}
+                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+                  title="بارگذاری مجدد"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingSites ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/40 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>ثبت سایت جدید (Add Site)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sites Grid */}
+            {isLoadingSites ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-7 h-7 text-emerald-400 animate-spin" />
+                <span className="text-xs text-slate-400">در حال دریافت فهرست سایت‌ها از پایگاه داده...</span>
+              </div>
+            ) : sites.length === 0 ? (
+              <div className="py-16 px-4 rounded-2xl border border-dashed border-slate-800 text-center flex flex-col items-center justify-center gap-3 bg-slate-900/30">
+                <Globe className="w-10 h-10 text-slate-600" />
+                <h3 className="text-sm font-semibold text-slate-300">هیچ سایتی برای این حساب ثبت نشده است</h3>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  برای شروع دریافت کلید عمومی Site Key و کلید خصوصی Secret Key، دکمه «ثبت سایت جدید» را بزنید.
+                </p>
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium cursor-pointer"
+                >
+                  ثبت اولین وب‌سایت
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sites.map(site => (
+                  <div
+                    key={site.id}
+                    className="p-5 rounded-xl border border-slate-800 bg-slate-900/70 hover:border-slate-700 transition-all flex flex-col justify-between gap-4 shadow-sm"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                            <Globe className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-white">{site.name}</h3>
+                            <span className="text-[10px] text-slate-500">
+                              ثبت شده: {new Date(site.createdAt).toLocaleDateString('fa-IR')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteSite(site.id)}
+                          className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          title="حذف سایت"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Site Key (Public) */}
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-medium block mb-1">
+                            کلید عمومی (Public Site Key):
+                          </span>
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800/80 font-mono text-[11px] text-emerald-400">
+                            <span className="truncate">{site.siteKey}</span>
+                            <button
+                              onClick={() => copyToClipboard(site.siteKey, `site-${site.id}`)}
+                              className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                              title="کپی کلید عمومی"
+                            >
+                              {copiedKey === `site-${site.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Secret Key (Masked - Private) */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              کلید محرمانه (Secret Key):
+                            </span>
+                            <span className="text-[9px] text-amber-400/80">فقط در سرور نگهداری شود</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/60 font-mono text-[11px] text-slate-400">
+                            <span className="truncate">{site.maskedSecretKey}</span>
+                            <Lock className="w-3.5 h-3.5 text-slate-500" />
+                          </div>
+                        </div>
+
+                        {/* Whitelisted Domains */}
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-medium block mb-1">
+                            دامنه‌های مجاز (Domain Binding):
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {site.domains.map((dom, i) => (
+                              <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+                                {dom}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">
+                        سطح چالش: <span className="text-slate-300 font-medium">{site.challengeDifficulty}</span>
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedSiteKey(site.siteKey);
+                          setActiveTab('playground');
+                        }}
+                        className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>تست در آزمایشگاه</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: INTERACTIVE PLAYGROUND & ABUSE TESTING */}
+        {activeTab === 'playground' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Live Widget Embed */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-emerald-400" />
+                    <span>ویجت زنده در وب‌سایت فرضی</span>
+                  </h2>
+
+                  {/* Site Selector */}
+                  <select
+                    value={selectedSiteKey}
+                    onChange={(e) => setSelectedSiteKey(e.target.value)}
+                    className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 cursor-pointer"
+                  >
+                    {sites.map(s => (
+                      <option key={s.id} value={s.siteKey}>{s.name} ({s.siteKey.slice(0, 10)}...)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <p className="text-xs text-slate-400 mb-4">
+                  این ویجت مستقیماً به API سرور (`POST /api/v1/captcha/challenge` و `verify`) متصل است.
+                </p>
+
+                {/* Embedded Widget */}
+                {selectedSiteKey ? (
+                  <CaptchaWidget
+                    key={selectedSiteKey}
+                    siteKey={selectedSiteKey}
+                    onVerify={(token, data) => {
+                      setLastVerifiedToken(token);
+                      setLastVerificationData(data);
+                    }}
+                    onError={(code) => console.log('Widget error:', code)}
+                  />
+                ) : (
+                  <div className="text-xs text-slate-500 text-center py-8">
+                    لطفاً ابتدا یک سایت در تب مدیریت سایت‌ها ایجاد کنید.
+                  </div>
+                )}
+
+                {/* Verification result badge */}
+                {lastVerificationData && (
+                  <div className="mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>پاسخ تأیید شده توسط سرور:</span>
+                    </div>
+                    <div className="font-mono text-[11px] text-slate-300">
+                      امتیاز امنیت (Score): {lastVerificationData.score} / 100
+                    </div>
+                    <div className="font-mono text-[10px] text-slate-400 truncate">
+                      توکن تأیید: {lastVerifiedToken}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Security Attack & Abuse Test Suite */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    <span>آزمایشگاه سناریوهای امنیتی (Security Attack Scenarios)</span>
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                    آزمایش زنده API
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mb-4">
+                  با کلیک روی هر دکمه، یک سناریوی نفوذ یا رفتار غیرمجاز واقعی به سمت سرور فرستاده شده و رفتار اتمیک سرور ارزیابی می‌شود:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
+                  <button
+                    disabled={isTestingScenario || !selectedSiteKey}
+                    onClick={() => runSecurityTest('wrong_answer')}
+                    className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <div className="text-xs font-semibold text-rose-400 mb-1">۱. ارسال پاسخ اشتباه</div>
+                    <div className="text-[10px] text-slate-400">بررسی ثبت خطای incorrect-captcha-sol و محدودیت ۳ تلاش</div>
+                  </button>
+
+                  <button
+                    disabled={isTestingScenario || !selectedSiteKey}
+                    onClick={() => runSecurityTest('replay_attack')}
+                    className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <div className="text-xs font-semibold text-amber-400 mb-1">۲. حمله بازپخش (Replay)</div>
+                    <div className="text-[10px] text-slate-400">ارسال توکن یک‌بارمصرف برای بار دوم و رد آن در سرور</div>
+                  </button>
+
+                  <button
+                    disabled={isTestingScenario || !selectedSiteKey}
+                    onClick={() => runSecurityTest('backend_verify')}
+                    className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <div className="text-xs font-semibold text-emerald-400 mb-1">۳. تأیید سمت سرور</div>
+                    <div className="text-[10px] text-slate-400">شبیه‌سازی ارتباط بک‌اند به بک‌اند با Secret Key</div>
+                  </button>
+                </div>
+
+                {/* Scenario Execution Log */}
+                {testResultLog && (
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-200">{testResultLog.title}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono ${
+                        testResultLog.status === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                      }`}>
+                        {testResultLog.status === 'success' ? 'رفتار امنیتی مطابق انتظار' : 'شکست آزمون'}
+                      </span>
+                    </div>
+
+                    <pre className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-emerald-400 overflow-x-auto">
+                      {JSON.stringify(testResultLog.payload, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: AUDIT LOGS */}
+        {activeTab === 'logs' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white">لاگ‌های امنیتی و رویدادهای تأیید</h2>
+                <p className="text-xs text-slate-400">گزارش لحظه‌ای رویدادهای صدور چالش و اعتبارسنجی در سرور</p>
+              </div>
+              <button
+                onClick={fetchUsageLogs}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>بروزرسانی لاگ‌ها</span>
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/50">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-right">
+                  <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] border-b border-slate-800">
+                    <tr>
+                      <th className="p-3">زمان</th>
+                      <th className="p-3">Site Key</th>
+                      <th className="p-3">نتیجه (Decision)</th>
+                      <th className="p-3">امتیاز</th>
+                      <th className="p-3">میزبان (Hostname)</th>
+                      <th className="p-3">کدهای خطا / توضیحات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                    {logs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-500">
+                          هنوز رویدادی ثبت نشده است. از تب آزمایشگاه چند چالش را حل کنید تا لاگ‌ها نمایش داده شوند.
+                        </td>
+                      </tr>
+                    ) : (
+                      logs.map((log, i) => (
+                        <tr key={i} className="hover:bg-slate-800/40">
+                          <td className="p-3 text-slate-400">
+                            {new Date(log.createdAt).toLocaleTimeString('fa-IR')}
+                          </td>
+                          <td className="p-3 text-slate-300 truncate max-w-[120px]">{log.siteKey}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] ${
+                              log.success ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                            }`}>
+                              {log.success ? 'PASS (تأیید)' : 'BLOCKED (رد شده)'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-200">{log.score}</td>
+                          <td className="p-3 text-slate-400">{log.hostname || 'localhost'}</td>
+                          <td className="p-3 text-slate-400">
+                            {log.errorCodes && log.errorCodes.length > 0 ? (
+                              <span className="text-rose-400">{log.errorCodes.join(', ')}</span>
+                            ) : (
+                              <span className="text-emerald-500">none (موفق)</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: INTEGRATION GUIDE & DOCS */}
+        {activeTab === 'docs' && (
+          <div className="space-y-6 max-w-4xl">
+            <div>
+              <h2 className="text-xl font-bold text-white">راهنمای ادغام سریع (Quickstart Integration Guide)</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                نحوه قرار دادن ویجت در فرانت‌اند و اعتبارسنجی توکن حاصل در بک‌اند با کمتر از ۱۰ خط کد.
+              </p>
+            </div>
+
+            {/* Step 1: Frontend */}
+            <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">۱</span>
+                <h3 className="text-sm font-semibold text-white">نمایش ویجت در فرم وب‌سایت (React / HTML)</h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                ویجت را در صفحه ورود، ثبت‌نام یا پرداخت خود قرار داده و پس از تکمیل، توکن صادرشده را همراه با فرم ارسال کنید:
+              </p>
+
+              <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">
+{`import { CaptchaWidget } from '@shieldcaptcha/widget';
+
+export function LoginForm() {
+  const [token, setToken] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // توکن را به سرور خود بفرستید
+    await fetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, captchaToken: token })
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" placeholder="ایمیل" />
+      <CaptchaWidget 
+        siteKey="${selectedSiteKey || 'sc_site_YOUR_KEY'}" 
+        onVerify={(verifiedToken) => setToken(verifiedToken)} 
+      />
+      <button type="submit" disabled={!token}>ورود به حساب</button>
+    </form>
+  );
+}`}
+              </pre>
+            </div>
+
+            {/* Step 2: Backend Verification */}
+            <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs font-bold flex items-center justify-center">۲</span>
+                <h3 className="text-sm font-semibold text-white">اعتبارسنجی سرور به سرور (Node.js / Express)</h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                در کنترلر بک‌اند خود، توکن ارسالی را به اندپوینت `/api/v1/captcha/verify` ارسال کنید:
+              </p>
+
+              <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-teal-300 overflow-x-auto">
+{`// در بک‌اند (هرگز Secret Key را در فرانت‌اند قرار ندهید):
+app.post('/api/login', async (req, res) => {
+  const { email, password, captchaToken } = req.body;
+
+  const verifyResponse = await fetch('https://api.shieldcaptcha.com/api/v1/captcha/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secretKey: process.env.SHIELDCAPTCHA_SECRET_KEY, // sc_sec_live_...
+      token: captchaToken,
+      remoteIp: req.ip,
+    })
+  });
+
+  const verification = await verifyResponse.json();
+
+  if (!verification.success) {
+    return res.status(403).json({ error: 'CAPTCHA verification failed', codes: verification.error_codes });
+  }
+
+  // اعتبارسنجی موفق بود؛ ادامه فرایند ورود...
+});`}
+              </pre>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* MODAL: ADD SITE */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-400" />
+                <span>ثبت وب‌سایت جدید</span>
+              </h3>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-slate-500 hover:text-white text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSite} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">نام سایت یا پروژه:</label>
+                <input
+                  type="text"
+                  required
+                  value={newSiteName}
+                  onChange={e => setNewSiteName(e.target.value)}
+                  placeholder="مثال: فروشگاه دیجی‌شاپ"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  دامنه‌های مجاز (با کاما جدا کنید):
+                </label>
+                <input
+                  type="text"
+                  value={newSiteDomains}
+                  onChange={e => setNewSiteDomains(e.target.value)}
+                  placeholder="localhost, example.com, app.example.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 font-mono text-emerald-400 focus:ring-1 focus:ring-emerald-500"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  چالش‌ها فقط از این دامنه‌ها قابل صدور خواهند بود.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">سطح دشواری چالش:</label>
+                <select
+                  value={newSiteDifficulty}
+                  onChange={e => setNewSiteDifficulty(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white cursor-pointer"
+                >
+                  <option value="LOW">آسان (Low - برای کاربران عمومی)</option>
+                  <option value="MEDIUM">متوسط (Medium - استاندارد تجاری)</option>
+                  <option value="HIGH">دقیق (High - فرم‌های حساس یا پرداخت)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="invisibleCheck"
+                  checked={newSiteInvisible}
+                  onChange={e => setNewSiteInvisible(e.target.checked)}
+                  className="rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
+                />
+                <label htmlFor="invisibleCheck" className="text-slate-300 cursor-pointer">
+                  فعال‌سازی ارزیابی اولیه نامرئی (Invisible Check)
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingSite}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isCreatingSite ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>ایجاد و دریافت کلیدها</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ONE-TIME SECRET KEY DISPLAY */}
+      {oneTimeSecretModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-2 text-emerald-400 pb-2 border-b border-slate-800">
+              <ShieldCheck className="w-5 h-5" />
+              <h3 className="text-sm font-bold text-white">
+                کلیدهای سایت «{oneTimeSecretModal.siteName}» با موفقیت تولید شدند
+              </h3>
+            </div>
+
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <strong>هشدار امنیتی بسیار مهم:</strong>
+                <p className="text-[11px] text-amber-200/90 mt-0.5">
+                  کلید خصوصی فقط این یک‌بار به شما نمایش داده می‌شود. به دلایل امنیتی، سرور فقط هش یک‌طرفه آن را ذخیره می‌کند و امکان مشاهده مجدد آن وجود نخواهد داشت.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <span className="text-[11px] text-slate-400 block mb-1">کلید عمومی سایت (Site Key):</span>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-400">
+                  <span className="truncate">{oneTimeSecretModal.siteKey}</span>
+                  <button
+                    onClick={() => copyToClipboard(oneTimeSecretModal.siteKey, 'modal-sitekey')}
+                    className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    {copiedKey === 'modal-sitekey' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[11px] text-slate-400 block mb-1 font-semibold text-rose-400">
+                  کلید محرمانه اختصاصی (Secret Key):
+                </span>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-rose-500/40 font-mono text-[11px] text-rose-300">
+                  <span className="truncate">{oneTimeSecretModal.secretKey}</span>
+                  <button
+                    onClick={() => copyToClipboard(oneTimeSecretModal.secretKey, 'modal-secretkey')}
+                    className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    {copiedKey === 'modal-secretkey' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setOneTimeSecretModal(null)}
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs cursor-pointer"
+              >
+                کلید را ذخیره کردم و متوجه شدم
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

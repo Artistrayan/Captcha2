@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: shieldcaptcha-web
+    env: node
+    plan: free
+    region: frankfurt # or oregon / ohio / singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shieldcaptcha-db
+          property: connectionString
+      - key: CAPTCHA_SERVER_SALT
+        generateValue: true
+      - key: SESSION_JWT_SECRET
+        generateValue: true
+      - key: APP_URL
+        sync: false

@@ -1,0 +1,6 @@
+{
+  "name": "ShieldCaptcha — Modern Bot Protection & CAPTCHA SaaS",
+  "description": "Production-oriented commercial CAPTCHA-as-a-Service platform with privacy-first verification, site key management, reusable widget, and high-performance server verification API.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
