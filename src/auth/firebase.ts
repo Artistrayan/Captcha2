@@ -4,7 +4,12 @@ import jwt from 'jsonwebtoken';
 import { dbRepository } from '../db/index.ts';
 import { User } from '../db/schema.ts';
 
-const JWT_SECRET = process.env.SESSION_JWT_SECRET || 'shield_captcha_secure_jwt_dev_key_2026';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.SESSION_JWT_SECRET || (IS_PRODUCTION ? '' : 'shield_captcha_secure_jwt_dev_key_2026');
+
+if (IS_PRODUCTION && !JWT_SECRET) {
+  console.error('[Auth] SESSION_JWT_SECRET is required in production.');
+}
 
 export interface FirebaseAdminStatus {
   isInitialized: boolean;
@@ -99,7 +104,11 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
     }
   }
 
-  // 2. Dev Session JWT verification
+  // 2. Development-only JWT fallback. Never allow this path in production.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Firebase Admin authentication is not configured; development JWT fallback is disabled in production');
+  }
+
   try {
     const verified = jwt.verify(cleanToken, JWT_SECRET) as any;
     if (!verified || !verified.uid || !verified.email) {
@@ -120,6 +129,12 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
  * Creates a signed dev session token for testing without external Firebase account setup.
  */
 export function createDevSessionToken(user: { uid: string; email: string; name?: string; role?: string }): string {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Development session tokens are disabled in production');
+  }
+  if (!JWT_SECRET) {
+    throw new Error('SESSION_JWT_SECRET is required to create session tokens');
+  }
   return jwt.sign(
     {
       uid: user.uid,
