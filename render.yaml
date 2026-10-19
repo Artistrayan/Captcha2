@@ -1,16 +1,16 @@
 services:
   - type: web
     name: shieldcaptcha-web
-    env: node
+    runtime: node
     plan: free
-    region: frankfurt # or oregon / ohio / singapore
+    region: oregon
+    branch: main
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
       - key: DATABASE_URL
         fromDatabase:
           name: shieldcaptcha-db
@@ -19,5 +19,18 @@ services:
         generateValue: true
       - key: SESSION_JWT_SECRET
         generateValue: true
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: RATE_LIMIT_CHALLENGES_PER_MIN
+        value: "20"
+      - key: RATE_LIMIT_VERIFY_PER_MIN
+        value: "30"
       - key: APP_URL
         sync: false
+
+databases:
+  - name: shieldcaptcha-db
+    plan: free
+    region: oregon
