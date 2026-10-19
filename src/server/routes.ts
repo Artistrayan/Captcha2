@@ -75,6 +75,11 @@ apiRouter.get('/health', (req: Request, res: Response) => {
 
 // 2. Dev Session / Quick Login
 apiRouter.post('/auth/session', async (req: Request, res: Response) => {
+  // This quick-login endpoint exists only for local development and tests.
+  if (process.env.NODE_ENV === 'production') {
+    res.status(404).json({ error: 'Not Found' });
+    return;
+  }
   const bodySchema = z.object({
     email: z.string().email(),
     name: z.string().optional(),
