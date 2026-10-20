@@ -262,18 +262,19 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
     return;
   }
 
-  // Derive domain from request origin or header if not passed
-  let requestDomain = parsed.data.domain;
-  if (!requestDomain) {
-    const origin = req.headers.origin || req.headers.referer;
-    if (origin) {
-      try {
-        const u = new URL(origin);
-        requestDomain = u.hostname;
-      } catch {
-        // ignore
-      }
+  // In production, derive the hostname from browser Origin/Referer headers only.
+  // Never trust a caller-controlled JSON `domain` field as proof of origin.
+  let requestDomain: string | undefined;
+  const origin = req.headers.origin || req.headers.referer;
+  if (origin) {
+    try {
+      requestDomain = new URL(origin).hostname;
+    } catch {
+      requestDomain = undefined;
     }
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    requestDomain = parsed.data.domain || requestDomain;
   }
 
   try {
@@ -297,7 +298,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
       res.status(404).json({ error: 'Invalid Site Key', code: 'site-key-not-found' });
       return;
     }
-    if (err.message === 'DOMAIN_MISMATCH') {
+    if (err.message === 'DOMAIN_MISMATCH' || err.message === 'DOMAIN_REQUIRED') {
       res.status(403).json({ error: 'Domain unauthorized for this site key', code: 'domain-mismatch' });
       return;
     }
