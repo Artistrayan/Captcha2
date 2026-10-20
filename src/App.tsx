@@ -10,6 +10,7 @@ import {
   CartesianGrid, Tooltip as RechartsTooltip, Legend
 } from 'recharts';
 import { CaptchaWidget } from './components/CaptchaWidget.tsx';
+import { LanguageSelector, useI18n } from './i18n/LanguageContext.tsx';
 
 interface SiteItem {
   id: string;
@@ -38,6 +39,8 @@ interface HealthStatus {
 }
 
 export default function App() {
+  const { t, meta } = useI18n();
+  const [country, setCountry] = useState<string>(() => localStorage.getItem('shieldcaptcha_country') || 'US');
   const [activeTab, setActiveTab] = useState<'sites' | 'playground' | 'logs' | 'docs'>('sites');
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
@@ -502,39 +505,46 @@ export default function App() {
 
   if (!import.meta.env.DEV && !authToken) {
     return (
-      <div dir="rtl" className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10 font-sans">
+      <div dir={meta.dir} className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10 font-sans">
         <div className="w-full max-w-md">
+          <div className="flex justify-end mb-4"><LanguageSelector /></div>
           <div className="text-center mb-8">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 shadow-lg shadow-emerald-950/50">
               <Shield className="h-7 w-7 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white">ShieldCaptcha</h1>
-            <p className="mt-2 text-sm text-slate-400">ورود امن به پنل مدیریت</p>
+            <p className="mt-2 text-sm text-slate-400">{t('authSecureSignIn')}</p>
           </div>
           <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
             <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1">
-              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>ورود</button>
-              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>ایجاد حساب</button>
+              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authLogin')}</button>
+              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authSignup')}</button>
             </div>
-            <h2 className="text-lg font-semibold text-white">{authMode === 'login' ? 'به حساب خود وارد شوید' : 'ساخت حساب جدید'}</h2>
-            <p className="mt-1 mb-5 text-xs leading-6 text-slate-400">{authMode === 'login' ? 'برای دسترسی به وب‌سایت‌ها، کلیدها و گزارش‌های امنیتی وارد شوید.' : 'با ایمیل و گذرواژه حساب بسازید تا پنل اختصاصی شما ایجاد شود.'}</p>
+            <h2 className="text-lg font-semibold text-white">{authMode === 'login' ? t('authWelcomeBack') : t('authCreateAccount')}</h2>
+            <p className="mt-1 mb-5 text-xs leading-6 text-slate-400">{authMode === 'login' ? t('authLoginDescription') : t('authSignupDescription')}</p>
             <form className="space-y-4" onSubmit={authMode === 'login' ? async (event) => { event.preventDefault(); await loginUser(userEmail.trim(), authPassword); } : handleSignUp}>
               <div>
-                <label htmlFor="auth-email" className="mb-1.5 block text-sm text-slate-300">ایمیل</label>
+                <label htmlFor="auth-email" className="mb-1.5 block text-sm text-slate-300">{t('authEmail')}</label>
                 <input id="auth-email" type="email" required autoComplete="email" value={userEmail} onChange={(event) => setUserEmail(event.target.value)} placeholder="name@example.com" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
               </div>
+              {authMode === 'signup' && <div>
+                <label htmlFor="auth-country" className="mb-1.5 block text-sm text-slate-300">{t('authCountry')}</label>
+                <select id="auth-country" value={country} onChange={(event) => { setCountry(event.target.value); localStorage.setItem('shieldcaptcha_country', event.target.value); }} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500">
+                  <option value="IN">India</option><option value="CN">China</option><option value="US">United States</option><option value="ID">Indonesia</option><option value="PK">Pakistan</option><option value="NG">Nigeria</option><option value="BR">Brazil</option><option value="BD">Bangladesh</option><option value="RU">Russia</option><option value="ET">Ethiopia</option>
+                </select>
+              </div>}
               <div>
-                <label htmlFor="auth-password" className="mb-1.5 block text-sm text-slate-300">گذرواژه</label>
-                <input id="auth-password" type="password" required minLength={6} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="حداقل ۶ نویسه" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
+                <label htmlFor="auth-password" className="mb-1.5 block text-sm text-slate-300">{t('authPassword')}</label>
+                <input id="auth-password" type="password" required minLength={6} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t('authPasswordHint')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
               </div>
               {authError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm leading-6 text-rose-300">{authError}</p>}
               {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY در تنظیمات build تعریف نشده است.</p>}
               {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Firebase Admin سمت سرور آماده نیست؛ تنظیمات Firebase را بررسی کنید.</p>}
               <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
-                {isSigningIn ? 'لطفاً صبر کنید…' : authMode === 'login' ? 'ورود به حساب' : 'ایجاد حساب'}
+                {isSigningIn ? t('authPleaseWait') : authMode === 'login' ? t('authSignInButton') : t('authCreateAccount')}
               </button>
             </form>
-            <p className="mt-5 text-center text-xs leading-5 text-slate-500">گذرواژه شما در ShieldCaptcha ذخیره نمی‌شود و برای احراز هویت به Firebase ارسال می‌شود.</p>
+            <p className="mt-5 text-center text-xs leading-5 text-slate-500">{t('authPasswordPrivacy')}</p>
           </section>
         </div>
       </div>
@@ -552,12 +562,12 @@ export default function App() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-white text-base">ShieldCaptcha</span>
+                <span className="font-bold tracking-tight text-white text-base">{t('appName')}</span>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   MVP v1.0
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">سرویس بین‌المللی ارزیابی امنیتی و کپچای حریم‌خصوصی‌محور</p>
+              <p className="text-[11px] text-slate-400">{t('appTagline')}</p>
             </div>
           </div>
 
@@ -593,6 +603,7 @@ export default function App() {
               <option value="bob@shieldcaptcha.dev">حساب: Bob (کاربر تست ۲)</option>
             </select>}
           </div>
+          <LanguageSelector />
           {authToken && (
             <button
               type="button"
@@ -616,10 +627,10 @@ export default function App() {
         {/* Tab Bar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-1 border-t border-slate-800/60 overflow-x-auto">
           {[
-            { id: 'sites', label: 'مدیریت وب‌سایت‌ها و کلیدها', icon: Globe },
-            { id: 'playground', label: 'آزمایشگاه زنده کپچا و تست نفوذ', icon: Terminal },
-            { id: 'logs', label: 'لاگ‌های زنده و تحلیل فعالیت', icon: Layers },
-            { id: 'docs', label: 'مستندات و راهنمای ادغام (SDK)', icon: Code2 },
+            { id: 'sites', label: t('tabSites'), icon: Globe },
+            { id: 'playground', label: t('tabPlayground'), icon: Terminal },
+            { id: 'logs', label: t('tabLogs'), icon: Layers },
+            { id: 'docs', label: t('tabDocs'), icon: Code2 },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
