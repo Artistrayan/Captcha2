@@ -68,6 +68,7 @@ export default function App() {
 
   // Playground & Test Suite states
   const [lastVerifiedToken, setLastVerifiedToken] = useState<string | null>(null);
+  const [lastVerifiedSiteKey, setLastVerifiedSiteKey] = useState<string | null>(null);
   const [lastVerificationData, setLastVerificationData] = useState<any>(null);
   const [testResultLog, setTestResultLog] = useState<{
     title: string;
@@ -814,7 +815,7 @@ export default function App() {
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
                     <div className="text-xs font-semibold text-rose-400 mb-1">۱. ارسال پاسخ اشتباه</div>
-                    <div className="text-[10px] text-slate-400">بررسی ثبت خطای incorrect-captcha-sol و محدودیت ۳ تلاش</div>
+                    <div className="text-[10px] text-slate-400">بررسی ثبت خطای incorrect-captcha-sol و محدودیت ۴ تلاش</div>
                   </button>
 
                   <button
@@ -831,8 +832,8 @@ export default function App() {
                     onClick={() => runSecurityTest('backend_verify')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-emerald-400 mb-1">۳. تأیید سمت سرور</div>
-                    <div className="text-[10px] text-slate-400">شبیه‌سازی ارتباط بک‌اند به بک‌اند با Secret Key</div>
+                    <div className="text-xs font-semibold text-emerald-400 mb-1">۳. رد کلید محرمانه نامعتبر</div>
+                    <div className="text-[10px] text-slate-400">بررسی ردشدن Secret Key آزمایشی نامعتبر؛ کلید واقعی در مرورگر ارسال نمی‌شود</div>
                   </button>
                 </div>
 
