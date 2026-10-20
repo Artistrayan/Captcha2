@@ -309,7 +309,8 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   }
 
   try {
-    const quota = await checkCaptchaQuota(parsed.data.siteKey);
+    // Reserve capacity for the challenge plus at least one verification event, so a challenge issued at the quota boundary can still be solved.
+    const quota = await checkCaptchaQuota(parsed.data.siteKey, 2);
     if (!quota.allowed) {
       res.status(429).json({
         error: 'Monthly usage limit reached',
