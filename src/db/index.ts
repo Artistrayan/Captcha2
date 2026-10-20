@@ -413,9 +413,10 @@ export const dbRepository = {
       token: data.token,
       expiresAt: data.expiresAt,
       attemptsCount: 0,
-      maxAttempts: data.maxAttempts || 3,
+      maxAttempts: data.maxAttempts || 4,
       isConsumed: false,
       solvedAt: null,
+      serverVerifiedAt: null,
       createdAt: new Date(),
     };
 
@@ -492,10 +493,10 @@ export const dbRepository = {
   },
 
   // Atomic consumption of challenge to prevent replay attacks
-  async consumeChallengeToken(token: string): Promise<boolean> {
+  async consumeChallengeToken(token: string, solved = false): Promise<boolean> {
     if (isPgConnected && drizzleDb) {
       const rows = await drizzleDb.update(schema.captchaChallenges)
-        .set({ isConsumed: true, solvedAt: new Date() })
+        .set({ isConsumed: true, solvedAt: solved ? new Date() : null })
         .where(and(eq(schema.captchaChallenges.token, token), eq(schema.captchaChallenges.isConsumed, false)))
         .returning();
       return rows.length > 0;
@@ -507,7 +508,37 @@ export const dbRepository = {
       return false; // Already consumed or does not exist
     }
     c.isConsumed = true;
-    c.solvedAt = new Date();
+    c.solvedAt = solved ? new Date() : null;
+    saveState(state);
+    return true;
+  },
+
+  // Atomically mark a solved CAPTCHA receipt as verified by the customer backend.
+  // Receipts are accepted once and only within two minutes of a successful solve.
+  async markChallengeServerVerified(token: string): Promise<boolean> {
+    if (isPgConnected && pgPool) {
+      const result = await pgPool.query(
+        `UPDATE captcha_challenges
+         SET server_verified_at = NOW()
+         WHERE token = $1
+           AND is_consumed = TRUE
+           AND solved_at IS NOT NULL
+           AND server_verified_at IS NULL
+           AND solved_at >= NOW() - INTERVAL '2 minutes'
+           AND solved_at <= NOW()
+         RETURNING token`,
+        [token]
+      );
+      return result.rowCount === 1;
+    }
+
+    const state = loadState();
+    const challenge = state.captchaChallenges.find(item => item.token === token);
+    if (!challenge || !challenge.isConsumed || !challenge.solvedAt || challenge.serverVerifiedAt) return false;
+    const solvedAt = new Date(challenge.solvedAt).getTime();
+    const now = Date.now();
+    if (!Number.isFinite(solvedAt) || solvedAt > now || now - solvedAt > 2 * 60 * 1000) return false;
+    challenge.serverVerifiedAt = new Date();
     saveState(state);
     return true;
   },
