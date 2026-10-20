@@ -263,8 +263,11 @@ export async function verifyCaptchaReceipt(input: { token: string; secretKey: st
   const challenge = await dbRepository.getChallengeByToken(input.token);
   if (!challenge) return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['invalid-input-response'] };
   const site = await dbRepository.getSiteByKey(challenge.siteKey);
-  const suppliedHash = crypto.createHash('sha256').update(input.secretKey).digest('hex');
-  if (!site || suppliedHash !== site.secretKeyHash) {
+  const suppliedHash = crypto.createHash('sha256').update(input.secretKey).digest();
+  const expectedHash = site ? Buffer.from(site.secretKeyHash, 'hex') : Buffer.alloc(0);
+  const secretMatches = !!site && expectedHash.length === suppliedHash.length &&
+    expectedHash.length > 0 && crypto.timingSafeEqual(expectedHash, suppliedHash);
+  if (!secretMatches) {
     return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: [site ? 'invalid-secret-key' : 'invalid-site'] };
   }
   if (!challenge.isConsumed || !challenge.solvedAt) {
@@ -415,36 +418,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     };
   }
 
-  // 4. Secret Key check (if server-to-server verify is being performed).
-  // Invalid credentials must fail closed; never continue into answer verification.
-  if (input.secretKey) {
-    const site = await dbRepository.getSiteByKey(challenge.siteKey);
-    const hashedProvidedSecret = crypto.createHash('sha256').update(input.secretKey).digest('hex');
-    if (!site || hashedProvidedSecret !== site.secretKeyHash) {
-      const secretError = !site ? 'invalid-site' : 'invalid-secret-key';
-      await dbRepository.recordVerificationEvent({
-        siteKey: challenge.siteKey,
-        token: input.token,
-        success: false,
-        score: 0,
-        hostname,
-        action: input.action,
-        clientIp: input.remoteIp,
-        errorCodes: [secretError],
-      });
-      return {
-        success: false,
-        score: 0,
-        hostname,
-        challenge_ts: challengeTs,
-        action: input.action || 'verify',
-        development_mode: !IS_PRODUCTION,
-        error_codes: [secretError],
-      };
-    }
-  }
-
-  // 5. Verify Answer correctness using HMAC
+  // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
     const candidateHash = crypto
       .createHmac('sha256', SERVER_SALT)
