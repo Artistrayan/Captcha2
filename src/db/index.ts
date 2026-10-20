@@ -549,9 +549,9 @@ export const dbRepository = {
     return event;
   },
 
-  async getAnalyticsSummary(siteKeys: string[], since: Date): Promise<{ totalRequests: number; passedRequests: number; blockedRequests: number; recentEvents: schema.VerificationEvent[] }> {
+  async getAnalyticsSummary(siteKeys: string[], since: Date): Promise<{ totalRequests: number; passedRequests: number; blockedRequests: number; recentEvents: schema.VerificationEvent[]; hourlyTraffic: Array<{ hour: string; passed: number; blocked: number }> }> {
     if (siteKeys.length === 0) {
-      return { totalRequests: 0, passedRequests: 0, blockedRequests: 0, recentEvents: [] };
+      return { totalRequests: 0, passedRequests: 0, blockedRequests: 0, recentEvents: [], hourlyTraffic: [] };
     }
 
     if (isPgConnected && drizzleDb && pgPool) {
@@ -563,9 +563,18 @@ export const dbRepository = {
         .where(and(inArray(schema.verificationEvents.siteKey, siteKeys), gte(schema.verificationEvents.createdAt, since)))
         .orderBy(desc(schema.verificationEvents.createdAt))
         .limit(50);
+      const hourlyRows = await pgPool.query(
+        'SELECT date_trunc(\'hour\', created_at) AS hour, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed, COUNT(*) FILTER (WHERE success = FALSE)::int AS blocked FROM verification_events WHERE site_key = ANY($1::text[]) AND created_at >= $2 GROUP BY 1 ORDER BY 1',
+        [siteKeys, since]
+      );
+      const hourlyTraffic = hourlyRows.rows.map((row: { hour: Date | string; passed: number | string; blocked: number | string }) => ({
+        hour: new Date(row.hour).toISOString(),
+        passed: Number(row.passed || 0),
+        blocked: Number(row.blocked || 0),
+      }));
       const totalRequests = Number(counts.rows[0]?.total || 0);
       const passedRequests = Number(counts.rows[0]?.passed || 0);
-      return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests, recentEvents };
+      return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests, recentEvents, hourlyTraffic };
     }
 
     const state = loadState();
@@ -574,11 +583,22 @@ export const dbRepository = {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const totalRequests = events.length;
     const passedRequests = events.filter(e => e.success).length;
+    const hourlyMap = new Map<string, { hour: string; passed: number; blocked: number }>();
+    for (const event of events) {
+      const bucket = new Date(event.createdAt);
+      bucket.setMinutes(0, 0, 0);
+      const hour = bucket.toISOString();
+      const current = hourlyMap.get(hour) || { hour, passed: 0, blocked: 0 };
+      if (event.success) current.passed++;
+      else current.blocked++;
+      hourlyMap.set(hour, current);
+    }
     return {
       totalRequests,
       passedRequests,
       blockedRequests: totalRequests - passedRequests,
       recentEvents: events.slice(0, 50) as schema.VerificationEvent[],
+      hourlyTraffic: [...hourlyMap.values()].sort((a, b) => a.hour.localeCompare(b.hour)),
     };
   },
 
