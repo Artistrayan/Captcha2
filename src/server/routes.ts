@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken } from '../auth/firebase.ts';
-import { issueCaptchaChallenge, verifyCaptchaResponse } from '../captcha/engine.ts';
+import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -379,14 +379,21 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
     verifyHostname = parsed.data.hostname || verifyHostname;
   }
 
-  const result = await verifyCaptchaResponse({
-    token: parsed.data.token,
-    selectedOptionId: parsed.data.selectedOptionId,
-    secretKey: parsed.data.secretKey,
-    remoteIp: clientIp,
-    hostname: verifyHostname,
-    action: parsed.data.action,
-  });
+  const result = parsed.data.secretKey
+    ? await verifyCaptchaReceipt({
+        token: parsed.data.token,
+        secretKey: parsed.data.secretKey,
+        remoteIp: clientIp,
+        hostname: verifyHostname,
+        action: parsed.data.action,
+      })
+    : await verifyCaptchaResponse({
+        token: parsed.data.token,
+        selectedOptionId: parsed.data.selectedOptionId,
+        remoteIp: clientIp,
+        hostname: verifyHostname,
+        action: parsed.data.action,
+      });
 
   res.json(result);
 });
