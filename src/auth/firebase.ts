@@ -14,7 +14,7 @@ if (IS_PRODUCTION && !JWT_SECRET) {
 export interface FirebaseAdminStatus {
   isInitialized: boolean;
   projectId?: string;
-  authMode: 'firebase_admin_live' | 'development_session_jwt';
+  authMode: 'firebase_admin_live' | 'development_session_jwt' | 'unavailable';
   missingConfig?: string[];
 }
 
@@ -55,13 +55,13 @@ if (IS_PRODUCTION && !serviceAccountKey) {
 
 export function getFirebaseStatus(): FirebaseAdminStatus {
   const missing: string[] = [];
-  if (!process.env.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID');
+  if (!firebaseProjectId) missing.push('FIREBASE_PROJECT_ID');
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) missing.push('FIREBASE_SERVICE_ACCOUNT_KEY');
 
   return {
     isInitialized: isFirebaseAdminInitialized,
     projectId: firebaseProjectId,
-    authMode: isFirebaseAdminInitialized ? 'firebase_admin_live' : 'development_session_jwt',
+    authMode: isFirebaseAdminInitialized ? 'firebase_admin_live' : (IS_PRODUCTION ? 'unavailable' : 'development_session_jwt'),
     missingConfig: missing.length > 0 ? missing : undefined,
   };
 }
