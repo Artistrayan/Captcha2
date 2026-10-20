@@ -15,6 +15,13 @@ interface RateLimitEntry {
 }
 const rateLimits = new Map<string, RateLimitEntry>();
 
+function configuredRateLimit(name: string, fallback: number): number {
+  const configured = Number(process.env[name]);
+  return Number.isSafeInteger(configured) && configured >= 1 && configured <= 10000
+    ? configured
+    : fallback;
+}
+
 export function rateLimiter(limit: number, windowMs: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -272,7 +279,7 @@ apiRouter.delete('/sites/:id', requireAuth, async (req: Request, res: Response) 
 });
 
 // 7. Issue CAPTCHA Challenge
-apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request, res: Response) => {
+apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT_CHALLENGES_PER_MIN', 20), 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     siteKey: z.string().min(1),
     domain: z.string().optional(),
@@ -330,7 +337,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
 });
 
 // 8. Verify CAPTCHA Response
-apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, res: Response) => {
+apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VERIFY_PER_MIN', 30), 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     token: z.string().min(1),
     selectedOptionId: z.string().max(100).optional(),
