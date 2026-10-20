@@ -19,6 +19,23 @@ function getPool(): pg.Pool {
   if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }, max: 5 });
   return pool;
 }
+export async function checkSiteRegistrationQuota(userId: string): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+  // Development without PostgreSQL keeps the local test workflow available.
+  if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 1, plan: 'free' };
+  const db = getPool();
+  const subscription = await db.query(
+    `SELECT plan_id, request_limit FROM billing_subscriptions
+     WHERE user_id = $1 AND status = 'active' AND expires_at > NOW()
+     ORDER BY request_limit DESC LIMIT 1`,
+    [userId],
+  );
+  const isPaid = subscription.rows.length > 0;
+  const limit = isPaid ? 10 : 1;
+  const count = await db.query('SELECT COUNT(*)::int AS used FROM sites WHERE user_id = $1', [userId]);
+  const used = Number(count.rows[0]?.used || 0);
+  return { allowed: used < limit, used, limit, plan: isPaid ? String(subscription.rows[0].plan_id) : 'free' };
+}
+
 export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
   // Local file-storage development has no billing database; keep its existing test flow.
   if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
