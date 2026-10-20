@@ -417,7 +417,7 @@ export default function App() {
               <Database className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-slate-400">ذخیره‌سازی:</span>
               <span className="font-mono text-emerald-400 font-medium">
-                {health?.database.isPostgresConnected ? 'PostgreSQL (Cloud SQL)' : 'Drizzle File Storage'}
+                {health?.database.isPostgresConnected ? 'PostgreSQL (Cloud SQL)' : (import.meta.env.PROD ? 'Database unavailable' : 'Drizzle File Storage')}
               </span>
             </div>
 
@@ -425,7 +425,7 @@ export default function App() {
               <Lock className="w-3.5 h-3.5 text-teal-400" />
               <span className="text-slate-400">احراز هویت:</span>
               <span className="font-mono text-teal-400 font-medium">
-                {health?.firebaseAuth.isInitialized ? 'Firebase Admin Live' : 'JWT Session Admin'}
+                {health?.firebaseAuth.isInitialized ? 'Firebase Admin Live' : (import.meta.env.PROD ? 'Firebase not configured' : 'Development JWT')}
               </span>
             </div>
 
