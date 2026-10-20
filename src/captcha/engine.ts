@@ -273,7 +273,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['missing-input-response'],
     };
   }
@@ -288,7 +288,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['invalid-input-response'],
     };
   }
@@ -311,7 +311,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['missing-input-response'],
     };
   }
@@ -335,7 +335,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -361,7 +361,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -386,7 +386,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -414,7 +414,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
         hostname,
         challenge_ts: challengeTs,
         action: input.action || 'verify',
-        development_mode: true,
+        development_mode: !IS_PRODUCTION,
         error_codes: [secretError],
       };
     }
@@ -455,7 +455,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
         hostname,
         challenge_ts: challengeTs,
         action: input.action || 'verify',
-        development_mode: true,
+        development_mode: !IS_PRODUCTION,
         error_codes: errorCodes,
       };
     }
@@ -472,7 +472,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -495,7 +495,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     hostname,
     challenge_ts: challengeTs,
     action: input.action || 'verify',
-    development_mode: true,
+    development_mode: !IS_PRODUCTION,
     error_codes: [],
   };
 }
