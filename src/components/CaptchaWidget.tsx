@@ -140,7 +140,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
 
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        throw new Error('پاسخ سرور در قالب معتبر دریافت نشد');
+        throw new Error('Server response was not valid JSON');
       }
 
       const data = await res.json();
@@ -173,7 +173,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       }
     } catch (err: any) {
       setStatus('error');
-      setErrorMessage('خطای شبکه در اعتبارسنجی پاسخ');
+      setErrorMessage('Network error while verifying the answer');
       onError?.('network_error');
     }
   };
