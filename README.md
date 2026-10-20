@@ -137,3 +137,22 @@ The deployed endpoint URL should be taken from the active deployment configurati
 The repository includes `render.yaml` for a Render web service and PostgreSQL database. Before production deployment, configure the Render environment variables for the Firebase Web API key, Firebase project ID, valid Firebase service-account JSON, and the generated server secrets. Then verify `GET /api/v1/health` reports `healthy` and test the complete browser-solve plus server-receipt flow against the deployed service.
 
 A green CI run verifies type-checking, automated tests, PostgreSQL migrations, and the production build; it does not by itself prove that production environment variables or a live deployment are configured correctly.
+
+
+## Crypto subscriptions (USDT TRC20)
+
+The billing dashboard is available in the authenticated app under **پرداخت و اشتراک**. It creates a 30-minute invoice for Starter ($9/30 days), Pro ($49/30 days), or Business ($199/30 days). The server validates the submitted transaction ID against the confirmed TRON transaction, the official USDT TRC20 contract, the exact invoice amount, and the configured receiving address before recording a subscription. A transaction ID is single-use.
+
+### Render environment configuration
+
+Set these values in the **server service's private environment settings** (never commit real values to GitHub):
+
+- `USDT_TRC20_RECEIVE_ADDRESS`: the public TRON mainnet wallet address that should receive USDT TRC20.
+- `TRON_PRO_API_KEY`: server-side TRONGrid API key used to query transaction events and block confirmations.
+- `DATABASE_URL`: production PostgreSQL connection string (required; billing invoices and subscriptions are stored in PostgreSQL).
+
+After adding the variables, deploy the service and confirm the database migration has completed before accepting payments. Do not put a wallet seed phrase or private key into Render, the browser, or GitHub. This design does not custody keys; funds go directly to the configured address.
+
+### Important billing scope
+
+Invoices and 30-day subscription records are persisted, and the server applies a rolling 30-day challenge/verification usage quota (10,000 requests for accounts without a paid active plan). The current implementation does not yet meter every HTTP endpoint uniformly or provide refunds, automatic renewals, accounting exports, or a payment-provider webhook. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
