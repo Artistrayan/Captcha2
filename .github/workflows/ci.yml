@@ -25,6 +25,6 @@ jobs:
       - name: TypeScript check
         run: bun run lint
       - name: Security and regression tests
-        run: rm -rf .data && NODE_ENV=test bun run test -- --maxWorkers=1 --minWorkers=1
+        run: rm -rf .data && NODE_ENV=test bun run test -- --no-file-parallelism
       - name: Production build
         run: bun run build
