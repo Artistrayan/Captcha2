@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/server/app.ts';
 import { createDevSessionToken } from '../src/auth/firebase.ts';
+import { dbRepository } from '../src/db/index.ts';
 
 describe('Site Management and Multi-Tenant Isolation Suite', () => {
   let userAToken: string;
