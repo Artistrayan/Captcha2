@@ -136,27 +136,27 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect(verifyRes.body.error_codes).toContain('invalid-secret-key');
   });
 
-  it('6. Locks out challenge after max attempts exceeded', async () => {
+  it('6. Allows four incorrect attempts and locks out the fifth attempt', async () => {
     const chRes = await request(app)
       .post('/api/v1/captcha/challenge')
       .send({ siteKey: testSiteKey });
 
     const { token } = chRes.body;
 
-    // Fail 3 times
-    for (let i = 0; i < 3; i++) {
+    // Four incorrect answers are allowed; the challenge is consumed after the fourth.
+    for (let i = 0; i < 4; i++) {
       await request(app)
         .post('/api/v1/captcha/verify')
         .send({ token, selectedOptionId: 'opt_wrong_attempt' });
     }
 
-    // 4th attempt must be rejected due to lockout
-    const fourthRes = await request(app)
+    // Fifth attempt must be rejected because the fourth incorrect answer consumed the challenge.
+    const fifthRes = await request(app)
       .post('/api/v1/captcha/verify')
       .send({ token, selectedOptionId: 'opt_wrong_attempt' });
 
-    expect(fourthRes.body.success).toBe(false);
-    expect(['timeout-or-duplicate', 'max-attempts-exceeded']).toContain(fourthRes.body.error_codes[0]);
+    expect(fifthRes.body.success).toBe(false);
+    expect(['timeout-or-duplicate', 'max-attempts-exceeded']).toContain(fifthRes.body.error_codes[0]);
   });
 
   it('7. Replay Attack Prevention: Token is single-use and cannot be verified twice', async () => {
