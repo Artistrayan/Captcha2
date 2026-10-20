@@ -649,9 +649,9 @@ export default function App() {
               }}
               className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
             >
-              <option value="developer@shieldcaptcha.dev">حساب: Developer (Admin)</option>
-              <option value="alice@shieldcaptcha.dev">حساب: Alice (کاربر تست ۱)</option>
-              <option value="bob@shieldcaptcha.dev">حساب: Bob (کاربر تست ۲)</option>
+              <option value="developer@shieldcaptcha.dev">{t('accountDev')}</option>
+              <option value="alice@shieldcaptcha.dev">{t('accountAlice')}</option>
+              <option value="bob@shieldcaptcha.dev">{t('accountBob')}</option>
             </select>}
           </div>
           <LanguageSelector />
@@ -828,7 +828,7 @@ export default function App() {
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/40 transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>ثبت سایت جدید (Add Site)</span>
+                  <span>{t('addSiteBtn')}</span>
                 </button>
               </div>
             </div>
@@ -1023,10 +1023,10 @@ export default function App() {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                     <ShieldAlert className="w-4 h-4 text-amber-400" />
-                    <span>آزمایشگاه سناریوهای امنیتی (Security Attack Scenarios)</span>
+                    <span>{t('attackLabTitle')}</span>
                   </h3>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                    آزمایش زنده API
+                    {t('liveApiTest')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mb-4">
@@ -1445,9 +1445,9 @@ app.post('/api/login', async (req, res) => {
                   onChange={e => setNewSiteDifficulty(e.target.value as any)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white cursor-pointer"
                 >
-                  <option value="LOW">آسان (Low - برای کاربران عمومی)</option>
-                  <option value="MEDIUM">متوسط (Medium - استاندارد تجاری)</option>
-                  <option value="HIGH">دقیق (High - فرم‌های حساس یا پرداخت)</option>
+                  <option value="LOW">{t('diffLow')}</option>
+                  <option value="MEDIUM">{t('diffMedium')}</option>
+                  <option value="HIGH">{t('diffHigh')}</option>
                 </select>
               </div>
 
