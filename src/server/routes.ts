@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
-import { checkCaptchaQuota } from './billing.ts';
+import { checkCaptchaQuota, checkSiteRegistrationQuota } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -161,6 +161,25 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
   const user = (req as any).user;
   if (!user || !user.id) {
     res.status(401).json({ error: 'Unauthorized', message: 'User profile not found. Please re-authenticate.' });
+    return;
+  }
+
+  try {
+    const siteQuota = await checkSiteRegistrationQuota(user.id);
+    if (!siteQuota.allowed) {
+      res.status(403).json({
+        error: 'Site registration limit reached',
+        code: 'SITE_QUOTA_EXCEEDED',
+        message: siteQuota.plan === 'free'
+          ? 'The free plan allows 1 registered website. Upgrade to a paid plan to register up to 10 websites.'
+          : 'Your plan allows up to 10 registered websites.',
+        quota: siteQuota,
+      });
+      return;
+    }
+  } catch (quotaError) {
+    console.error('[Server] Could not check site registration quota:', quotaError);
+    res.status(503).json({ error: 'Could not verify your site registration quota. Please retry.' });
     return;
   }
 
