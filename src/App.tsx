@@ -162,6 +162,13 @@ export default function App() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      if (res.status === 401) {
+        setAuthToken('');
+        setSites([]);
+        setSelectedSiteKey('');
+        setAuthError('نشست ورود معتبر نیست؛ دوباره وارد شوید.');
+        return;
+      }
       if (data.sites) {
         setSites(data.sites);
         if (data.sites.length > 0 && !selectedSiteKey) {
@@ -470,6 +477,22 @@ export default function App() {
               <option value="bob@shieldcaptcha.dev">حساب: Bob (کاربر تست ۲)</option>
             </select>}
           </div>
+          {authToken && (
+            <button
+              type="button"
+              onClick={() => {
+                setAuthToken('');
+                setSites([]);
+                setSelectedSiteKey('');
+                setUserEmail('');
+                setAuthPassword('');
+                setAuthError('');
+              }}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800"
+            >
+              خروج امن
+            </button>
+          )}
         </div>
 
         {/* Tab Bar */}
