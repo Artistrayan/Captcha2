@@ -485,3 +485,70 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
     hourlyTraffic: summary.hourlyTraffic,
   });
 });
+
+
+// 10. Authenticated support tickets. Users can only see their own tickets; admins can triage all.
+apiRouter.get('/support/tickets', requireAuth, rateLimiter(60, 60000), async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const tickets = await dbRepository.getSupportTickets(user.id, user.role === 'ADMIN');
+    res.json({ tickets });
+  } catch (error) {
+    console.error('[Support] Failed to load tickets:', error);
+    res.status(503).json({ error: 'Support inbox is temporarily unavailable.' });
+  }
+});
+
+apiRouter.post('/support/tickets', requireAuth, rateLimiter(10, 60000), async (req: Request, res: Response) => {
+  const parsed = z.object({
+    subject: z.string().trim().min(4).max(160),
+    category: z.enum(['general', 'technical', 'billing', 'security']).default('general'),
+    priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+    body: z.string().trim().min(10).max(5000),
+  }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid support request. Check the subject and message length.' });
+    return;
+  }
+  try {
+    const user = (req as any).user;
+    const ticket = await dbRepository.createSupportTicket({ userId: user.id, ...parsed.data });
+    res.status(201).json({ ticket });
+  } catch (error) {
+    console.error('[Support] Failed to create ticket:', error);
+    res.status(503).json({ error: 'Could not save your support request. Please try again.' });
+  }
+});
+
+apiRouter.post('/support/tickets/:ticketId/replies', requireAuth, rateLimiter(20, 60000), async (req: Request, res: Response) => {
+  const parsed = z.object({
+    body: z.string().trim().min(2).max(5000),
+    status: z.enum(['open', 'in_progress', 'waiting_user', 'resolved', 'closed']).optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Message must contain between 2 and 5000 characters.' });
+    return;
+  }
+  const user = (req as any).user;
+  if (parsed.data.status && user.role !== 'ADMIN') {
+    res.status(403).json({ error: 'Only support administrators can change ticket status.' });
+    return;
+  }
+  try {
+    const ticket = await dbRepository.replySupportTicket({
+      ticketId: req.params.ticketId,
+      userId: user.id,
+      isAdmin: user.role === 'ADMIN',
+      body: parsed.data.body,
+      status: parsed.data.status,
+    });
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found or closed.' });
+      return;
+    }
+    res.json({ ticket });
+  } catch (error) {
+    console.error('[Support] Failed to send reply:', error);
+    res.status(503).json({ error: 'Could not send your reply. Please try again.' });
+  }
+});
