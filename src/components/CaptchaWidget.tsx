@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Shield, RefreshCw, CheckCircle2, AlertTriangle, Clock, Lock } from 'lucide-react';
 import { LanguageCode, translations } from '../i18n/translations.ts';
 
