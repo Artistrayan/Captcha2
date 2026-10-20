@@ -64,6 +64,7 @@ interface PersistentState {
     details: Record<string, unknown>;
     createdAt: string;
   }>;
+  supportTickets: schema.SupportTicket[];
 }
 
 function loadState(): PersistentState {
@@ -73,7 +74,9 @@ function loadState(): PersistentState {
   if (fs.existsSync(DATA_FILE)) {
     try {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw) as PersistentState;
+      if (!Array.isArray(parsed.supportTickets)) parsed.supportTickets = [];
+      return parsed;
     } catch {
       // fallback
     }
@@ -138,6 +141,7 @@ function loadState(): PersistentState {
       },
     ],
     auditLogs: [],
+    supportTickets: [],
   };
 
   saveState(initialState);
@@ -646,6 +650,87 @@ export const dbRepository = {
       recentEvents: events.slice(0, 50) as schema.VerificationEvent[],
       hourlyTraffic: [...hourlyMap.values()].sort((a, b) => a.hour.localeCompare(b.hour)),
     };
+  },
+
+
+  // SUPPORT TICKETS
+  async getSupportTickets(userId: string, isAdmin = false): Promise<schema.SupportTicket[]> {
+    if (isPgConnected && drizzleDb) {
+      const query = drizzleDb.select().from(schema.supportTickets);
+      return (isAdmin
+        ? await query.orderBy(desc(schema.supportTickets.updatedAt))
+        : await query.where(eq(schema.supportTickets.userId, userId)).orderBy(desc(schema.supportTickets.updatedAt))
+      );
+    }
+    const state = loadState();
+    return state.supportTickets
+      .filter(ticket => isAdmin || ticket.userId === userId)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  },
+
+  async createSupportTicket(data: {
+    userId: string; subject: string; category: string; priority: string; body: string;
+  }): Promise<schema.SupportTicket> {
+    const now = new Date();
+    const ticket: schema.SupportTicket = {
+      id: `ticket_${crypto.randomBytes(8).toString('hex')}`,
+      userId: data.userId,
+      subject: data.subject,
+      category: data.category,
+      priority: data.priority,
+      status: 'open',
+      messages: [{ id: `msg_${crypto.randomBytes(8).toString('hex')}`, authorId: data.userId, authorRole: 'USER', body: data.body, createdAt: now.toISOString() }],
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (isPgConnected && drizzleDb) {
+      const rows = await drizzleDb.insert(schema.supportTickets).values(ticket).returning();
+      return rows[0];
+    }
+    const state = loadState();
+    state.supportTickets.unshift(ticket);
+    saveState(state);
+    return ticket;
+  },
+
+  async replySupportTicket(data: {
+    ticketId: string; userId: string; isAdmin: boolean; body: string; status?: string;
+  }): Promise<schema.SupportTicket | null> {
+    if (isPgConnected && drizzleDb) {
+      const conditions = data.isAdmin
+        ? eq(schema.supportTickets.id, data.ticketId)
+        : and(eq(schema.supportTickets.id, data.ticketId), eq(schema.supportTickets.userId, data.userId));
+      const rows = await drizzleDb.select().from(schema.supportTickets).where(conditions).limit(1);
+      const ticket = rows[0];
+      if (!ticket || ticket.status === 'closed') return null;
+      const messages = [...ticket.messages, {
+        id: `msg_${crypto.randomBytes(8).toString('hex')}`,
+        authorId: data.userId,
+        authorRole: data.isAdmin ? 'ADMIN' : 'USER',
+        body: data.body,
+        createdAt: new Date().toISOString(),
+      }];
+      const nextStatus = data.isAdmin ? (data.status || 'waiting_user') : 'open';
+      const updated = await drizzleDb.update(schema.supportTickets)
+        .set({ messages, status: nextStatus, updatedAt: new Date() })
+        .where(conditions)
+        .returning();
+      return updated[0] || null;
+    }
+    const state = loadState();
+    const ticket = state.supportTickets.find(item => item.id === data.ticketId && (data.isAdmin || item.userId === data.userId));
+    if (!ticket || ticket.status === 'closed') return null;
+    ticket.messages.push({
+      id: `msg_${crypto.randomBytes(8).toString('hex')}`,
+      authorId: data.userId,
+      authorRole: data.isAdmin ? 'ADMIN' : 'USER',
+      body: data.body,
+      createdAt: new Date().toISOString(),
+    });
+    ticket.status = data.isAdmin ? (data.status || 'waiting_user') : 'open';
+    ticket.updatedAt = new Date();
+    saveState(state);
+    return ticket;
   },
 
   async getRecentEvents(siteKey?: string): Promise<schema.VerificationEvent[]> {
