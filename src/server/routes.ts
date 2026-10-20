@@ -364,21 +364,18 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
   const userSites = await dbRepository.getSitesByUserId(user.id);
   const siteKeys = new Set(userSites.map(s => s.siteKey));
 
-  const allEvents = await dbRepository.getRecentEvents();
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const userEvents = allEvents.filter(e => siteKeys.has(e.siteKey) && new Date(e.createdAt).getTime() >= cutoff);
-
-  const totalRequests = userEvents.length;
-  const passedRequests = userEvents.filter(e => e.success).length;
-  const blockedRequests = totalRequests - passedRequests;
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const summary = await dbRepository.getAnalyticsSummary([...siteKeys], since);
 
   res.json({
     summary: {
-      totalRequests,
-      passedRequests,
-      blockedRequests,
-      passRatePercent: totalRequests > 0 ? Math.round((passedRequests / totalRequests) * 100) : 0,
+      totalRequests: summary.totalRequests,
+      passedRequests: summary.passedRequests,
+      blockedRequests: summary.blockedRequests,
+      passRatePercent: summary.totalRequests > 0
+        ? Math.round((summary.passedRequests / summary.totalRequests) * 100)
+        : 0,
     },
-    recentEvents: userEvents.slice(0, 20),
+    recentEvents: summary.recentEvents.slice(0, 20),
   });
 });
