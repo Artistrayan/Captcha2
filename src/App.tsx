@@ -264,87 +264,91 @@ export default function App() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Run security test scenarios right from the playground UI!
-  const runSecurityTest = async (scenario: 'wrong_answer' | 'replay_attack' | 'expired_token' | 'backend_verify') => {
+  // Run security test scenarios right from the playground UI.
+  const runSecurityTest = async (scenario: 'wrong_answer' | 'replay_attack' | 'backend_verify') => {
     if (!selectedSiteKey) return;
     setIsTestingScenario(true);
     setTestResultLog(null);
 
     try {
-      // 1. First issue a fresh challenge
+      if (scenario === 'replay_attack') {
+        if (!lastVerifiedToken || lastVerifiedSiteKey !== selectedSiteKey) {
+          setTestResultLog({
+            title: 'برای آزمون بازپخش ابتدا همین سایت را با ویجت تأیید کنید',
+            status: 'failed',
+            code: 'verified-token-required',
+            payload: { message: 'ابتدا کپچای ویجت زنده را با موفقیت حل کنید؛ سپس همین توکن تأییدشده را برای آزمون بازپخش دوباره ارسال می‌کنیم.' },
+            timestamp: new Date().toLocaleTimeString('fa-IR'),
+          });
+          return;
+        }
+
+        // A previously solved token must be rejected when reused.
+        const replayRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: lastVerifiedToken, selectedOptionId: 'opt_replay_probe' }),
+        });
+        const replayData = await replayRes.json();
+        const blocked = replayData.error_codes?.includes('timeout-or-duplicate');
+        setTestResultLog({
+          title: 'تست محافظت در برابر بازپخش توکن (Replay Attack Prevention)',
+          status: blocked ? 'success' : 'failed',
+          code: replayData.error_codes?.[0],
+          payload: {
+            replayAttempt: replayData,
+            securityResult: blocked ? 'موفق: توکن حل‌شده و مصرف‌شده دوباره پذیرفته نشد.' : 'ناموفق: پاسخ سرور مطابق انتظار نبود.',
+          },
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+        });
+        return;
+      }
+
+      // Issue a fresh challenge for the negative-answer and invalid-secret tests.
       const chRes = await fetch('/api/v1/captcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ siteKey: selectedSiteKey, domain: 'localhost' }),
       });
       const challenge = await chRes.json();
+      if (!chRes.ok || !challenge.token) throw new Error(challenge.message || challenge.code || 'Challenge issuance failed');
 
       if (scenario === 'wrong_answer') {
         const verifyRes = await fetch('/api/v1/captcha/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: challenge.token,
-            selectedOptionId: 'opt_deliberately_wrong_id_9999',
-          }),
+          body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
         });
         const vData = await verifyRes.json();
+        const rejected = vData.success === false && vData.error_codes?.includes('incorrect-captcha-sol');
         setTestResultLog({
-          title: 'تست پاسخ اشتباه (Wrong Answer Rejection)',
-          status: vData.success === false ? 'success' : 'failed',
+          title: 'تست رد پاسخ اشتباه (Wrong Answer Rejection)',
+          status: rejected ? 'success' : 'failed',
           code: vData.error_codes?.[0],
           payload: vData,
           timestamp: new Date().toLocaleTimeString('fa-IR'),
         });
-      } else if (scenario === 'replay_attack') {
-        // Find correct answer or simulate token verification
-        // 1st verify attempt
-        const firstOpt = challenge.options?.[0]?.id || 'opt_1';
-        const v1 = await fetch('/api/v1/captcha/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: challenge.token, selectedOptionId: firstOpt }),
-        });
-        const d1 = await v1.json();
-
-        // 2nd verify attempt with SAME token (Replay Attack)
-        const v2 = await fetch('/api/v1/captcha/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: challenge.token, selectedOptionId: firstOpt }),
-        });
-        const d2 = await v2.json();
-
-        setTestResultLog({
-          title: 'تست محافظت در برابر بازپخش توکن (Replay Attack Prevention)',
-          status: (d2.error_codes?.includes('timeout-or-duplicate')) ? 'success' : 'failed',
-          code: d2.error_codes?.[0],
-          payload: {
-            firstAttempt: d1,
-            secondAttemptReplay: d2,
-            securityResult: d2.error_codes?.includes('timeout-or-duplicate')
-              ? 'موفق: تلاش دوم با خطای timeout-or-duplicate مسدود شد'
-              : 'ناموفق',
-          },
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-        });
-      } else if (scenario === 'backend_verify') {
-        // Direct Server-to-Server verification simulation
+      } else {
+        // Never send a real private key from this browser-based lab.
         const verifyRes = await fetch('/api/v1/captcha/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            token: lastVerifiedToken || challenge.token,
-            hostname: 'localhost',
-            action: 'payment_checkout',
+            token: challenge.token,
+            secretKey: 'sc_sec_intentionally_invalid_test_key',
+            action: 'security_lab_invalid_secret',
           }),
         });
         const vData = await verifyRes.json();
+        const rejected = vData.success === false && vData.error_codes?.includes('invalid-secret-key');
         setTestResultLog({
-          title: 'تأیید مستقیم سمت سرور (Server-to-Server Verify Response)',
-          status: 'success',
-          code: vData.success ? 'human_verified' : vData.error_codes?.[0],
-          payload: vData,
+          title: 'تست رد کلید محرمانه نامعتبر',
+          status: rejected ? 'success' : 'failed',
+          code: vData.error_codes?.[0],
+          payload: {
+            ...vData,
+            securityResult: rejected ? 'موفق: سرور کلید محرمانهٔ نامعتبر را رد کرد.' : 'ناموفق: پاسخ سرور مطابق انتظار نبود.',
+          },
           timestamp: new Date().toLocaleTimeString('fa-IR'),
         });
       }
