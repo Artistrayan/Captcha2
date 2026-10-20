@@ -371,10 +371,21 @@ export const dbRepository = {
 
   async deleteSite(id: string, userId: string): Promise<boolean> {
     if (isPgConnected && drizzleDb) {
-      const res = await drizzleDb.delete(schema.sites).where(
-        and(eq(schema.sites.id, id), eq(schema.sites.userId, userId))
-      ).returning();
-      return res.length > 0;
+      return drizzleDb.transaction(async tx => {
+        const ownedSites = await tx.select().from(schema.sites).where(
+          and(eq(schema.sites.id, id), eq(schema.sites.userId, userId))
+        ).limit(1);
+        const deletedSite = ownedSites[0];
+        if (!deletedSite) return false;
+
+        // Verification events intentionally have no FK to sites; delete them explicitly
+        // so deleting a site also deletes its associated analytics and audit trail.
+        await tx.delete(schema.verificationEvents).where(eq(schema.verificationEvents.siteKey, deletedSite.siteKey));
+        const removed = await tx.delete(schema.sites).where(
+          and(eq(schema.sites.id, id), eq(schema.sites.userId, userId))
+        ).returning({ id: schema.sites.id });
+        return removed.length > 0;
+      });
     }
 
     const state = loadState();
@@ -383,8 +394,9 @@ export const dbRepository = {
 
     const deletedSite = state.sites[siteIdx];
     state.sites.splice(siteIdx, 1);
-    // Mirror PostgreSQL ON DELETE CASCADE behavior in local development storage.
+    // Mirror PostgreSQL cascade behavior in local development storage.
     state.captchaChallenges = state.captchaChallenges.filter(c => c.siteKey !== deletedSite.siteKey);
+    state.verificationEvents = state.verificationEvents.filter(event => event.siteKey !== deletedSite.siteKey);
     state.apiKeys = state.apiKeys.filter(key => key.siteId !== deletedSite.id);
     state.usageRecords = state.usageRecords.filter(record => record.siteId !== deletedSite.id);
     saveState(state);
