@@ -144,11 +144,15 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     const { token } = chRes.body;
 
     // Four incorrect answers are allowed; the challenge is consumed after the fourth.
+    let fourthAttempt: any;
     for (let i = 0; i < 4; i++) {
-      await request(app)
+      const attemptRes = await request(app)
         .post('/api/v1/captcha/verify')
         .send({ token, selectedOptionId: 'opt_wrong_attempt' });
+      if (i === 3) fourthAttempt = attemptRes;
     }
+    expect(fourthAttempt.body.success).toBe(false);
+    expect(fourthAttempt.body.error_codes).toContain('incorrect-captcha-sol');
 
     // Fifth attempt must be rejected because the fourth incorrect answer consumed the challenge.
     const fifthRes = await request(app)
