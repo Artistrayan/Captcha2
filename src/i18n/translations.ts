@@ -1413,6 +1413,24 @@ export const CATEGORY_NAMES_I18N: Record<string, Record<LanguageCode, string>> =
     pt: 'Câmera',
     ja: 'カメラ',
   },
+  star: {
+    en: 'Star', fa: 'ستاره', es: 'Estrella', zh: '星星', ar: 'نجمة', fr: 'Étoile', de: 'Stern', ru: 'Звезда', pt: 'Estrela', ja: '星',
+  },
+  heart: {
+    en: 'Heart', fa: 'قلب', es: 'Corazón', zh: '心形', ar: 'قلب', fr: 'Cœur', de: 'Herz', ru: 'Сердце', pt: 'Coração', ja: 'ハート',
+  },
+  book: {
+    en: 'Book', fa: 'کتاب', es: 'Libro', zh: '书本', ar: 'كتاب', fr: 'Livre', de: 'Buch', ru: 'Книга', pt: 'Livro', ja: '本',
+  },
+  house: {
+    en: 'House', fa: 'خانه', es: 'Casa', zh: '房子', ar: 'منزل', fr: 'Maison', de: 'Haus', ru: 'Дом', pt: 'Casa', ja: '家',
+  },
+  leaf: {
+    en: 'Leaf', fa: 'برگ', es: 'Hoja', zh: '叶子', ar: 'ورقة', fr: 'Feuille', de: 'Blatt', ru: 'Лист', pt: 'Folha', ja: '葉',
+  },
+  music: {
+    en: 'Music', fa: 'موسیقی', es: 'Música', zh: '音乐', ar: 'موسيقى', fr: 'Musique', de: 'Musik', ru: 'Музыка', pt: 'Música', ja: '音楽',
+  },
   cloud: {
     en: 'Cloud',
     fa: 'ابر',
