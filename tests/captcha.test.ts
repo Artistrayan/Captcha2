@@ -3,6 +3,7 @@ import request from 'supertest';
 import { app } from '../src/server/app.ts';
 import { dbRepository } from '../src/db/index.ts';
 import crypto from 'node:crypto';
+import { issueCaptchaChallenge } from '../src/captcha/engine.ts';
 
 describe('ShieldCaptcha Security and Verification Suite', () => {
   let testSiteKey: string;
@@ -59,6 +60,39 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     }
     expect((res.body as any).correctAnswerHash).toBeUndefined();
     expect((res.body as any).targetCategory).toBeUndefined();
+  });
+
+  it('Provides a third rotation-match challenge with one unrotated correct option', async () => {
+    let generated: Awaited<ReturnType<typeof issueCaptchaChallenge>> | undefined;
+    let stored: Awaited<ReturnType<typeof dbRepository.getChallengeByToken>> | null = null;
+
+    // The mode is selected securely at random; try enough times to observe the rotation mode.
+    for (let i = 0; i < 30; i++) {
+      const candidate = await issueCaptchaChallenge(testSiteKey, 'localhost', 'en');
+      const row = await dbRepository.getChallengeByToken(candidate.token);
+      if (row?.challengeType === 'ROTATION_MATCH') {
+        generated = candidate;
+        stored = row;
+        break;
+      }
+    }
+
+    expect(generated).toBeDefined();
+    expect(stored).toBeDefined();
+    const decodedOptions = generated!.options.map(option => ({
+      id: option.id,
+      svg: decodeURIComponent(option.svg.slice(option.svg.indexOf(',') + 1)),
+    }));
+    const upright = decodedOptions.filter(option => !option.svg.includes('transform="rotate('));
+    expect(upright).toHaveLength(1);
+
+    const matching = decodedOptions.filter(option =>
+      crypto.createHmac('sha256', process.env.CAPTCHA_SERVER_SALT || 'shield_captcha_internal_salt_dev_98741')
+        .update(`${stored!.id}:${option.id}`)
+        .digest('hex') === stored!.correctAnswerHash
+    );
+    expect(matching).toHaveLength(1);
+    expect(matching[0].id).toBe(upright[0].id);
   });
 
   it('3. Rejects invalid Site Key', async () => {
