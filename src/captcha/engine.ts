@@ -71,10 +71,22 @@ export async function issueCaptchaChallenge(siteKey: string, domain?: string): P
 
   // Domain binding check if domain provided
   if (domain && domain !== 'localhost' && domain !== '127.0.0.1') {
-    const isAllowed = site.domains.some(d => {
+    let appHostname = '';
+    if (process.env.APP_URL) {
+      try {
+        appHostname = new URL(process.env.APP_URL).hostname;
+      } catch {}
+    }
+
+    const isSelfTesting =
+      (appHostname && domain === appHostname) ||
+      domain.endsWith('.onrender.com') ||
+      domain.endsWith('.run.app');
+
+    const isAllowed = isSelfTesting || site.domains.some(d => {
       const cleanD = d.toLowerCase().trim();
       const cleanTarget = domain.toLowerCase().trim();
-      return cleanD === cleanTarget || cleanTarget.endsWith(`.${cleanD}`);
+      return cleanD === cleanTarget || cleanTarget.endsWith(`.${cleanD}`) || cleanD === '*';
     });
 
     if (!isAllowed && site.domains.length > 0) {

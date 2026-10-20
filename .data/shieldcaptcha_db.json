@@ -191,6 +191,24 @@
       "rateLimitPerMinute": 600,
       "createdAt": "2026-10-20T11:24:30.827Z",
       "updatedAt": "2026-10-20T11:24:30.827Z"
+    },
+    {
+      "id": "site_367080906afc99ad",
+      "userId": "usr_test_security",
+      "name": "Security Test Site",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "domains": [
+        "localhost",
+        "security-test.dev"
+      ],
+      "secretKeyHash": "1a310bb34282d373e4bff7bdf572b9df784958939eaa3fb95232b8e78a49e2f6",
+      "secretKeyPrefix": "sc_sec_live_",
+      "maskedSecretKey": "sc_sec_••••••••test",
+      "challengeDifficulty": "MEDIUM",
+      "invisibleEnabled": true,
+      "rateLimitPerMinute": 600,
+      "createdAt": "2026-10-20T15:17:09.080Z",
+      "updatedAt": "2026-10-20T15:17:09.080Z"
     }
   ],
   "apiKeys": [
@@ -1966,9 +1984,371 @@
       "isConsumed": true,
       "solvedAt": "2026-10-20T11:24:31.110Z",
       "createdAt": "2026-10-20T11:24:31.097Z"
+    },
+    {
+      "id": "ch_c8218a81063fa3c3d7b48cca",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «دوچرخه (Bicycle) / Bicycle» را انتخاب کنید.",
+      "correctAnswerHash": "5038651d4b00165fbc18bcbe346db53ef933e21307a36e6632fbe8b8ea6ff281",
+      "options": [
+        {
+          "id": "opt_03b1eb316390",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_f4879d94eaec",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_a843e766694e",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_fd52e9234287",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_LFeaGrflUVaUn7zGfpesR3VrEIGrWglc",
+      "expiresAt": "2026-10-20T15:19:09.131Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-20T15:17:09.131Z"
+    },
+    {
+      "id": "ch_a7ce66ac0beb5e8b6760e197",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «زنگوله (Bell) / Bell» را انتخاب کنید.",
+      "correctAnswerHash": "db5422de573936ec2439a99c141e08c49f647577c91586f3df91d7ad1c58a1d8",
+      "options": [
+        {
+          "id": "opt_f37ffbd32b7c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_29648c613a73",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_28dcae614382",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_ca20f1c3d3c5",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_3qC7zkavlSsxyO3W6FULrABVbuTRdkmQ",
+      "expiresAt": "2026-10-20T15:19:09.156Z",
+      "attemptsCount": 1,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-20T15:17:09.156Z"
+    },
+    {
+      "id": "ch_91e4a74784f0bf948874a7be",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «زنگوله (Bell) / Bell» را انتخاب کنید.",
+      "correctAnswerHash": "33eaf8d8e55c7374710eb34e1b6d7e15bf29c32966a419ccd36a60c634d1333c",
+      "options": [
+        {
+          "id": "opt_43c9b90421de",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_a4c9c14678cd",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_26b082dffe78",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_c2052d2dc3f5",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_tz0MmyjurqXdxRBiV4_dG89yWtOlsDnt",
+      "expiresAt": "2026-10-20T15:19:09.184Z",
+      "attemptsCount": 3,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T15:17:09.231Z",
+      "createdAt": "2026-10-20T15:17:09.184Z"
+    },
+    {
+      "id": "ch_603b2c8dd47b42331a1fcbdf",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «سپر امنیت (Shield) / Shield» را انتخاب کنید.",
+      "correctAnswerHash": "7d85f9457e7328e0decd5baf596fcdd1f06675833faabd27c3e9b3ee9b3b2b1a",
+      "options": [
+        {
+          "id": "opt_2ddee4f06bfb",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_9274724e2b13",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_81617260978b",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_3766a0ea352b",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_VtCAvZulLp89lKDnob3FORy7UuEQE0pY",
+      "expiresAt": "2026-10-20T15:19:09.251Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T15:17:09.266Z",
+      "createdAt": "2026-10-20T15:17:09.251Z"
+    },
+    {
+      "id": "ch_a7551d3582fae756dee86726",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «ساعت (Clock) / Clock» را انتخاب کنید.",
+      "correctAnswerHash": "dbbada43a28cc8b8b81ac75779dac2d674ef5110068cb38f8d52399070ab8b69",
+      "options": [
+        {
+          "id": "opt_9d42b2cf59cb",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_91e9dedc697f",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_cf6beeced9a7",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_093b9897d8c5",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_2t7r2qMFBjKDbq2PHa1fiEHnAQCjqBiv",
+      "expiresAt": "2026-10-20T15:19:09.285Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T15:17:09.298Z",
+      "createdAt": "2026-10-20T15:17:09.285Z"
+    },
+    {
+      "id": "ch_f263422509ae29976a0c427b",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «ساعت (Clock) / Clock» را انتخاب کنید.",
+      "correctAnswerHash": "259f651d400c68b4004f48864f68a6320a92039dfc3ca9eb909a142fea13bc35",
+      "options": [
+        {
+          "id": "opt_4a86a3bca2b4",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_69c783de0022",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_6260415a5b3c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_f424a2dd563d",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_mwn40-tK_gsIGFYrGoXVilzxW1rrhd4X",
+      "expiresAt": "2026-10-20T15:17:04.334Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T15:17:09.348Z",
+      "createdAt": "2026-10-20T15:17:09.329Z"
     }
   ],
   "verificationEvents": [
+    {
+      "id": "ve_5dd9050b501b82c9",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_mwn40-tK_gsIGFYrGoXVilzxW1rrhd4X",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "challenge-expired"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.349Z",
+      "createdAt": "2026-10-20T15:17:09.349Z"
+    },
+    {
+      "id": "ve_29a7d1e8cf56d80f",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_2t7r2qMFBjKDbq2PHa1fiEHnAQCjqBiv",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.319Z",
+      "createdAt": "2026-10-20T15:17:09.319Z"
+    },
+    {
+      "id": "ve_b51968306e5b68c5",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_2t7r2qMFBjKDbq2PHa1fiEHnAQCjqBiv",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-20T15:17:09.309Z",
+      "createdAt": "2026-10-20T15:17:09.309Z"
+    },
+    {
+      "id": "ve_498e398043e12d96",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_VtCAvZulLp89lKDnob3FORy7UuEQE0pY",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.276Z",
+      "createdAt": "2026-10-20T15:17:09.276Z"
+    },
+    {
+      "id": "ve_c71cadd8fc8369ff",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_VtCAvZulLp89lKDnob3FORy7UuEQE0pY",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-20T15:17:09.268Z",
+      "createdAt": "2026-10-20T15:17:09.268Z"
+    },
+    {
+      "id": "ve_2b0d8bf404f52fc1",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_tz0MmyjurqXdxRBiV4_dG89yWtOlsDnt",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.242Z",
+      "createdAt": "2026-10-20T15:17:09.242Z"
+    },
+    {
+      "id": "ve_b2ff951947844bf0",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_tz0MmyjurqXdxRBiV4_dG89yWtOlsDnt",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.233Z",
+      "createdAt": "2026-10-20T15:17:09.233Z"
+    },
+    {
+      "id": "ve_db187cc775ec24a1",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_tz0MmyjurqXdxRBiV4_dG89yWtOlsDnt",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.211Z",
+      "createdAt": "2026-10-20T15:17:09.211Z"
+    },
+    {
+      "id": "ve_94d85df90d6cc2b7",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_tz0MmyjurqXdxRBiV4_dG89yWtOlsDnt",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.196Z",
+      "createdAt": "2026-10-20T15:17:09.196Z"
+    },
+    {
+      "id": "ve_0fdf19f7fbd2e732",
+      "siteKey": "sc_site_test_2e2aa5cc0875",
+      "token": "sct_3qC7zkavlSsxyO3W6FULrABVbuTRdkmQ",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T15:17:09.171Z",
+      "createdAt": "2026-10-20T15:17:09.171Z"
+    },
     {
       "id": "ve_ad028b3afa5fd148",
       "siteKey": "sc_site_test_ce74442a591e",

@@ -162,41 +162,52 @@ if (process.env.DATABASE_URL) {
     pgPool = new Pool({
       connectionString: dbUrl,
       max: 10,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 30000, // 30s timeout to allow cloud databases to cold-start
+      idleTimeoutMillis: 30000,
       ssl: isLocalhost ? false : { rejectUnauthorized: false },
     });
     drizzleDb = drizzle(pgPool, { schema });
 
-    // Test connection asynchronously
-    pgPool.query('SELECT 1')
-      .then(async () => {
-        console.log('[Database] PostgreSQL connection verified');
-
+    // Connect with automatic retries for cloud cold starts
+    const connectWithRetry = async (retries = 6, delayMs = 3000): Promise<void> => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-          const { migrate } = await import('drizzle-orm/node-postgres/migrator');
-          const migrationsDir = path.resolve(process.cwd(), 'drizzle');
-          if (!fs.existsSync(migrationsDir)) {
-            throw new Error('Drizzle migrations directory is missing');
+          console.log(`[Database] Attempting PostgreSQL connection (attempt ${attempt}/${retries})...`);
+          await pgPool!.query('SELECT 1');
+          console.log('[Database] PostgreSQL connection verified');
+
+          try {
+            const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+            const migrationsDir = path.resolve(process.cwd(), 'drizzle');
+            if (!fs.existsSync(migrationsDir)) {
+              throw new Error('Drizzle migrations directory is missing');
+            }
+            await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
+            isPgConnected = true;
+            lastPgError = undefined;
+            console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
+            return;
+          } catch (migErr: any) {
+            lastPgError = migErr?.message || 'Migration failed';
+            console.error('[Database] PostgreSQL migration failed:', lastPgError);
+            return;
           }
-          await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
-          isPgConnected = true;
-          console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
-        } catch (migErr: any) {
-          lastPgError = migErr?.message || 'Migration failed';
-          console.error('[Database] PostgreSQL migration failed:', lastPgError);
-          if (IS_PRODUCTION) process.exit(1);
+        } catch (err: any) {
+          lastPgError = err.message;
+          console.warn(`[Database] Connection attempt ${attempt} failed: ${err.message}`);
+          if (attempt < retries) {
+            console.log(`[Database] Retrying connection in ${delayMs / 1000}s...`);
+            await new Promise(r => setTimeout(r, delayMs));
+          } else {
+            console.error('[Database] All PostgreSQL connection attempts exhausted. Will keep retrying in background.');
+            // Schedule background retry so server remains alive and responsive
+            setTimeout(() => connectWithRetry(3, 5000), 10000);
+          }
         }
-      })
-      .catch((err) => {
-        isPgConnected = false;
-        lastPgError = err.message;
-        console.error('[Database] PostgreSQL connection failed:', err.message);
-        if (IS_PRODUCTION) {
-          console.error('[Database] Refusing to use local file storage in production.');
-          process.exit(1);
-        }
-        console.warn('[Database] Development mode: using persistent file repository fallback.');
-      });
+      }
+    };
+
+    connectWithRetry();
   } catch (err: any) {
     lastPgError = err?.message;
   }

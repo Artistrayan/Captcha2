@@ -57,12 +57,22 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         body: JSON.stringify({ siteKey }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.code || errData.error || `HTTP ${res.status}`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const rawText = await res.text().catch(() => '');
+        console.error('Non-JSON response from captcha challenge:', rawText.slice(0, 200));
+        throw new Error(
+          res.status >= 500
+            ? 'خطای موقت در ارتباط با سرویس؛ لطفاً مجدداً تلاش کنید.'
+            : `پاسخ غیرمنتظره از سرور (کد ${res.status})`
+        );
       }
 
-      const data: ChallengeData = await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || data.error || data.code || `خطا در دریافت چالش (کد ${res.status})`);
+      }
+
       setChallenge(data);
       setTimeLeft(data.expiresInSeconds || 120);
       setStatus('challenge');
@@ -115,6 +125,11 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
           action,
         }),
       });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('پاسخ سرور در قالب معتبر دریافت نشد');
+      }
 
       const data = await res.json();
 

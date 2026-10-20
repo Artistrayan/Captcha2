@@ -43,9 +43,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Mount versioned API routes
 app.use('/api/v1', apiRouter);
 
-// Centralized 404 handler for API routes
-app.use('/api/v1/*', (req: Request, res: Response) => {
-  res.status(404).json({ error: 'Endpoint Not Found', path: req.baseUrl });
+// Centralized 404 handler for all API routes (ensures JSON response, never HTML)
+app.all('/api/*', (req: Request, res: Response) => {
+  res.status(404).json({ error: 'Endpoint Not Found', path: req.originalUrl });
 });
 
 // Centralized error handler

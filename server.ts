@@ -47,6 +47,10 @@ async function startServer() {
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('*', (req, res) => {
+        // Never return HTML for API requests
+        if (req.originalUrl.startsWith('/api')) {
+          return res.status(404).json({ error: 'Endpoint Not Found', path: req.originalUrl });
+        }
         res.sendFile(path.join(distPath, 'index.html'));
       });
     }
