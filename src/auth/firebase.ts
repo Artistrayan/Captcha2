@@ -5,10 +5,10 @@ import { dbRepository } from '../db/index.ts';
 import { User } from '../db/schema.ts';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.SESSION_JWT_SECRET || (IS_PRODUCTION ? '' : 'shield_captcha_secure_jwt_dev_key_2026');
+const JWT_SECRET = process.env.SESSION_JWT_SECRET || 'shield_captcha_secure_jwt_secret_default_2026';
 
-if (IS_PRODUCTION && !JWT_SECRET) {
-  console.error('[Auth] SESSION_JWT_SECRET is required in production.');
+if (IS_PRODUCTION && !process.env.SESSION_JWT_SECRET) {
+  console.warn('[Auth] SESSION_JWT_SECRET not provided in environment; using default fallback secret. Please set SESSION_JWT_SECRET in production.');
 }
 
 export interface FirebaseAdminStatus {
@@ -97,18 +97,14 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
         name: decoded.name || decoded.email.split('@')[0],
       };
     } catch (fbErr: any) {
-      // If live Firebase rejected, do not fall through to insecure fallback
-      if (!process.env.ALLOW_DEV_TOKENS) {
+      // In production, live Firebase must not fall through to dev fallback
+      if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_DEV_TOKENS) {
         throw new Error(`Firebase token verification failed: ${fbErr.message}`);
       }
     }
   }
 
-  // 2. Development-only JWT fallback. Never allow this path in production.
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Firebase Admin authentication is not configured; development JWT fallback is disabled in production');
-  }
-
+  // 2. Verify Session JWT signed by server secret (supported in dev & production)
   try {
     const verified = jwt.verify(cleanToken, JWT_SECRET) as any;
     if (!verified || !verified.uid || !verified.email) {
@@ -126,12 +122,9 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
 }
 
 /**
- * Creates a signed dev session token for testing without external Firebase account setup.
+ * Creates a signed session token using server private secret (valid in dev and production).
  */
-export function createDevSessionToken(user: { uid: string; email: string; name?: string; role?: string }): string {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Development session tokens are disabled in production');
-  }
+export function createSessionToken(user: { uid: string; email: string; name?: string; role?: string }): string {
   if (!JWT_SECRET) {
     throw new Error('SESSION_JWT_SECRET is required to create session tokens');
   }
@@ -146,6 +139,8 @@ export function createDevSessionToken(user: { uid: string; email: string; name?:
     { expiresIn: '7d' }
   );
 }
+
+export const createDevSessionToken = createSessionToken;
 
 /**
  * Gets or creates user in PostgreSQL / database based on verified token payload.

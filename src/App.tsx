@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Shield, Key, Globe, Plus, Trash2, Copy, Check, RefreshCw,
   Terminal, ShieldCheck, ShieldAlert, Code2, ExternalLink,
-  Layers, Lock, Database, AlertCircle, Eye, EyeOff
+  Layers, Lock, Database, AlertCircle, Eye, EyeOff,
+  Activity, TrendingUp, CheckCircle2, XCircle
 } from 'lucide-react';
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip as RechartsTooltip, Legend
+} from 'recharts';
 import { CaptchaWidget } from './components/CaptchaWidget.tsx';
 
 interface SiteItem {
@@ -85,7 +90,7 @@ export default function App() {
     loginUser(userEmail);
   }, []);
 
-  const loginUser = async (email: string) => {
+  const loginUser = async (email: string): Promise<string> => {
     setIsLoadingSites(true);
     try {
       const res = await fetch('/api/v1/auth/session', {
@@ -97,12 +102,14 @@ export default function App() {
       if (data.token) {
         setAuthToken(data.token);
         fetchSites(data.token);
+        return data.token;
       }
     } catch (err) {
       console.error('Session login error:', err);
     } finally {
       setIsLoadingSites(false);
     }
+    return '';
   };
 
   const fetchSites = async (token = authToken) => {
@@ -132,6 +139,17 @@ export default function App() {
 
     setIsCreatingSite(true);
     try {
+      let currentToken = authToken;
+      if (!currentToken) {
+        currentToken = await loginUser(userEmail);
+      }
+
+      if (!currentToken) {
+        alert('جلسه کاربری یافت نشد. لطفاً صفحه را بارگذاری مجدد نمایید.');
+        setIsCreatingSite(false);
+        return;
+      }
+
       const domainsArr = newSiteDomains
         .split(',')
         .map(d => d.trim())
@@ -141,7 +159,7 @@ export default function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${currentToken}`,
         },
         body: JSON.stringify({
           name: newSiteName,
@@ -163,12 +181,12 @@ export default function App() {
         });
         setSelectedSiteKey(data.site.siteKey);
         // Refresh sites from server to ensure persistence!
-        await fetchSites();
+        await fetchSites(currentToken);
       } else {
-        alert(data.error || 'Failed to create site');
+        alert(data.message || data.error || 'خطا در ثبت سایت');
       }
     } catch (err: any) {
-      alert(err.message || 'Network error');
+      alert(err.message || 'خطای ارتباط با سرور در ثبت سایت');
     } finally {
       setIsCreatingSite(false);
     }
@@ -311,6 +329,55 @@ export default function App() {
       fetchUsageLogs();
     }
   }, [activeTab]);
+
+  // Aggregated traffic trend over the last 24 hours
+  const traffic24hData = useMemo(() => {
+    const now = new Date();
+    const result: Array<{
+      hour: string;
+      fullTime: string;
+      passed: number;
+      blocked: number;
+      total: number;
+    }> = [];
+
+    // 24 buckets: from 23 hours ago to now
+    for (let i = 23; i >= 0; i--) {
+      const bucketStart = new Date(now.getTime() - (i + 1) * 3600 * 1000);
+      const bucketEnd = new Date(now.getTime() - i * 3600 * 1000);
+
+      const hourNumber = bucketEnd.getHours();
+      const hourStr = `${hourNumber.toString().padStart(2, '0')}:00`;
+
+      const eventsInHour = logs.filter(item => {
+        if (!item.createdAt) return false;
+        const time = new Date(item.createdAt).getTime();
+        return time >= bucketStart.getTime() && time < bucketEnd.getTime();
+      });
+
+      const passed = eventsInHour.filter(e => e.success).length;
+      const blocked = eventsInHour.filter(e => !e.success).length;
+
+      result.push({
+        hour: hourStr,
+        fullTime: bucketEnd.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+        passed,
+        blocked,
+        total: passed + blocked,
+      });
+    }
+
+    return result;
+  }, [logs]);
+
+  // Summary statistics for last 24 hours
+  const trafficStats = useMemo(() => {
+    const total = logs.length;
+    const passed = logs.filter(l => l.success).length;
+    const blocked = total - passed;
+    const rate = total > 0 ? Math.round((passed / total) * 100) : 100;
+    return { total, passed, blocked, rate };
+  }, [logs]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30">
@@ -687,22 +754,172 @@ export default function App() {
 
         {/* TAB 3: AUDIT LOGS */}
         {activeTab === 'logs' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-white">لاگ‌های امنیتی و رویدادهای تأیید</h2>
-                <p className="text-xs text-slate-400">گزارش لحظه‌ای رویدادهای صدور چالش و اعتبارسنجی در سرور</p>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                  <span>لاگ‌های امنیتی و تحلیل ترافیک ۲۴ ساعت گذشته</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  نظارت بلادرنگ بر روند درخواست‌های تأیید هویت، تفکیک ترافیک واقعی و دفع حملات ربات
+                </p>
               </div>
               <button
                 onClick={fetchUsageLogs}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>بروزرسانی لاگ‌ها</span>
+                <span>بروزرسانی آمار</span>
               </button>
             </div>
 
-            <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/50">
+            {/* 24-Hour Summary Metric Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-medium block">کل درخواست‌ها (۲۴h)</span>
+                  <span className="text-xl font-bold font-mono text-white mt-0.5 block">{trafficStats.total}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-800 text-slate-300">
+                  <Activity className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-medium block">تأییدشده (انسان)</span>
+                  <span className="text-xl font-bold font-mono text-emerald-400 mt-0.5 block">{trafficStats.passed}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-medium block">مسدودشده (ربات / نفوذ)</span>
+                  <span className="text-xl font-bold font-mono text-rose-400 mt-0.5 block">{trafficStats.blocked}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400">
+                  <XCircle className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-medium block">نرخ قبولی (Pass Rate)</span>
+                  <span className="text-xl font-bold font-mono text-teal-300 mt-0.5 block">{trafficStats.rate}%</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
+            {/* Recharts Line Chart: Verification Traffic Trends (Last 24 Hours) */}
+            <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    <span>نمودار روند ترافیک اعتبارسنجی در ۲۴ ساعت گذشته</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    توزیع ساعتی درخواست‌های تأییدشده (سبز) در برابر تلاش‌های مسدودشده یا نامعتبر (قرمز)
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 self-start sm:self-auto">
+                  بازه: ۲۴ ساعت گذشته (Hourly)
+                </span>
+              </div>
+
+              <div className="h-64 w-full pt-2" dir="ltr">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={traffic24hData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis
+                      dataKey="hour"
+                      stroke="#64748b"
+                      tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      tickLine={{ stroke: '#334155' }}
+                      interval={2}
+                    />
+                    <YAxis
+                      stroke="#64748b"
+                      tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      tickLine={{ stroke: '#334155' }}
+                      allowDecimals={false}
+                    />
+                    <RechartsTooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const passedVal = payload.find(p => p.dataKey === 'passed')?.value ?? 0;
+                          const blockedVal = payload.find(p => p.dataKey === 'blocked')?.value ?? 0;
+                          return (
+                            <div className="bg-slate-900/95 backdrop-blur border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 min-w-[150px] text-right font-sans">
+                              <p className="font-mono text-slate-300 font-semibold border-b border-slate-800 pb-1">
+                                ساعت {label}
+                              </p>
+                              <div className="flex items-center justify-between gap-3 text-emerald-400 font-mono">
+                                <span>{passedVal}</span>
+                                <span className="flex items-center gap-1.5 text-slate-300 text-[11px]">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                                  تأیید شده:
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-rose-400 font-mono">
+                                <span>{blockedVal}</span>
+                                <span className="flex items-center gap-1.5 text-slate-300 text-[11px]">
+                                  <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
+                                  مسدود شده:
+                                </span>
+                              </div>
+                              <div className="pt-1 border-t border-slate-800 text-[10px] text-slate-400 font-mono flex items-center justify-between">
+                                <span className="text-white font-bold">{Number(passedVal) + Number(blockedVal)}</span>
+                                <span>مجموع درخواست:</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      iconType="circle"
+                      wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="passed"
+                      name="تأییدشده (Passed)"
+                      stroke="#10b981"
+                      strokeWidth={2.5}
+                      dot={{ r: 2, fill: '#10b981' }}
+                      activeDot={{ r: 5, fill: '#10b981', stroke: '#064e3b', strokeWidth: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="blocked"
+                      name="مسدودشده (Blocked)"
+                      stroke="#f43f5e"
+                      strokeWidth={2.5}
+                      dot={{ r: 2, fill: '#f43f5e' }}
+                      activeDot={{ r: 5, fill: '#f43f5e', stroke: '#881337', strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Event Logs Table */}
+            <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/50 shadow-sm">
+              <div className="p-3.5 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-200">فهرست رویدادهای اخیر (Recent Event Logs)</span>
+                <span className="text-[10px] font-mono text-slate-400">آخرین ۵۰ رویداد</span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-right">
                   <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] border-b border-slate-800">

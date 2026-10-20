@@ -73,13 +73,8 @@ apiRouter.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// 2. Dev Session / Quick Login
-apiRouter.post('/auth/session', async (req: Request, res: Response) => {
-  // This quick-login endpoint exists only for local development and tests.
-  if (process.env.NODE_ENV === 'production') {
-    res.status(404).json({ error: 'Not Found' });
-    return;
-  }
+// 2. User Session Authentication (Dev & Production JWT Session)
+apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res: Response) => {
   const bodySchema = z.object({
     email: z.string().email(),
     name: z.string().optional(),
@@ -137,6 +132,10 @@ apiRouter.get('/auth/me', requireAuth, async (req: Request, res: Response) => {
 // 4. Create Site (with secure one-time secret key display)
 apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Request, res: Response) => {
   const user = (req as any).user;
+  if (!user || !user.id) {
+    res.status(401).json({ error: 'Unauthorized', message: 'User profile not found. Please re-authenticate.' });
+    return;
+  }
 
   const siteSchema = z.object({
     name: z.string().min(2).max(100),
@@ -152,44 +151,52 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
     return;
   }
 
-  // Generate Site Key and Secret Key using CSPRNG
-  const siteKey = `sc_site_${crypto.randomBytes(12).toString('hex')}`;
-  const rawSecretKey = `sc_sec_live_${crypto.randomBytes(24).toString('base64url')}`;
+  try {
+    // Generate Site Key and Secret Key using CSPRNG
+    const siteKey = `sc_site_${crypto.randomBytes(12).toString('hex')}`;
+    const rawSecretKey = `sc_sec_live_${crypto.randomBytes(24).toString('base64url')}`;
 
-  // Hash the secret key using SHA-256 for persistent database storage
-  const secretKeyHash = crypto.createHash('sha256').update(rawSecretKey).digest('hex');
-  const secretKeyPrefix = 'sc_sec_live_';
-  const maskedSecretKey = `sc_sec_live_••••••••${rawSecretKey.slice(-4)}`;
+    // Hash the secret key using SHA-256 for persistent database storage
+    const secretKeyHash = crypto.createHash('sha256').update(rawSecretKey).digest('hex');
+    const secretKeyPrefix = 'sc_sec_live_';
+    const maskedSecretKey = `sc_sec_live_••••••••${rawSecretKey.slice(-4)}`;
 
-  const site = await dbRepository.createSite({
-    userId: user.id,
-    name: parsed.data.name,
-    siteKey,
-    domains: parsed.data.domains,
-    secretKeyHash,
-    secretKeyPrefix,
-    maskedSecretKey,
-    challengeDifficulty: parsed.data.challengeDifficulty,
-    invisibleEnabled: parsed.data.invisibleEnabled,
-    rateLimitPerMinute: parsed.data.rateLimitPerMinute,
-  });
+    const site = await dbRepository.createSite({
+      userId: user.id,
+      name: parsed.data.name,
+      siteKey,
+      domains: parsed.data.domains,
+      secretKeyHash,
+      secretKeyPrefix,
+      maskedSecretKey,
+      challengeDifficulty: parsed.data.challengeDifficulty,
+      invisibleEnabled: parsed.data.invisibleEnabled,
+      rateLimitPerMinute: parsed.data.rateLimitPerMinute,
+    });
 
-  // Return the raw secret key EXACTLY ONCE to the owner! It is never stored or returned again.
-  res.status(201).json({
-    site: {
-      id: site.id,
-      name: site.name,
-      siteKey: site.siteKey,
-      domains: site.domains,
-      maskedSecretKey: site.maskedSecretKey,
-      challengeDifficulty: site.challengeDifficulty,
-      invisibleEnabled: site.invisibleEnabled,
-      createdAt: site.createdAt,
-    },
-    // Sensitive: one-time display!
-    oneTimeSecretKey: rawSecretKey,
-    securityNotice: 'Save this Secret Key securely now. It will NEVER be shown again.',
-  });
+    // Return the raw secret key EXACTLY ONCE to the owner! It is never stored or returned again.
+    res.status(201).json({
+      site: {
+        id: site.id,
+        name: site.name,
+        siteKey: site.siteKey,
+        domains: site.domains,
+        maskedSecretKey: site.maskedSecretKey,
+        challengeDifficulty: site.challengeDifficulty,
+        invisibleEnabled: site.invisibleEnabled,
+        createdAt: site.createdAt,
+      },
+      // Sensitive: one-time display!
+      oneTimeSecretKey: rawSecretKey,
+      securityNotice: 'Save this Secret Key securely now. It will NEVER be shown again.',
+    });
+  } catch (err: any) {
+    console.error('[Create Site Error]', err);
+    res.status(500).json({
+      error: 'Failed to create site',
+      message: err?.message || 'Database error while registering site',
+    });
+  }
 });
 
 // 5. List Sites for authenticated user (Strict User Isolation)

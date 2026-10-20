@@ -119,6 +119,60 @@
       "rateLimitPerMinute": 600,
       "createdAt": "2026-10-19T12:29:58.263Z",
       "updatedAt": "2026-10-19T12:29:58.263Z"
+    },
+    {
+      "id": "site_c653e5d7a4dca2d2",
+      "userId": "usr_test_security",
+      "name": "Security Test Site",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "domains": [
+        "localhost",
+        "security-test.dev"
+      ],
+      "secretKeyHash": "1c1a577fb7ed0c422b120c81f2c70900d8bdd052e5e9509b107bf429d1e71335",
+      "secretKeyPrefix": "sc_sec_live_",
+      "maskedSecretKey": "sc_sec_••••••••test",
+      "challengeDifficulty": "MEDIUM",
+      "invisibleEnabled": true,
+      "rateLimitPerMinute": 600,
+      "createdAt": "2026-10-19T23:29:49.764Z",
+      "updatedAt": "2026-10-19T23:29:49.764Z"
+    },
+    {
+      "id": "site_ebf5b1d68a2f2527",
+      "userId": "usr_test_security",
+      "name": "Security Test Site",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "domains": [
+        "localhost",
+        "security-test.dev"
+      ],
+      "secretKeyHash": "08f7cb8c8f8f1817d4a3bcf1d91491fab5c72b6e234ab4c0b7412d3111abdf00",
+      "secretKeyPrefix": "sc_sec_live_",
+      "maskedSecretKey": "sc_sec_••••••••test",
+      "challengeDifficulty": "MEDIUM",
+      "invisibleEnabled": true,
+      "rateLimitPerMinute": 600,
+      "createdAt": "2026-10-19T23:30:17.515Z",
+      "updatedAt": "2026-10-19T23:30:17.515Z"
+    },
+    {
+      "id": "site_1c13d736718e15c4",
+      "userId": "usr_test_security",
+      "name": "Security Test Site",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "domains": [
+        "localhost",
+        "security-test.dev"
+      ],
+      "secretKeyHash": "bdc11b73fc62fadefa5415dd7a5cd1df1083df8964e52596d8d6596487fa1d59",
+      "secretKeyPrefix": "sc_sec_live_",
+      "maskedSecretKey": "sc_sec_••••••••test",
+      "challengeDifficulty": "MEDIUM",
+      "invisibleEnabled": true,
+      "rateLimitPerMinute": 600,
+      "createdAt": "2026-10-20T11:13:32.793Z",
+      "updatedAt": "2026-10-20T11:13:32.793Z"
     }
   ],
   "apiKeys": [
@@ -1030,9 +1084,1095 @@
       "isConsumed": false,
       "solvedAt": null,
       "createdAt": "2026-10-19T19:30:13.394Z"
+    },
+    {
+      "id": "ch_9dd0bb17361cfebc0e26f1ab",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «قفل (Lock) / Lock» را انتخاب کنید.",
+      "correctAnswerHash": "6ff072738c82b2ca2117b6f600e13a14eaff61dd11963e4f80d0e7175f430450",
+      "options": [
+        {
+          "id": "opt_7a5c9fd7cac4",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_cfb971afc27c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_aab35587bf29",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_a40065131880",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_slkObxABJhMAcW42WvFkK-XSb3YgNUAH",
+      "expiresAt": "2026-10-19T23:31:49.814Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-19T23:29:49.815Z"
+    },
+    {
+      "id": "ch_5ff0d5176a93d39eabe64dd1",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «کلید (Key) / Key» را انتخاب کنید.",
+      "correctAnswerHash": "50967b467516466fdc0094168e461cef707247ed10058e6e79b248d6b3f03460",
+      "options": [
+        {
+          "id": "opt_7c962057c9fd",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_e6150c66723c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_9942338dfb7c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_d1cde32091a6",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_1VSqACxtKayT9gXgGupFcWJpC4JGljrr",
+      "expiresAt": "2026-10-19T23:31:49.836Z",
+      "attemptsCount": 1,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-19T23:29:49.836Z"
+    },
+    {
+      "id": "ch_60fd26e65b318adbd364df59",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «ساعت (Clock) / Clock» را انتخاب کنید.",
+      "correctAnswerHash": "a3d231ef5e9a86446ed557b40b7bb621dd4eceffb7c5ef36fedb278d0be6fc27",
+      "options": [
+        {
+          "id": "opt_7240357310b4",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_0def226810f2",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_4835e6445add",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_77918ec2d8bd",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_B318d3xCfnh9NJatI-vGWXmH8tdYoa20",
+      "expiresAt": "2026-10-19T23:31:49.858Z",
+      "attemptsCount": 3,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:29:49.891Z",
+      "createdAt": "2026-10-19T23:29:49.859Z"
+    },
+    {
+      "id": "ch_4e3e9f3124f0d7e925b7fa6a",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «ابر (Cloud) / Cloud» را انتخاب کنید.",
+      "correctAnswerHash": "014776ff9559818de82ecc878ddd62156c13f9ef962606a6059f555e5714ee79",
+      "options": [
+        {
+          "id": "opt_3592c0888d75",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_df57b8d46c8d",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_2c716d2bc069",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_795d297b79af",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_bbcnTQTgSpVI8qQ0sH8YZLJUsW5U6zsl",
+      "expiresAt": "2026-10-19T23:31:49.906Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:29:49.916Z",
+      "createdAt": "2026-10-19T23:29:49.906Z"
+    },
+    {
+      "id": "ch_1bd7bbe560094a9fc12e8dc9",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «دوچرخه (Bicycle) / Bicycle» را انتخاب کنید.",
+      "correctAnswerHash": "534b65711cf4433338e0751a0f8f3b44b9088ba1439e269c78f45b5d04504b09",
+      "options": [
+        {
+          "id": "opt_8a706a9f2531",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_0a8c6cfd2059",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_6939e1898175",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_cf59aa68b9b0",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_lBNFNU59GUdUenN_o6wEjjcOvJ7amLL9",
+      "expiresAt": "2026-10-19T23:31:49.932Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:29:49.940Z",
+      "createdAt": "2026-10-19T23:29:49.932Z"
+    },
+    {
+      "id": "ch_90acef87c59a28f7129c04c8",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «سپر امنیت (Shield) / Shield» را انتخاب کنید.",
+      "correctAnswerHash": "7e9f1cf9b4e7d1e053969cb58c141c1a380600aaf1bad81fcb47c31cec2283a2",
+      "options": [
+        {
+          "id": "opt_87c63c78a974",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_b9e22dc32d24",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_79420626c83b",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_bbb29e0a7a32",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_yEbgFd1SbYRHadov8jt0KSG3JLaOg3Tw",
+      "expiresAt": "2026-10-19T23:29:44.957Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:29:49.964Z",
+      "createdAt": "2026-10-19T23:29:49.954Z"
+    },
+    {
+      "id": "ch_3a417bca03e1ba0038d8bdf1",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «زنگوله (Bell) / Bell» را انتخاب کنید.",
+      "correctAnswerHash": "65d7fae126403240047eb238fae94984b6ca2fbe0612b2368777f0007288c082",
+      "options": [
+        {
+          "id": "opt_c05c61814e83",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_2c6d3b6d91dc",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_bb5aa755bde6",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_d031a1772770",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_PsPlVg-kN5suCxFcVyDZVzXqUg76Rtma",
+      "expiresAt": "2026-10-19T23:32:17.607Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-19T23:30:17.608Z"
+    },
+    {
+      "id": "ch_40c7bcaa780b6e29a61286b7",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «سپر امنیت (Shield) / Shield» را انتخاب کنید.",
+      "correctAnswerHash": "05bc361d249d1404a806e4dbe45226690538d06133ceb1227b89e280ed53ab40",
+      "options": [
+        {
+          "id": "opt_af3fa7aae5e4",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_185a3dcde73a",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_1112283b2119",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_e7435bc7f48e",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_lZAkYKCIIMXRjeXxR0Aok6WRWApAE60V",
+      "expiresAt": "2026-10-19T23:32:17.632Z",
+      "attemptsCount": 1,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-19T23:30:17.632Z"
+    },
+    {
+      "id": "ch_25631e95ef1307fa5c90e4bf",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «دوچرخه (Bicycle) / Bicycle» را انتخاب کنید.",
+      "correctAnswerHash": "e611fac986aba1de9dde1bc97c41fee8d444d26f882fdfc774dde91812fa01b9",
+      "options": [
+        {
+          "id": "opt_a76aceeb20f6",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_912c1d946239",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_d7c190f15575",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_7e407185ebf1",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_OkbOiXk822dGdP6a2Xly5eXrFnuYm3qq",
+      "expiresAt": "2026-10-19T23:32:17.650Z",
+      "attemptsCount": 3,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:30:17.681Z",
+      "createdAt": "2026-10-19T23:30:17.650Z"
+    },
+    {
+      "id": "ch_164200c43c7bdae543c7c112",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «دوربین (Camera) / Camera» را انتخاب کنید.",
+      "correctAnswerHash": "f5cfb33db781d646d36c579d5d3788b856e468ce2ad56efd8d856379cdd0b935",
+      "options": [
+        {
+          "id": "opt_8aba4a0b9e36",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_6b2ddd46566d",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_e4f59643890b",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_e03716117b1c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_ov4xyOdYje5rC0u0m7hygVDgOGE690cC",
+      "expiresAt": "2026-10-19T23:32:17.696Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:30:17.707Z",
+      "createdAt": "2026-10-19T23:30:17.696Z"
+    },
+    {
+      "id": "ch_a8ee7d49145a93e8620ad460",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «قفل (Lock) / Lock» را انتخاب کنید.",
+      "correctAnswerHash": "8275b73b730a205d1d41ed5beb9bf2e323423dd1b2e8cea2a4f997945853a09a",
+      "options": [
+        {
+          "id": "opt_76f2ac9e3e30",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_32faa80edaea",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_ee2f139fc6c5",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_89286a4ab24e",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_wVIpIk-rzpHKMxVLuFYTBP7mmBNhdBHc",
+      "expiresAt": "2026-10-19T23:32:17.724Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:30:17.734Z",
+      "createdAt": "2026-10-19T23:30:17.724Z"
+    },
+    {
+      "id": "ch_0e70b9fe6e5b676af5b02022",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «دوربین (Camera) / Camera» را انتخاب کنید.",
+      "correctAnswerHash": "281c8088ce280bc6ddf08c6f0e30a6e323df826204e71ee619e5c68ba4f0195b",
+      "options": [
+        {
+          "id": "opt_69d680d56832",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_e59fba548115",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_d359ba30e8aa",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_4ef681fe1a5e",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_edaRrubBBsHHAcZH-XI5Djq3HejwMy08",
+      "expiresAt": "2026-10-19T23:30:12.752Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-19T23:30:17.762Z",
+      "createdAt": "2026-10-19T23:30:17.749Z"
+    },
+    {
+      "id": "ch_977eec3de687d2629cd9b4dc",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «کلید (Key) / Key» را انتخاب کنید.",
+      "correctAnswerHash": "3ad35f0f7762e513a0be965a0666f5572c7a7c169036529a61dd371a30db030e",
+      "options": [
+        {
+          "id": "opt_3299024cc345",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_0be80becec30",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_3c83114f11d6",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_5d7f235b0b8e",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_g7-Us1oetCYUMd1e3Bg6MRjl7jbwz8Oh",
+      "expiresAt": "2026-10-20T11:15:32.841Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-20T11:13:32.842Z"
+    },
+    {
+      "id": "ch_251e03858b016efd05f06b23",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «اتومبیل (Car) / Car» را انتخاب کنید.",
+      "correctAnswerHash": "d7e491fb995fd146f457d23b47fac7d9b8482b0c4c5e0850c34f4a6b5eb0f164",
+      "options": [
+        {
+          "id": "opt_ef4cf3604c29",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_a7d258cf4441",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2306b6d4%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M14.5%204h-5L7%207H4a2%202%200%200%200-2%202v9a2%202%200%200%200%202%202h16a2%202%200%200%200%202-2V9a2%202%200%200%200-2-2h-3l-2.5-3z%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2213%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_56a06a8768ea",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_dd0fdb252bbf",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_awqgJOT6UQ3E0wDAqDjLEN1G4h6nczDq",
+      "expiresAt": "2026-10-20T11:15:32.866Z",
+      "attemptsCount": 1,
+      "maxAttempts": 3,
+      "isConsumed": false,
+      "solvedAt": null,
+      "createdAt": "2026-10-20T11:13:32.866Z"
+    },
+    {
+      "id": "ch_2bba560e9393844e5b5f063b",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «کلید (Key) / Key» را انتخاب کنید.",
+      "correctAnswerHash": "9ff9dd7f3b17ff26dddd96daf8c1a4820539cd8c30fed8db8f09b4a64aec431d",
+      "options": [
+        {
+          "id": "opt_bea012f29d41",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22m15.5%207.5%202.3%202.3a1%201%200%200%200%201.4%200l2.1-2.1a1%201%200%200%200%200-1.4L19%204%22%2F%3E%3Cpath%20d%3D%22m21%202-9.6%209.6%22%2F%3E%3Ccircle%20cx%3D%227.5%22%20cy%3D%2215.5%22%20r%3D%225.5%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_e2c18478c91a",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_cf7c25875d20",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_73f79b44b052",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_qFhnDlZ3sqPKTbf-HiHFWUjkOXtKJomX",
+      "expiresAt": "2026-10-20T11:15:32.889Z",
+      "attemptsCount": 3,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T11:13:32.936Z",
+      "createdAt": "2026-10-20T11:13:32.889Z"
+    },
+    {
+      "id": "ch_76ebe5d222f727db710d4f96",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «سپر امنیت (Shield) / Shield» را انتخاب کنید.",
+      "correctAnswerHash": "20ba825674387f144b12a4731ab732999541373e8742faa5240f998e58a8738a",
+      "options": [
+        {
+          "id": "opt_673f9f7cc3b5",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_05df3bac1634",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_b16097bc767c",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M6%208a6%206%200%200%201%2012%200c0%207%203%209%203%209H3s3-2%203-9%22%2F%3E%3Cpath%20d%3D%22M10.3%2021a1.94%201.94%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_bd0365f41fa1",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_7JwtOiyBra5B-dwCquCEegI9GGQ0nqwZ",
+      "expiresAt": "2026-10-20T11:15:32.966Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T11:13:32.979Z",
+      "createdAt": "2026-10-20T11:13:32.966Z"
+    },
+    {
+      "id": "ch_208d07d5fea4c1b734848800",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «قفل (Lock) / Lock» را انتخاب کنید.",
+      "correctAnswerHash": "698bac1e2582bd193b6088014738d9100f29669d69ad50809965844016f6fb43",
+      "options": [
+        {
+          "id": "opt_e85c4844a850",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2310b981%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z%22%2F%3E%3Cpath%20d%3D%22m9%2012%202%202%204-4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_6e1574069dce",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2314b8a6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%2F%3E%3Cpolyline%20points%3D%2212%206%2012%2012%2016%2014%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_cccf30f83957",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_dda89756ef43",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_nC4bS6zinukZEVrFPZcZpdb_w6eS9e2F",
+      "expiresAt": "2026-10-20T11:15:32.995Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T11:13:33.006Z",
+      "createdAt": "2026-10-20T11:13:32.995Z"
+    },
+    {
+      "id": "ch_aa6d2155c596518b6c4369eb",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "challengeType": "IMAGE_SELECTION",
+      "prompt": "تصویر «اتومبیل (Car) / Car» را انتخاب کنید.",
+      "correctAnswerHash": "4fa24d69a275da159d4a36d7e2379d583bf2ebebc3d04f7aa181a1fef1b5924b",
+      "options": [
+        {
+          "id": "opt_1b632acb80fa",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ec4899%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M19%2017h2c.6%200%201-.4%201-1v-3c0-.9-.7-1.7-1.5-1.9C18.7%2010.6%2016%2010%2016%2010s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6%200-1.1.4-1.4.9l-1.4%202.9A3.7%203.7%200%200%200%202%2012v4c0%20.6.4%201%201%201h2%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_6d40c1739bf3",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Cpath%20d%3D%22M17.5%2019H9a7%207%200%201%201%206.71-9h1.79a4.5%204.5%200%201%201%200%209Z%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_1e3f70c71879",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236366f1%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Crect%20width%3D%2218%22%20height%3D%2211%22%20x%3D%223%22%20y%3D%2211%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%2011V7a5%205%200%200%201%2010%200v4%22%2F%3E%3C%2Fsvg%3E"
+        },
+        {
+          "id": "opt_d607a11670b6",
+          "label": "",
+          "icon": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%233b82f6%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22w-12%20h-12%22%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%225.5%22%20cy%3D%2217.5%22%20r%3D%223.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%225%22%20r%3D%221%22%2F%3E%3Cpath%20d%3D%22M12%2017.5V14l-3-3%204-3%202%203h2%22%2F%3E%3C%2Fsvg%3E"
+        }
+      ],
+      "token": "sct_NluxElgYBzZiARG27-4w6oeypGumP5uK",
+      "expiresAt": "2026-10-20T11:13:28.025Z",
+      "attemptsCount": 0,
+      "maxAttempts": 3,
+      "isConsumed": true,
+      "solvedAt": "2026-10-20T11:13:33.033Z",
+      "createdAt": "2026-10-20T11:13:33.021Z"
     }
   ],
   "verificationEvents": [
+    {
+      "id": "ve_ce6250c7560dc01f",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_NluxElgYBzZiARG27-4w6oeypGumP5uK",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "challenge-expired"
+      ],
+      "consumedAt": "2026-10-20T11:13:33.034Z",
+      "createdAt": "2026-10-20T11:13:33.034Z"
+    },
+    {
+      "id": "ve_72bed17c8b9ec3fa",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_nC4bS6zinukZEVrFPZcZpdb_w6eS9e2F",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-20T11:13:33.013Z",
+      "createdAt": "2026-10-20T11:13:33.013Z"
+    },
+    {
+      "id": "ve_ab32ba96e3672be2",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_nC4bS6zinukZEVrFPZcZpdb_w6eS9e2F",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-20T11:13:33.007Z",
+      "createdAt": "2026-10-20T11:13:33.007Z"
+    },
+    {
+      "id": "ve_969ac5f84ea5561f",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_7JwtOiyBra5B-dwCquCEegI9GGQ0nqwZ",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-20T11:13:32.987Z",
+      "createdAt": "2026-10-20T11:13:32.987Z"
+    },
+    {
+      "id": "ve_8c901cdb6e741900",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_7JwtOiyBra5B-dwCquCEegI9GGQ0nqwZ",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-20T11:13:32.980Z",
+      "createdAt": "2026-10-20T11:13:32.980Z"
+    },
+    {
+      "id": "ve_f88b2de21ec0b35b",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_qFhnDlZ3sqPKTbf-HiHFWUjkOXtKJomX",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-20T11:13:32.946Z",
+      "createdAt": "2026-10-20T11:13:32.946Z"
+    },
+    {
+      "id": "ve_e7ff5072f5c6ebff",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_qFhnDlZ3sqPKTbf-HiHFWUjkOXtKJomX",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T11:13:32.937Z",
+      "createdAt": "2026-10-20T11:13:32.937Z"
+    },
+    {
+      "id": "ve_66b49e0b0b8f27a0",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_qFhnDlZ3sqPKTbf-HiHFWUjkOXtKJomX",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T11:13:32.917Z",
+      "createdAt": "2026-10-20T11:13:32.917Z"
+    },
+    {
+      "id": "ve_361b88892e622f11",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_qFhnDlZ3sqPKTbf-HiHFWUjkOXtKJomX",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T11:13:32.904Z",
+      "createdAt": "2026-10-20T11:13:32.904Z"
+    },
+    {
+      "id": "ve_a83a1a021a8d2863",
+      "siteKey": "sc_site_test_89e58fbd932e",
+      "token": "sct_awqgJOT6UQ3E0wDAqDjLEN1G4h6nczDq",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-20T11:13:32.880Z",
+      "createdAt": "2026-10-20T11:13:32.880Z"
+    },
+    {
+      "id": "ve_c0446b2c7070443e",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_edaRrubBBsHHAcZH-XI5Djq3HejwMy08",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "challenge-expired"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.763Z",
+      "createdAt": "2026-10-19T23:30:17.763Z"
+    },
+    {
+      "id": "ve_2004da707544f22e",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_wVIpIk-rzpHKMxVLuFYTBP7mmBNhdBHc",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.741Z",
+      "createdAt": "2026-10-19T23:30:17.741Z"
+    },
+    {
+      "id": "ve_bd6f15c31c14b3ad",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_wVIpIk-rzpHKMxVLuFYTBP7mmBNhdBHc",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-19T23:30:17.736Z",
+      "createdAt": "2026-10-19T23:30:17.736Z"
+    },
+    {
+      "id": "ve_5477ff8d7c3e1f7d",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_ov4xyOdYje5rC0u0m7hygVDgOGE690cC",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.716Z",
+      "createdAt": "2026-10-19T23:30:17.716Z"
+    },
+    {
+      "id": "ve_973a5f2784e0b468",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_ov4xyOdYje5rC0u0m7hygVDgOGE690cC",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-19T23:30:17.708Z",
+      "createdAt": "2026-10-19T23:30:17.708Z"
+    },
+    {
+      "id": "ve_44eef42de3dba825",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_OkbOiXk822dGdP6a2Xly5eXrFnuYm3qq",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.689Z",
+      "createdAt": "2026-10-19T23:30:17.689Z"
+    },
+    {
+      "id": "ve_d58fa0e6ea8733d5",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_OkbOiXk822dGdP6a2Xly5eXrFnuYm3qq",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.682Z",
+      "createdAt": "2026-10-19T23:30:17.682Z"
+    },
+    {
+      "id": "ve_7f630ce162be96df",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_OkbOiXk822dGdP6a2Xly5eXrFnuYm3qq",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.670Z",
+      "createdAt": "2026-10-19T23:30:17.670Z"
+    },
+    {
+      "id": "ve_5e5e8a8586461c25",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_OkbOiXk822dGdP6a2Xly5eXrFnuYm3qq",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.659Z",
+      "createdAt": "2026-10-19T23:30:17.659Z"
+    },
+    {
+      "id": "ve_3fece259d299fc3a",
+      "siteKey": "sc_site_test_e2b9ebc12dfb",
+      "token": "sct_lZAkYKCIIMXRjeXxR0Aok6WRWApAE60V",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:30:17.642Z",
+      "createdAt": "2026-10-19T23:30:17.642Z"
+    },
+    {
+      "id": "ve_63fa76d90b075c73",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_yEbgFd1SbYRHadov8jt0KSG3JLaOg3Tw",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "challenge-expired"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.965Z",
+      "createdAt": "2026-10-19T23:29:49.965Z"
+    },
+    {
+      "id": "ve_732f5f276b34441a",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_lBNFNU59GUdUenN_o6wEjjcOvJ7amLL9",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.946Z",
+      "createdAt": "2026-10-19T23:29:49.946Z"
+    },
+    {
+      "id": "ve_ee03a93e8a51dcb6",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_lBNFNU59GUdUenN_o6wEjjcOvJ7amLL9",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-19T23:29:49.942Z",
+      "createdAt": "2026-10-19T23:29:49.942Z"
+    },
+    {
+      "id": "ve_b9a916f9962a9bc2",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_bbcnTQTgSpVI8qQ0sH8YZLJUsW5U6zsl",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.925Z",
+      "createdAt": "2026-10-19T23:29:49.925Z"
+    },
+    {
+      "id": "ve_f897fb41bddaf139",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_bbcnTQTgSpVI8qQ0sH8YZLJUsW5U6zsl",
+      "success": true,
+      "score": 95,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [],
+      "consumedAt": "2026-10-19T23:29:49.917Z",
+      "createdAt": "2026-10-19T23:29:49.917Z"
+    },
+    {
+      "id": "ve_9dcf3b3138074114",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_B318d3xCfnh9NJatI-vGWXmH8tdYoa20",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "timeout-or-duplicate"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.899Z",
+      "createdAt": "2026-10-19T23:29:49.899Z"
+    },
+    {
+      "id": "ve_17bc551eea062701",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_B318d3xCfnh9NJatI-vGWXmH8tdYoa20",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.892Z",
+      "createdAt": "2026-10-19T23:29:49.892Z"
+    },
+    {
+      "id": "ve_a4add5e9de0fe976",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_B318d3xCfnh9NJatI-vGWXmH8tdYoa20",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.879Z",
+      "createdAt": "2026-10-19T23:29:49.879Z"
+    },
+    {
+      "id": "ve_99993944d7713870",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_B318d3xCfnh9NJatI-vGWXmH8tdYoa20",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.868Z",
+      "createdAt": "2026-10-19T23:29:49.868Z"
+    },
+    {
+      "id": "ve_5032a37c5db68dee",
+      "siteKey": "sc_site_test_a21216d1e976",
+      "token": "sct_1VSqACxtKayT9gXgGupFcWJpC4JGljrr",
+      "success": false,
+      "score": 0,
+      "hostname": "127.0.0.1",
+      "action": "verify",
+      "clientIp": "127.0.0.1",
+      "errorCodes": [
+        "incorrect-captcha-sol"
+      ],
+      "consumedAt": "2026-10-19T23:29:49.850Z",
+      "createdAt": "2026-10-19T23:29:49.850Z"
+    },
     {
       "id": "ve_9a3bee3636319eb0",
       "siteKey": "sc_site_test_021f907e1ce6",
