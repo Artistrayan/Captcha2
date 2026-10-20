@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, security-hardening-oct-2026]
+    branches: [main]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: shieldcaptcha-ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
