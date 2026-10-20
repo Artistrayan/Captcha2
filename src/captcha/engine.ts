@@ -462,7 +462,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
   }
 
   // 6. ATOMIC CONSUMPTION: consume token immediately upon successful verification!
-  const consumed = await dbRepository.consumeChallengeToken(input.token);
+  const consumed = await dbRepository.consumeChallengeToken(input.token, true);
   if (!consumed) {
     // If another concurrent request consumed it first
     errorCodes.push('timeout-or-duplicate');
