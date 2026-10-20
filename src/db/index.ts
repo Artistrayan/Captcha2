@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema.ts';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 const { Pool } = pg;
 
@@ -461,18 +461,25 @@ export const dbRepository = {
 
   async incrementChallengeAttempts(id: string): Promise<number> {
     if (isPgConnected && drizzleDb) {
+      // Increment in one conditional SQL statement so concurrent requests cannot
+      // lose increments or push the counter past maxAttempts.
+      const rows = await drizzleDb.update(schema.captchaChallenges)
+        .set({ attemptsCount: sql`${schema.captchaChallenges.attemptsCount} + 1` })
+        .where(and(
+          eq(schema.captchaChallenges.id, id),
+          eq(schema.captchaChallenges.isConsumed, false),
+          sql`${schema.captchaChallenges.attemptsCount} < ${schema.captchaChallenges.maxAttempts}`
+        ))
+        .returning({ attemptsCount: schema.captchaChallenges.attemptsCount });
+      if (rows[0]) return rows[0].attemptsCount;
       const challenge = await this.getChallengeById(id);
-      if (!challenge) return 0;
-      const newCount = challenge.attemptsCount + 1;
-      await drizzleDb.update(schema.captchaChallenges)
-        .set({ attemptsCount: newCount })
-        .where(eq(schema.captchaChallenges.id, id));
-      return newCount;
+      return challenge?.attemptsCount || 0;
     }
 
     const state = loadState();
     const c = state.captchaChallenges.find(x => x.id === id);
     if (!c) return 0;
+    if (c.isConsumed || c.attemptsCount >= c.maxAttempts) return c.attemptsCount;
     c.attemptsCount = (c.attemptsCount || 0) + 1;
     saveState(state);
     return c.attemptsCount;
