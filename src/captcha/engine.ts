@@ -22,6 +22,12 @@ export interface GeneratedChallenge {
 // Crisp, self-contained SVG icon templates for categories
 // Completely local - no external images or network dependencies!
 const SVG_ICONS: Record<string, string> = {
+  star: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2z"/></svg>`,
+  heart: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8z"/></svg>`,
+  book: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  house: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9M9 21v-7h6v7"/></svg>`,
+  leaf: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round"><path d="M20 4c-8 0-14 3-14 10a6 6 0 0 0 6 6c7 0 8-8 8-16z"/><path d="M3 21c3-6 7-9 13-12"/></svg>`,
+  music: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
   shield: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
   lock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
   key: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>`,
@@ -134,16 +140,19 @@ export async function issueCaptchaChallenge(
   const targetCategoryIndex = crypto.randomInt(0, CATEGORIES.length);
   const targetCategory = CATEGORIES[targetCategoryIndex];
 
-  // Pick 3 distractor categories
+  // Difficulty controls the number of visually plausible distractors.
+  const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
+
+  // Pick distractor categories with cryptographic shuffling.
   const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
   // Shuffle other categories using Fisher-Yates with crypto.randomInt
   for (let i = otherCategories.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
     [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
   }
-  const selectedDistractors = otherCategories.slice(0, 3);
+  const selectedDistractors = otherCategories.slice(0, optionCount - 1);
 
-  // Combine target and distractors (total 4 choices)
+  // Combine target and distractors (difficulty-dependent choices)
   const challengeSet = [targetCategory, ...selectedDistractors];
   // Shuffle challengeSet
   for (let i = challengeSet.length - 1; i > 0; i--) {
@@ -170,7 +179,7 @@ export async function issueCaptchaChallenge(
 
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
   const token = `sct_${crypto.randomBytes(24).toString('base64url')}`;
-  const expiresInSeconds = 120; // 2 minutes TTL
+  const expiresInSeconds = site.challengeDifficulty === 'HIGH' ? 75 : 90;
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
   // Compute secure HMAC hash of correct option ID
