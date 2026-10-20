@@ -381,9 +381,12 @@ export const dbRepository = {
     const siteIdx = state.sites.findIndex(s => s.id === id && s.userId === userId);
     if (siteIdx === -1) return false;
 
+    const deletedSite = state.sites[siteIdx];
     state.sites.splice(siteIdx, 1);
-    // Cascade delete challenges
-    state.captchaChallenges = state.captchaChallenges.filter(c => c.siteKey !== state.sites[siteIdx]?.siteKey);
+    // Mirror PostgreSQL ON DELETE CASCADE behavior in local development storage.
+    state.captchaChallenges = state.captchaChallenges.filter(c => c.siteKey !== deletedSite.siteKey);
+    state.apiKeys = state.apiKeys.filter(key => key.siteId !== deletedSite.id);
+    state.usageRecords = state.usageRecords.filter(record => record.siteId !== deletedSite.id);
     saveState(state);
     return true;
   },
