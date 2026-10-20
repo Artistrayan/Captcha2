@@ -143,36 +143,52 @@ export async function issueCaptchaChallenge(
     }
   }
 
-  // Select target category using CSPRNG
-  const targetCategoryIndex = crypto.randomInt(0, CATEGORIES.length);
-  const targetCategory = CATEGORIES[targetCategoryIndex];
+  // Pick one of three visual challenge modes using a cryptographically secure RNG.
+  const challengeMode = (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH'] as const)[crypto.randomInt(0, 3)];
+  const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
+  const targetPool = challengeMode === 'ROTATION_MATCH' ? rotationCategories : CATEGORIES;
+  const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
 
   // Difficulty controls the number of visually plausible distractors.
   const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
-  const challengeMode = crypto.randomInt(0, 2) === 0 ? 'IMAGE_SELECTION' : 'ODD_ONE_OUT';
   const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
   for (let i = otherCategories.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
     [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
   }
 
-  // Each mode has one server-verified correct option.
-  const challengeItems: Array<{ category: string; correct: boolean }> =
-    challengeMode === 'ODD_ONE_OUT'
+  const rotationAngles = [45, 90, 135, 180, 225, 270, 315];
+  for (let i = rotationAngles.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [rotationAngles[i], rotationAngles[j]] = [rotationAngles[j], rotationAngles[i]];
+  }
+
+  // Each mode has exactly one server-verified correct option.
+  const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number }> =
+    challengeMode === 'ROTATION_MATCH'
       ? [
-          { category: targetCategory, correct: true },
-          ...Array.from({ length: optionCount - 1 }, () => ({
-            category: otherCategories[0],
+          { category: targetCategory, correct: true, rotationAngle: 0 },
+          ...rotationAngles.slice(0, optionCount - 1).map(rotationAngle => ({
+            category: targetCategory,
             correct: false,
+            rotationAngle,
           })),
         ]
-      : [
-          { category: targetCategory, correct: true },
-          ...otherCategories.slice(0, optionCount - 1).map(category => ({
-            category,
-            correct: false,
-          })),
-        ];
+      : challengeMode === 'ODD_ONE_OUT'
+        ? [
+            { category: targetCategory, correct: true },
+            ...Array.from({ length: optionCount - 1 }, () => ({
+              category: otherCategories[0],
+              correct: false,
+            })),
+          ]
+        : [
+            { category: targetCategory, correct: true },
+            ...otherCategories.slice(0, optionCount - 1).map(category => ({
+              category,
+              correct: false,
+            })),
+          ];
 
   for (let i = challengeItems.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
@@ -184,7 +200,13 @@ export async function issueCaptchaChallenge(
   for (const item of challengeItems) {
     const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
     if (item.correct) correctOptionId = optId;
-    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(SVG_ICONS[item.category])}`;
+    let optionSvg = SVG_ICONS[item.category];
+    if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
+      optionSvg = optionSvg
+        .replace(/(<svg\\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`)
+        .replace(/<\\/svg>\\s*$/, '</g></svg>');
+    }
+    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}`;
     options.push({ id: optId, svg: encodedSvg });
   }
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
@@ -211,7 +233,20 @@ export async function issueCaptchaChallenge(
         pt: 'Selecione a imagem diferente das outras.',
         ja: 'ほかと異なる画像を選択してください。',
       } as Record<string, string>)[lang] || 'Select the image that is different from the others.'
-    : generatePromptForLanguage(targetCategory, lang);
+    : challengeMode === 'ROTATION_MATCH'
+      ? ({
+          fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.',
+          en: 'Select the image that is upright.',
+          es: 'Seleccione la imagen que está en la orientación correcta.',
+          zh: '请选择方向正确的图片。',
+          ar: 'اختر الصورة ذات الاتجاه الصحيح.',
+          fr: 'Sélectionnez l’image dans le bon sens.',
+          de: 'Wählen Sie das richtig ausgerichtete Bild.',
+          ru: 'Выберите изображение в правильной ориентации.',
+          pt: 'Selecione a imagem na orientação correta.',
+          ja: '正しい向きの画像を選択してください。',
+        } as Record<string, string>)[lang] || 'Select the image that is upright.'
+      : generatePromptForLanguage(targetCategory, lang);
 
   // Persist challenge in database
   await dbRepository.createChallenge({
