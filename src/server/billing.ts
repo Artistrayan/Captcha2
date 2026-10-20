@@ -68,7 +68,8 @@ billingRouter.use(requireBillingAuth);
 const billingRateLimits = new Map<string, { count: number; resetAt: number }>();
 billingRouter.use((req, res, next) => {
   const userId = (req as any).billingUser?.id || 'unknown';
-  const key = `${userId}:${req.method}:${req.path.split('/').slice(0, 2).join('/')}`;
+  const category = req.path.includes('/verify') ? 'verify' : req.path === '/invoices' ? 'invoices' : req.path;
+  const key = `${userId}:${req.method}:${category}`;
   const now = Date.now();
   if (billingRateLimits.size > 3000) {
     for (const [storedKey, value] of billingRateLimits) if (value.resetAt <= now) billingRateLimits.delete(storedKey);
@@ -116,8 +117,8 @@ billingRouter.post('/invoices', async (req, res) => {
   if (!configReady()) { res.status(503).json({ error: 'Crypto payments are not configured yet.' }); return; }
   try {
     const plan = PLANS[planId];
-    const extraCents = crypto.randomInt(1, 100);
-    const amountCents = plan.baseCents + extraCents;
+    // Keep published plan pricing exact; the submitted transaction ID identifies the invoice.
+    const amountCents = plan.baseCents;
     const id = 'inv_' + crypto.randomBytes(12).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
     const result = await getPool().query(
