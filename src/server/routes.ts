@@ -6,6 +6,7 @@ import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSes
 import { issueCaptchaChallenge, verifyCaptchaResponse } from '../captcha/engine.ts';
 
 export const apiRouter = Router();
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
 // In-memory sliding window rate limiter
 interface RateLimitEntry {
@@ -63,8 +64,8 @@ apiRouter.get('/health', (req: Request, res: Response) => {
   const dbStatus = getDatabaseStatus();
   const firebaseStatus = getFirebaseStatus();
 
-  const isHealthy = (process.env.NODE_ENV !== 'production' || dbStatus.isPostgresConnected) &&
-    (process.env.NODE_ENV !== 'production' || firebaseStatus.isInitialized);
+  const isHealthy = (!IS_PRODUCTION || dbStatus.isPostgresConnected) &&
+    (!IS_PRODUCTION || firebaseStatus.isInitialized);
   res.status(isHealthy ? 200 : 503).json({
     status: isHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
@@ -77,7 +78,7 @@ apiRouter.get('/health', (req: Request, res: Response) => {
 
 // 2. Development-only session endpoint. Production must use verified Firebase ID tokens.
 apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res: Response) => {
-  if (process.env.NODE_ENV === 'production') {
+  if (IS_PRODUCTION) {
     res.status(404).json({ error: 'Not Found', message: 'Development session authentication is disabled in production.' });
     return;
   }
@@ -273,7 +274,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
       requestDomain = undefined;
     }
   }
-  if (process.env.NODE_ENV !== 'production') {
+  if (!IS_PRODUCTION) {
     requestDomain = parsed.data.domain || requestDomain;
   }
 
