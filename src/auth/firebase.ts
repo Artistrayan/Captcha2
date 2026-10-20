@@ -4,17 +4,17 @@ import jwt from 'jsonwebtoken';
 import { dbRepository } from '../db/index.ts';
 import { User } from '../db/schema.ts';
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.SESSION_JWT_SECRET || 'shield_captcha_secure_jwt_secret_default_2026';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const JWT_SECRET = process.env.SESSION_JWT_SECRET || (IS_PRODUCTION ? '' : 'local-development-only-jwt-secret-change-before-deploy');
 
-if (IS_PRODUCTION && !process.env.SESSION_JWT_SECRET) {
-  console.warn('[Auth] SESSION_JWT_SECRET not provided in environment; using default fallback secret. Please set SESSION_JWT_SECRET in production.');
+if (IS_PRODUCTION && !JWT_SECRET) {
+  throw new Error('[Auth] SESSION_JWT_SECRET is required in production; refusing to start with a default secret.');
 }
 
 export interface FirebaseAdminStatus {
   isInitialized: boolean;
   projectId?: string;
-  authMode: 'firebase_admin_live' | 'development_session_jwt';
+  authMode: 'firebase_admin_live' | 'development_session_jwt' | 'unavailable';
   missingConfig?: string[];
 }
 
@@ -27,7 +27,9 @@ let firebaseAuth: Auth | undefined;
 const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
 const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-if (firebaseProjectId || serviceAccountKey) {
+if (IS_PRODUCTION && !serviceAccountKey) {
+  initError = 'FIREBASE_SERVICE_ACCOUNT_KEY is required in production.';
+} else if (firebaseProjectId || serviceAccountKey) {
   try {
     if (getApps().length === 0) {
       if (serviceAccountKey) {
@@ -53,13 +55,13 @@ if (firebaseProjectId || serviceAccountKey) {
 
 export function getFirebaseStatus(): FirebaseAdminStatus {
   const missing: string[] = [];
-  if (!process.env.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID');
+  if (!firebaseProjectId) missing.push('FIREBASE_PROJECT_ID');
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) missing.push('FIREBASE_SERVICE_ACCOUNT_KEY');
 
   return {
     isInitialized: isFirebaseAdminInitialized,
     projectId: firebaseProjectId,
-    authMode: isFirebaseAdminInitialized ? 'firebase_admin_live' : 'development_session_jwt',
+    authMode: isFirebaseAdminInitialized ? 'firebase_admin_live' : (IS_PRODUCTION ? 'unavailable' : 'development_session_jwt'),
     missingConfig: missing.length > 0 ? missing : undefined,
   };
 }
@@ -86,6 +88,7 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
 
   // 1. Verify if token is a server session JWT signed by SESSION_JWT_SECRET
   try {
+    if (!JWT_SECRET) throw new Error('JWT secret is not configured');
     const verified = jwt.verify(cleanToken, JWT_SECRET) as any;
     if (verified && verified.uid && verified.email) {
       return {

@@ -42,8 +42,11 @@ export default function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   // User session state (Defaults to developer session)
-  const [userEmail, setUserEmail] = useState<string>('developer@shieldcaptcha.dev');
+  const [userEmail, setUserEmail] = useState<string>(import.meta.env.DEV ? 'developer@shieldcaptcha.dev' : '');
   const [authToken, setAuthToken] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string>('');
+  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [sites, setSites] = useState<SiteItem[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState<boolean>(true);
   const [selectedSiteKey, setSelectedSiteKey] = useState<string>('');
@@ -65,6 +68,7 @@ export default function App() {
 
   // Playground & Test Suite states
   const [lastVerifiedToken, setLastVerifiedToken] = useState<string | null>(null);
+  const [lastVerifiedSiteKey, setLastVerifiedSiteKey] = useState<string | null>(null);
   const [lastVerificationData, setLastVerificationData] = useState<any>(null);
   const [testResultLog, setTestResultLog] = useState<{
     title: string;
@@ -77,6 +81,8 @@ export default function App() {
 
   // Audit Logs
   const [logs, setLogs] = useState<any[]>([]);
+  const [hourlyTraffic, setHourlyTraffic] = useState<Array<{ hour: string; passed: number; blocked: number }>>([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState({ totalRequests: 0, passedRequests: 0, blockedRequests: 0, passRatePercent: 0 });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Initialize session & fetch health
@@ -86,28 +92,65 @@ export default function App() {
       .then(data => setHealth(data))
       .catch(console.error);
 
-    // Login dev session
-    loginUser(userEmail);
+    // Developer sessions are only permitted in local development. Production must use real Firebase sign-in.
+    if (import.meta.env.DEV) {
+      loginUser(userEmail);
+    } else {
+      setIsLoadingSites(false);
+    }
   }, []);
 
-  const loginUser = async (email: string): Promise<string> => {
+  const loginUser = async (email: string, password?: string): Promise<string> => {
     setIsLoadingSites(true);
+    setIsSigningIn(true);
+    setAuthError('');
     try {
-      const res = await fetch('/api/v1/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name: email.split('@')[0] }),
-      });
-      const data = await res.json();
-      if (data.token) {
+      if (import.meta.env.DEV) {
+        const res = await fetch('/api/v1/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name: email.split('@')[0] }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.token) throw new Error(data.message || 'ورود آزمایشی ناموفق بود');
         setAuthToken(data.token);
         fetchSites(data.token);
         return data.token;
       }
-    } catch (err) {
-      console.error('Session login error:', err);
+
+      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+      if (!apiKey) throw new Error('کلید عمومی Firebase در تنظیمات ساخت سایت تعریف نشده است.');
+      if (!health?.firebaseAuth.isInitialized) throw new Error('احراز هویت سمت سرور آماده نیست؛ تنظیمات Firebase Admin را بررسی کنید.');
+      if (!password) throw new Error('گذرواژه را وارد کنید.');
+
+      const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.idToken) {
+        const code = data?.error?.message;
+        const messages: Record<string, string> = {
+          EMAIL_NOT_FOUND: 'این ایمیل در Firebase ثبت نشده است.',
+          INVALID_PASSWORD: 'گذرواژه صحیح نیست.',
+          INVALID_LOGIN_CREDENTIALS: 'ایمیل یا گذرواژه صحیح نیست.',
+          USER_DISABLED: 'این حساب غیرفعال شده است.',
+          TOO_MANY_ATTEMPTS_TRY_LATER: 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
+        };
+        throw new Error(messages[code] || 'ورود Firebase ناموفق بود.');
+      }
+      setAuthToken(data.idToken);
+      setUserEmail(data.email || email);
+      setAuthPassword('');
+      fetchSites(data.idToken);
+      return data.idToken;
+    } catch (err: any) {
+      setAuthError(err?.message || 'ورود ناموفق بود.');
+      if (import.meta.env.DEV) console.error('Session login error:', err);
     } finally {
       setIsLoadingSites(false);
+      setIsSigningIn(false);
     }
     return '';
   };
@@ -120,6 +163,13 @@ export default function App() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      if (res.status === 401) {
+        setAuthToken('');
+        setSites([]);
+        setSelectedSiteKey('');
+        setAuthError('نشست ورود معتبر نیست؛ دوباره وارد شوید.');
+        return;
+      }
       if (data.sites) {
         setSites(data.sites);
         if (data.sites.length > 0 && !selectedSiteKey) {
@@ -214,87 +264,102 @@ export default function App() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Run security test scenarios right from the playground UI!
-  const runSecurityTest = async (scenario: 'wrong_answer' | 'replay_attack' | 'expired_token' | 'backend_verify') => {
+  // Run security test scenarios right from the playground UI.
+  const runSecurityTest = async (scenario: 'wrong_answer' | 'replay_attack' | 'backend_verify') => {
     if (!selectedSiteKey) return;
     setIsTestingScenario(true);
     setTestResultLog(null);
 
     try {
-      // 1. First issue a fresh challenge
+      if (scenario === 'replay_attack') {
+        if (!lastVerifiedToken || lastVerifiedSiteKey !== selectedSiteKey) {
+          setTestResultLog({
+            title: 'برای آزمون بازپخش ابتدا همین سایت را با ویجت تأیید کنید',
+            status: 'failed',
+            code: 'verified-token-required',
+            payload: { message: 'ابتدا کپچای ویجت زنده را با موفقیت حل کنید؛ سپس همین توکن تأییدشده را برای آزمون بازپخش دوباره ارسال می‌کنیم.' },
+            timestamp: new Date().toLocaleTimeString('fa-IR'),
+          });
+          return;
+        }
+
+        // A previously solved token must be rejected when reused.
+        const replayRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: lastVerifiedToken, selectedOptionId: 'opt_replay_probe' }),
+        });
+        const replayData = await replayRes.json();
+        const blocked = replayData.error_codes?.includes('timeout-or-duplicate');
+        setTestResultLog({
+          title: 'تست محافظت در برابر بازپخش توکن (Replay Attack Prevention)',
+          status: blocked ? 'success' : 'failed',
+          code: replayData.error_codes?.[0],
+          payload: {
+            replayAttempt: replayData,
+            securityResult: blocked ? 'موفق: توکن حل‌شده و مصرف‌شده دوباره پذیرفته نشد.' : 'ناموفق: پاسخ سرور مطابق انتظار نبود.',
+          },
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+        });
+        return;
+      }
+
+      // Issue a fresh challenge for the negative-answer and invalid-secret tests.
       const chRes = await fetch('/api/v1/captcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ siteKey: selectedSiteKey, domain: 'localhost' }),
       });
       const challenge = await chRes.json();
+      if (!chRes.ok || !challenge.token) throw new Error(challenge.message || challenge.code || 'Challenge issuance failed');
 
       if (scenario === 'wrong_answer') {
+        let fourthAttempt: any;
+        for (let i = 0; i < 4; i++) {
+          const verifyRes = await fetch('/api/v1/captcha/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
+          });
+          const attemptData = await verifyRes.json();
+          if (i === 3) fourthAttempt = attemptData;
+        }
+        const fifthRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
+        });
+        const fifthAttempt = await fifthRes.json();
+        const fourthAllowed = fourthAttempt?.error_codes?.includes('incorrect-captcha-sol');
+        const fifthBlocked = fifthAttempt.error_codes?.some((code: string) => ['timeout-or-duplicate', 'max-attempts-exceeded'].includes(code));
+        setTestResultLog({
+          title: 'تست چهار تلاش مجاز و مسدودشدن تلاش پنجم',
+          status: fourthAllowed && fifthBlocked ? 'success' : 'failed',
+          code: fifthAttempt.error_codes?.[0],
+          payload: { fourthIncorrectAttempt: fourthAttempt, fifthBlockedAttempt: fifthAttempt },
+          timestamp: new Date().toLocaleTimeString('fa-IR'),
+        });
+      } else {
+        // Never send a real private key from this browser-based lab.
         const verifyRes = await fetch('/api/v1/captcha/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             token: challenge.token,
-            selectedOptionId: 'opt_deliberately_wrong_id_9999',
+            secretKey: 'sc_sec_intentionally_invalid_test_key',
+            action: 'security_lab_invalid_secret',
           }),
         });
         const vData = await verifyRes.json();
+        const rejected = vData.success === false && vData.error_codes?.includes('invalid-secret-key');
         setTestResultLog({
-          title: 'تست پاسخ اشتباه (Wrong Answer Rejection)',
-          status: vData.success === false ? 'success' : 'failed',
+          title: 'تست رد کلید محرمانه نامعتبر',
+          status: rejected ? 'success' : 'failed',
           code: vData.error_codes?.[0],
-          payload: vData,
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-        });
-      } else if (scenario === 'replay_attack') {
-        // Find correct answer or simulate token verification
-        // 1st verify attempt
-        const firstOpt = challenge.options?.[0]?.id || 'opt_1';
-        const v1 = await fetch('/api/v1/captcha/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: challenge.token, selectedOptionId: firstOpt }),
-        });
-        const d1 = await v1.json();
-
-        // 2nd verify attempt with SAME token (Replay Attack)
-        const v2 = await fetch('/api/v1/captcha/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: challenge.token, selectedOptionId: firstOpt }),
-        });
-        const d2 = await v2.json();
-
-        setTestResultLog({
-          title: 'تست محافظت در برابر بازپخش توکن (Replay Attack Prevention)',
-          status: (d2.error_codes?.includes('timeout-or-duplicate')) ? 'success' : 'failed',
-          code: d2.error_codes?.[0],
           payload: {
-            firstAttempt: d1,
-            secondAttemptReplay: d2,
-            securityResult: d2.error_codes?.includes('timeout-or-duplicate')
-              ? 'موفق: تلاش دوم با خطای timeout-or-duplicate مسدود شد'
-              : 'ناموفق',
+            ...vData,
+            securityResult: rejected ? 'موفق: سرور کلید محرمانهٔ نامعتبر را رد کرد.' : 'ناموفق: پاسخ سرور مطابق انتظار نبود.',
           },
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
-        });
-      } else if (scenario === 'backend_verify') {
-        // Direct Server-to-Server verification simulation
-        const verifyRes = await fetch('/api/v1/captcha/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: lastVerifiedToken || challenge.token,
-            hostname: 'localhost',
-            action: 'payment_checkout',
-          }),
-        });
-        const vData = await verifyRes.json();
-        setTestResultLog({
-          title: 'تأیید مستقیم سمت سرور (Server-to-Server Verify Response)',
-          status: 'success',
-          code: vData.success ? 'human_verified' : vData.error_codes?.[0],
-          payload: vData,
           timestamp: new Date().toLocaleTimeString('fa-IR'),
         });
       }
@@ -316,8 +381,19 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
-      if (data.recentEvents) {
+      if (res.ok && data.summary) {
+        setAnalyticsSummary({
+          totalRequests: Number(data.summary.totalRequests) || 0,
+          passedRequests: Number(data.summary.passedRequests) || 0,
+          blockedRequests: Number(data.summary.blockedRequests) || 0,
+          passRatePercent: Number(data.summary.passRatePercent) || 0,
+        });
+      }
+      if (res.ok && data.recentEvents) {
         setLogs(data.recentEvents);
+      }
+      if (res.ok && Array.isArray(data.hourlyTraffic)) {
+        setHourlyTraffic(data.hourlyTraffic);
       }
     } catch (err) {
       console.error(err);
@@ -330,54 +406,40 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Aggregated traffic trend over the last 24 hours
+  // The chart uses complete server-side hourly aggregates, not the latest 50 log rows.
   const traffic24hData = useMemo(() => {
     const now = new Date();
-    const result: Array<{
-      hour: string;
-      fullTime: string;
-      passed: number;
-      blocked: number;
-      total: number;
-    }> = [];
-
-    // 24 buckets: from 23 hours ago to now
+    const buckets = new Map<string, { hour: string; passed: number; blocked: number; total: number }>();
     for (let i = 23; i >= 0; i--) {
-      const bucketStart = new Date(now.getTime() - (i + 1) * 3600 * 1000);
       const bucketEnd = new Date(now.getTime() - i * 3600 * 1000);
-
-      const hourNumber = bucketEnd.getHours();
-      const hourStr = `${hourNumber.toString().padStart(2, '0')}:00`;
-
-      const eventsInHour = logs.filter(item => {
-        if (!item.createdAt) return false;
-        const time = new Date(item.createdAt).getTime();
-        return time >= bucketStart.getTime() && time < bucketEnd.getTime();
-      });
-
-      const passed = eventsInHour.filter(e => e.success).length;
-      const blocked = eventsInHour.filter(e => !e.success).length;
-
-      result.push({
-        hour: hourStr,
-        fullTime: bucketEnd.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-        passed,
-        blocked,
-        total: passed + blocked,
-      });
+      bucketEnd.setUTCMinutes(0, 0, 0);
+      const key = new Date(bucketEnd).toISOString();
+      const hour = `${bucketEnd.getHours().toString().padStart(2, '0')}:00`;
+      buckets.set(key, { hour, passed: 0, blocked: 0, total: 0 });
     }
 
-    return result;
-  }, [logs]);
+    for (const item of hourlyTraffic) {
+      const eventHour = new Date(item.hour);
+      eventHour.setUTCMinutes(0, 0, 0);
+      const key = eventHour.toISOString();
+      const bucket = buckets.get(key);
+      if (bucket) {
+        bucket.passed = Number(item.passed) || 0;
+        bucket.blocked = Number(item.blocked) || 0;
+        bucket.total = bucket.passed + bucket.blocked;
+      }
+    }
 
-  // Summary statistics for last 24 hours
-  const trafficStats = useMemo(() => {
-    const total = logs.length;
-    const passed = logs.filter(l => l.success).length;
-    const blocked = total - passed;
-    const rate = total > 0 ? Math.round((passed / total) * 100) : 100;
-    return { total, passed, blocked, rate };
-  }, [logs]);
+    return [...buckets.values()];
+  }, [hourlyTraffic]);
+
+  // Summary cards use server-side aggregates for the full 24-hour window.
+  const trafficStats = useMemo(() => ({
+    total: analyticsSummary.totalRequests,
+    passed: analyticsSummary.passedRequests,
+    blocked: analyticsSummary.blockedRequests,
+    rate: analyticsSummary.passRatePercent,
+  }), [analyticsSummary]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30">
@@ -405,7 +467,7 @@ export default function App() {
               <Database className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-slate-400">ذخیره‌سازی:</span>
               <span className="font-mono text-emerald-400 font-medium">
-                {health?.database.isPostgresConnected ? 'PostgreSQL (Cloud SQL)' : 'Drizzle File Storage'}
+                {health?.database.isPostgresConnected ? 'PostgreSQL (Cloud SQL)' : (import.meta.env.PROD ? 'Database unavailable' : 'Drizzle File Storage')}
               </span>
             </div>
 
@@ -413,12 +475,12 @@ export default function App() {
               <Lock className="w-3.5 h-3.5 text-teal-400" />
               <span className="text-slate-400">احراز هویت:</span>
               <span className="font-mono text-teal-400 font-medium">
-                {health?.firebaseAuth.isInitialized ? 'Firebase Admin Live' : 'JWT Session Admin'}
+                {health?.firebaseAuth.isInitialized ? 'Firebase Admin Live' : (import.meta.env.PROD ? 'Firebase not configured' : 'Development JWT')}
               </span>
             </div>
 
-            {/* User Tenant Switcher for Testing Isolation */}
-            <select
+            {/* Test-only tenant switcher; never expose simulated identities in production. */}
+            {import.meta.env.DEV && <select
               value={userEmail}
               onChange={(e) => {
                 setUserEmail(e.target.value);
@@ -429,8 +491,24 @@ export default function App() {
               <option value="developer@shieldcaptcha.dev">حساب: Developer (Admin)</option>
               <option value="alice@shieldcaptcha.dev">حساب: Alice (کاربر تست ۱)</option>
               <option value="bob@shieldcaptcha.dev">حساب: Bob (کاربر تست ۲)</option>
-            </select>
+            </select>}
           </div>
+          {authToken && (
+            <button
+              type="button"
+              onClick={() => {
+                setAuthToken('');
+                setSites([]);
+                setSelectedSiteKey('');
+                setUserEmail('');
+                setAuthPassword('');
+                setAuthError('');
+              }}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800"
+            >
+              خروج امن
+            </button>
+          )}
         </div>
 
         {/* Tab Bar */}
@@ -468,6 +546,50 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
+        {!import.meta.env.DEV && !authToken && (
+          <div role="region" aria-label="ورود امن مدیریتی" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+            <h2 className="font-semibold mb-2">ورود امن مدیریتی</h2>
+            <p className="text-xs text-amber-200/90 mb-4">
+              با حساب ایمیل/گذرواژهٔ Firebase وارد شوید. گذرواژه فقط به سرویس Firebase ارسال می‌شود و در ShieldCaptcha ذخیره نمی‌شود.
+            </p>
+            <form
+              className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await loginUser(userEmail, authPassword);
+              }}
+            >
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                value={userEmail}
+                onChange={(event) => setUserEmail(event.target.value)}
+                placeholder="ایمیل حساب"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              />
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                placeholder="گذرواژه"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              />
+              <button
+                type="submit"
+                disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized}
+                className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSigningIn ? 'در حال ورود…' : 'ورود'}
+              </button>
+            </form>
+            {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="mt-3 text-xs text-amber-200">VITE_FIREBASE_API_KEY در تنظیمات build تعریف نشده است.</p>}
+            {health && !health.firebaseAuth.isInitialized && <p className="mt-3 text-xs text-amber-200">Firebase Admin سمت سرور آماده نیست؛ تنظیمات FIREBASE_PROJECT_ID و FIREBASE_SERVICE_ACCOUNT_KEY را بررسی کنید.</p>}
+            {authError && <p role="alert" className="mt-3 text-xs text-rose-300">{authError}</p>}
+          </div>
+        )}
         {/* TAB 1: SITES MANAGEMENT */}
         {activeTab === 'sites' && (
           <div className="space-y-6">
@@ -657,6 +779,7 @@ export default function App() {
                     siteKey={selectedSiteKey}
                     onVerify={(token, data) => {
                       setLastVerifiedToken(token);
+                      setLastVerifiedSiteKey(selectedSiteKey);
                       setLastVerificationData(data);
                     }}
                     onError={(code) => console.log('Widget error:', code)}
@@ -707,8 +830,8 @@ export default function App() {
                     onClick={() => runSecurityTest('wrong_answer')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-rose-400 mb-1">۱. ارسال پاسخ اشتباه</div>
-                    <div className="text-[10px] text-slate-400">بررسی ثبت خطای incorrect-captcha-sol و محدودیت ۳ تلاش</div>
+                    <div className="text-xs font-semibold text-rose-400 mb-1">۱. چهار تلاش مجاز</div>
+                    <div className="text-[10px] text-slate-400">چهار پاسخ اشتباه پذیرفته می‌شود؛ تلاش پنجم باید رد شود</div>
                   </button>
 
                   <button
@@ -725,8 +848,8 @@ export default function App() {
                     onClick={() => runSecurityTest('backend_verify')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-emerald-400 mb-1">۳. تأیید سمت سرور</div>
-                    <div className="text-[10px] text-slate-400">شبیه‌سازی ارتباط بک‌اند به بک‌اند با Secret Key</div>
+                    <div className="text-xs font-semibold text-emerald-400 mb-1">۳. رد کلید محرمانه نامعتبر</div>
+                    <div className="text-[10px] text-slate-400">بررسی ردشدن Secret Key آزمایشی نامعتبر؛ کلید واقعی در مرورگر ارسال نمی‌شود</div>
                   </button>
                 </div>
 
@@ -1036,7 +1159,7 @@ export function LoginForm() {
 app.post('/api/login', async (req, res) => {
   const { email, password, captchaToken } = req.body;
 
-  const verifyResponse = await fetch('https://api.shieldcaptcha.com/api/v1/captcha/verify', {
+  const verifyResponse = await fetch('https://shieldcaptcha-web.onrender.com/api/v1/captcha/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

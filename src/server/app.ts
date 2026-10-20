@@ -4,6 +4,10 @@ import { apiRouter } from './routes.ts';
 
 export const app = express();
 
+// Render terminates TLS and forwards client IPs through one trusted proxy hop.
+// Do not trust forwarded headers from arbitrary clients in local development.
+app.set('trust proxy', process.env.RENDER ? 1 : false);
+
 // Security Headers (Helmet-equivalent hardening)
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -19,7 +23,8 @@ app.use(cors({
     // In dev / preview, allow any origin or self
     callback(null, true);
   },
-  credentials: true,
+  // CAPTCHA embeds need cross-origin requests, but the API does not use cookies.
+  // Never enable credentialed CORS for every origin.
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Site-Key'],
 }));

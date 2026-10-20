@@ -47,16 +47,17 @@ export const apiKeys = pgTable('api_keys', {
 export const captchaChallenges = pgTable('captcha_challenges', {
   id: text('id').primaryKey(),
   siteKey: text('site_key').notNull().references(() => sites.siteKey, { onDelete: 'cascade' }),
-  challengeType: text('challenge_type').notNull().default('IMAGE_SELECTION'), // 'INVISIBLE' | 'IMAGE_SELECTION' | 'PUZZLE'
+  challengeType: text('challenge_type').notNull().default('IMAGE_SELECTION'), // 'IMAGE_SELECTION' | 'ODD_ONE_OUT' | 'ROTATION_MATCH'
   prompt: text('prompt').notNull(),
   correctAnswerHash: text('correct_answer_hash').notNull(), // Salted SHA-256 of correct answer - NEVER sent to client
   options: jsonb('options').$type<Array<{ id: string; label: string; icon: string }>>().notNull(),
   token: text('token').notNull().unique(), // One-time client token
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   attemptsCount: integer('attempts_count').notNull().default(0),
-  maxAttempts: integer('max_attempts').notNull().default(3),
+  maxAttempts: integer('max_attempts').notNull().default(4),
   isConsumed: boolean('is_consumed').notNull().default(false),
   solvedAt: timestamp('solved_at', { withTimezone: true }),
+  serverVerifiedAt: timestamp('server_verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('captcha_challenges_token_idx').on(table.token),

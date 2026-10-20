@@ -3,9 +3,10 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken } from '../auth/firebase.ts';
-import { issueCaptchaChallenge, verifyCaptchaResponse } from '../captcha/engine.ts';
+import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
 
 export const apiRouter = Router();
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
 // In-memory sliding window rate limiter
 interface RateLimitEntry {
@@ -14,11 +15,30 @@ interface RateLimitEntry {
 }
 const rateLimits = new Map<string, RateLimitEntry>();
 
+function configuredRateLimit(name: string, fallback: number): number {
+  const configured = Number(process.env[name]);
+  return Number.isSafeInteger(configured) && configured >= 1 && configured <= 10000
+    ? configured
+    : fallback;
+}
+
 export function rateLimiter(limit: number, windowMs: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const key = `${req.path}:${ip}`;
     const now = Date.now();
+
+    // Periodically discard expired keys so attacker-controlled IP diversity cannot grow this map forever.
+    if (rateLimits.size > 5000) {
+      for (const [storedKey, storedEntry] of rateLimits) {
+        if (storedEntry.resetAt <= now) rateLimits.delete(storedKey);
+      }
+    }
+
+    if (rateLimits.size >= 10000 && !rateLimits.has(key)) {
+      res.status(429).json({ error: 'Too Many Requests', message: 'Rate limiter capacity reached; retry shortly.', retryAfterMs: windowMs });
+      return;
+    }
 
     const entry = rateLimits.get(key);
     if (!entry || entry.resetAt < now) {
@@ -63,8 +83,10 @@ apiRouter.get('/health', (req: Request, res: Response) => {
   const dbStatus = getDatabaseStatus();
   const firebaseStatus = getFirebaseStatus();
 
-  res.json({
-    status: 'healthy',
+  const isHealthy = (!IS_PRODUCTION || dbStatus.isPostgresConnected) &&
+    (!IS_PRODUCTION || firebaseStatus.isInitialized);
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     version: '1.0.0-mvp',
     database: dbStatus,
@@ -73,8 +95,12 @@ apiRouter.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// 2. User Session Authentication (Dev & Production JWT Session)
+// 2. Development-only session endpoint. Production must use verified Firebase ID tokens.
 apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res: Response) => {
+  if (IS_PRODUCTION) {
+    res.status(404).json({ error: 'Not Found', message: 'Development session authentication is disabled in production.' });
+    return;
+  }
   const bodySchema = z.object({
     email: z.string().email(),
     name: z.string().optional(),
@@ -139,7 +165,17 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
 
   const siteSchema = z.object({
     name: z.string().min(2).max(100),
-    domains: z.array(z.string()).min(1),
+    // Accept hostnames only; do not permit URL paths, schemes, or catch-all wildcards.
+    domains: z.array(
+      z.string().trim().min(1).max(253).refine(
+        domain => domain !== '*' &&
+          /^[a-zA-Z0-9.-]+$/.test(domain) &&
+          !domain.startsWith('.') &&
+          !domain.endsWith('.') &&
+          !domain.includes('..'),
+        'Each domain must be a hostname without a scheme, path, or wildcard'
+      )
+    ).min(1).max(50),
     challengeDifficulty: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
     invisibleEnabled: z.boolean().default(true),
     rateLimitPerMinute: z.number().int().min(60).max(10000).default(600),
@@ -167,7 +203,7 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
         userId: user.id,
         name: parsed.data.name,
         siteKey,
-        domains: parsed.data.domains,
+        domains: parsed.data.domains.map(domain => domain.toLowerCase()),
         secretKeyHash,
         secretKeyPrefix,
         maskedSecretKey,
@@ -243,7 +279,7 @@ apiRouter.delete('/sites/:id', requireAuth, async (req: Request, res: Response) 
 });
 
 // 7. Issue CAPTCHA Challenge
-apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request, res: Response) => {
+apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT_CHALLENGES_PER_MIN', 20), 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     siteKey: z.string().min(1),
     domain: z.string().optional(),
@@ -256,18 +292,19 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
     return;
   }
 
-  // Derive domain from request origin or header if not passed
-  let requestDomain = parsed.data.domain;
-  if (!requestDomain) {
-    const origin = req.headers.origin || req.headers.referer;
-    if (origin) {
-      try {
-        const u = new URL(origin);
-        requestDomain = u.hostname;
-      } catch {
-        // ignore
-      }
+  // In production, derive the hostname from browser Origin/Referer headers only.
+  // Never trust a caller-controlled JSON `domain` field as proof of origin.
+  let requestDomain: string | undefined;
+  const origin = req.headers.origin || req.headers.referer;
+  if (origin) {
+    try {
+      requestDomain = new URL(origin).hostname;
+    } catch {
+      requestDomain = undefined;
     }
+  }
+  if (!IS_PRODUCTION) {
+    requestDomain = parsed.data.domain || requestDomain;
   }
 
   try {
@@ -291,7 +328,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
       res.status(404).json({ error: 'Invalid Site Key', code: 'site-key-not-found' });
       return;
     }
-    if (err.message === 'DOMAIN_MISMATCH') {
+    if (err.message === 'DOMAIN_MISMATCH' || err.message === 'DOMAIN_REQUIRED') {
       res.status(403).json({ error: 'Domain unauthorized for this site key', code: 'domain-mismatch' });
       return;
     }
@@ -300,14 +337,14 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
 });
 
 // 8. Verify CAPTCHA Response
-apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, res: Response) => {
+apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VERIFY_PER_MIN', 30), 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     token: z.string().min(1),
-    selectedOptionId: z.string().optional(),
-    secretKey: z.string().optional(),
-    remoteIp: z.string().optional(),
-    hostname: z.string().optional(),
-    action: z.string().optional(),
+    selectedOptionId: z.string().max(100).optional(),
+    secretKey: z.string().min(1).max(512).optional(),
+    remoteIp: z.string().max(64).optional(),
+    hostname: z.string().max(253).optional(),
+    action: z.string().max(128).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -318,22 +355,45 @@ apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, 
       challenge_ts: new Date().toISOString(),
       hostname: 'unknown',
       action: 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['invalid-request-payload'],
     });
     return;
   }
 
-  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || parsed.data.remoteIp;
+  // Express resolves req.ip using only the configured trusted proxy chain.
+  // Ignore caller-supplied X-Forwarded-For and JSON remoteIp values.
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
-  const result = await verifyCaptchaResponse({
-    token: parsed.data.token,
-    selectedOptionId: parsed.data.selectedOptionId,
-    secretKey: parsed.data.secretKey,
-    remoteIp: clientIp,
-    hostname: parsed.data.hostname || req.hostname,
-    action: parsed.data.action,
-  });
+  // Hostname supplied in JSON is client-controlled. Prefer browser Origin/Referer
+  // when present, and otherwise report the API request host.
+  let verifyHostname = req.hostname || 'unknown';
+  const verifyOrigin = req.headers.origin || req.headers.referer;
+  if (verifyOrigin) {
+    try {
+      verifyHostname = new URL(verifyOrigin).hostname;
+    } catch {
+      verifyHostname = 'unknown';
+    }
+  } else if (!IS_PRODUCTION) {
+    verifyHostname = parsed.data.hostname || verifyHostname;
+  }
+
+  const result = parsed.data.secretKey
+    ? await verifyCaptchaReceipt({
+        token: parsed.data.token,
+        secretKey: parsed.data.secretKey,
+        remoteIp: clientIp,
+        hostname: verifyHostname,
+        action: parsed.data.action,
+      })
+    : await verifyCaptchaResponse({
+        token: parsed.data.token,
+        selectedOptionId: parsed.data.selectedOptionId,
+        remoteIp: clientIp,
+        hostname: verifyHostname,
+        action: parsed.data.action,
+      });
 
   res.json(result);
 });
@@ -344,20 +404,19 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
   const userSites = await dbRepository.getSitesByUserId(user.id);
   const siteKeys = new Set(userSites.map(s => s.siteKey));
 
-  const allEvents = await dbRepository.getRecentEvents();
-  const userEvents = allEvents.filter(e => siteKeys.has(e.siteKey));
-
-  const totalRequests = userEvents.length;
-  const passedRequests = userEvents.filter(e => e.success).length;
-  const blockedRequests = totalRequests - passedRequests;
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const summary = await dbRepository.getAnalyticsSummary([...siteKeys], since);
 
   res.json({
     summary: {
-      totalRequests,
-      passedRequests,
-      blockedRequests,
-      passRatePercent: totalRequests > 0 ? Math.round((passedRequests / totalRequests) * 100) : 100,
+      totalRequests: summary.totalRequests,
+      passedRequests: summary.passedRequests,
+      blockedRequests: summary.blockedRequests,
+      passRatePercent: summary.totalRequests > 0
+        ? Math.round((summary.passedRequests / summary.totalRequests) * 100)
+        : 0,
     },
-    recentEvents: userEvents.slice(0, 20),
+    recentEvents: summary.recentEvents.slice(0, 50),
+    hourlyTraffic: summary.hourlyTraffic,
   });
 });

@@ -19,6 +19,8 @@ services:
         generateValue: true
       - key: SESSION_JWT_SECRET
         generateValue: true
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_KEY
@@ -28,7 +30,7 @@ services:
       - key: RATE_LIMIT_VERIFY_PER_MIN
         value: "30"
       - key: APP_URL
-        sync: false
+        value: https://shieldcaptcha-web.onrender.com
 
 databases:
   - name: shieldcaptcha-db

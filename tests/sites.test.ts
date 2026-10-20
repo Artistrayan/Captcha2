@@ -2,11 +2,13 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/server/app.ts';
 import { createDevSessionToken } from '../src/auth/firebase.ts';
+import { dbRepository } from '../src/db/index.ts';
 
 describe('Site Management and Multi-Tenant Isolation Suite', () => {
   let userAToken: string;
   let userBToken: string;
   let userASiteId: string;
+  let userASiteKey: string;
 
   beforeAll(async () => {
     userAToken = createDevSessionToken({
@@ -39,6 +41,15 @@ describe('Site Management and Multi-Tenant Isolation Suite', () => {
     expect(res.body.oneTimeSecretKey).toMatch(/^sc_sec_live_/);
     expect(res.body.site.maskedSecretKey).toContain('••••••••');
     userASiteId = res.body.site.id;
+    userASiteKey = res.body.site.siteKey;
+    await dbRepository.recordVerificationEvent({
+      siteKey: userASiteKey,
+      token: 'test-site-deletion-event',
+      success: false,
+      score: 0,
+      hostname: 'alice-shop.com',
+      errorCodes: ['test-event'],
+    });
   });
 
   it('2. GET /api/v1/sites for User A lists their site, masking the secret key', async () => {
@@ -85,6 +96,7 @@ describe('Site Management and Multi-Tenant Isolation Suite', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(await dbRepository.getRecentEvents(userASiteKey)).toHaveLength(0);
 
     // Confirm it is gone
     const listRes = await request(app)

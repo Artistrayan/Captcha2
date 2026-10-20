@@ -41,7 +41,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   const [status, setStatus] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'success' | 'error' | 'expired'>('idle');
   const [challenge, setChallenge] = useState<ChallengeData | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(120);
+  const [timeLeft, setTimeLeft] = useState<number>(20);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempts, setAttempts] = useState<number>(0);
   const [verifiedToken, setVerifiedToken] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       }
 
       setChallenge(data);
-      setTimeLeft(data.expiresInSeconds || 120);
+      setTimeLeft(data.expiresInSeconds || 20);
       setStatus('challenge');
     } catch (err: any) {
       console.error('Failed to load challenge:', err);
@@ -158,9 +158,12 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         if (primaryError === 'challenge-expired' || primaryError === 'timeout-or-duplicate') {
           setStatus('expired');
           setErrorMessage(t('widgetExpiredDesc'));
-        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 3) {
-          setStatus('error');
-          setErrorMessage(t('widgetMaxAttemptsExceeded'));
+        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
+          // The server consumes the challenge at the attempt limit. Fetch a fresh
+          // challenge immediately so the widget never remains stuck on a dead token.
+          onError?.(primaryError);
+          await fetchChallenge();
+          return;
         } else {
           setStatus('challenge');
           setErrorMessage(t('widgetIncorrectAnswer'));
@@ -298,7 +301,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             {errorMessage && (
               <div className="mb-3 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errorMessage} ({attempts} / 3)</span>
+                <span>{errorMessage} ({attempts} / 4)</span>
               </div>
             )}
 

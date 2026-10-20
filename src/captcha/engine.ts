@@ -1,7 +1,11 @@
 import crypto from 'node:crypto';
 import { dbRepository } from '../db/index.ts';
 
-const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || 'shield_captcha_internal_salt_dev_98741';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || (IS_PRODUCTION ? '' : 'shield_captcha_internal_salt_dev_98741');
+if (IS_PRODUCTION && !SERVER_SALT) {
+  throw new Error('[Captcha] CAPTCHA_SERVER_SALT is required in production; refusing to start with a default salt.');
+}
 
 export interface VisualOption {
   id: string; // e.g. opt_3a7b
@@ -111,61 +115,88 @@ export async function issueCaptchaChallenge(
     throw new Error('SITE_KEY_NOT_FOUND');
   }
 
-  // Domain binding check if domain provided
-  if (domain && domain !== 'localhost' && domain !== '127.0.0.1') {
+  // Domain binding: never implicitly trust arbitrary hosted app domains.
+  if (IS_PRODUCTION && !domain) {
+    throw new Error('DOMAIN_REQUIRED');
+  }
+  const cleanTarget = domain?.toLowerCase().trim().replace(/\.$/, '');
+  const isLocalHost = cleanTarget === 'localhost' || cleanTarget === '127.0.0.1';
+
+  // Localhost is a development convenience only. It must never bypass the
+  // production allow-list, even when a caller forges an Origin header.
+  if (IS_PRODUCTION && isLocalHost) {
+    throw new Error('DOMAIN_MISMATCH');
+  }
+
+  if (domain && !(!IS_PRODUCTION && isLocalHost)) {
     let appHostname = '';
     if (process.env.APP_URL) {
       try {
-        appHostname = new URL(process.env.APP_URL).hostname;
+        appHostname = new URL(process.env.APP_URL).hostname.toLowerCase();
       } catch {}
     }
 
-    const isSelfTesting =
-      (appHostname && domain === appHostname) ||
-      domain.endsWith('.onrender.com') ||
-      domain.endsWith('.run.app');
+    const isSelfTesting = !!appHostname && cleanTarget === appHostname;
 
+    // Normalize hostnames and allow only an explicitly configured exact domain
+    // or its subdomains. A wildcard entry would silently authorize every website.
     const isAllowed = isSelfTesting || site.domains.some(d => {
-      const cleanD = d.toLowerCase().trim();
-      const cleanTarget = domain.toLowerCase().trim();
-      return cleanD === cleanTarget || cleanTarget.endsWith(`.${cleanD}`) || cleanD === '*';
+      const cleanD = d.toLowerCase().trim().replace(/\.$/, '');
+      if (!cleanD || cleanD === '*' || cleanD.includes('://') || cleanD.includes('/')) return false;
+      return cleanD === cleanTarget || cleanTarget!.endsWith(`.${cleanD}`);
     });
 
-    if (!isAllowed && site.domains.length > 0) {
+    if (!isAllowed) {
       throw new Error('DOMAIN_MISMATCH');
     }
   }
 
-  // Select target category using CSPRNG
-  const targetCategoryIndex = crypto.randomInt(0, CATEGORIES.length);
-  const targetCategory = CATEGORIES[targetCategoryIndex];
+  // Pick one of three visual challenge modes using a cryptographically secure RNG.
+  const challengeMode = (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH'] as const)[crypto.randomInt(0, 3)];
+  const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
+  const targetPool = challengeMode === 'ROTATION_MATCH' ? rotationCategories : CATEGORIES;
+  const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
 
   // Difficulty controls the number of visually plausible distractors.
   const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
-  const challengeMode = crypto.randomInt(0, 2) === 0 ? 'IMAGE_SELECTION' : 'ODD_ONE_OUT';
   const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
   for (let i = otherCategories.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
     [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
   }
 
-  // Each mode has one server-verified correct option.
-  const challengeItems: Array<{ category: string; correct: boolean }> =
-    challengeMode === 'ODD_ONE_OUT'
+  const rotationAngles = [45, 90, 135, 180, 225, 270, 315];
+  for (let i = rotationAngles.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [rotationAngles[i], rotationAngles[j]] = [rotationAngles[j], rotationAngles[i]];
+  }
+
+  // Each mode has exactly one server-verified correct option.
+  const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number }> =
+    challengeMode === 'ROTATION_MATCH'
       ? [
-          { category: targetCategory, correct: true },
-          ...Array.from({ length: optionCount - 1 }, () => ({
-            category: otherCategories[0],
+          { category: targetCategory, correct: true, rotationAngle: 0 },
+          ...rotationAngles.slice(0, optionCount - 1).map(rotationAngle => ({
+            category: targetCategory,
             correct: false,
+            rotationAngle,
           })),
         ]
-      : [
-          { category: targetCategory, correct: true },
-          ...otherCategories.slice(0, optionCount - 1).map(category => ({
-            category,
-            correct: false,
-          })),
-        ];
+      : challengeMode === 'ODD_ONE_OUT'
+        ? [
+            { category: targetCategory, correct: true },
+            ...Array.from({ length: optionCount - 1 }, () => ({
+              category: otherCategories[0],
+              correct: false,
+            })),
+          ]
+        : [
+            { category: targetCategory, correct: true },
+            ...otherCategories.slice(0, optionCount - 1).map(category => ({
+              category,
+              correct: false,
+            })),
+          ];
 
   for (let i = challengeItems.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
@@ -177,7 +208,13 @@ export async function issueCaptchaChallenge(
   for (const item of challengeItems) {
     const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
     if (item.correct) correctOptionId = optId;
-    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(SVG_ICONS[item.category])}`;
+    let optionSvg = SVG_ICONS[item.category];
+    if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
+      optionSvg = optionSvg
+        .replace(/(<svg\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`)
+        .replace(/<\/svg>\s*$/, '</g></svg>');
+    }
+    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}`;
     options.push({ id: optId, svg: encodedSvg });
   }
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
@@ -204,7 +241,20 @@ export async function issueCaptchaChallenge(
         pt: 'Selecione a imagem diferente das outras.',
         ja: 'ほかと異なる画像を選択してください。',
       } as Record<string, string>)[lang] || 'Select the image that is different from the others.'
-    : generatePromptForLanguage(targetCategory, lang);
+    : challengeMode === 'ROTATION_MATCH'
+      ? ({
+          fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.',
+          en: 'Select the image that is upright.',
+          es: 'Seleccione la imagen que está en la orientación correcta.',
+          zh: '请选择方向正确的图片。',
+          ar: 'اختر الصورة ذات الاتجاه الصحيح.',
+          fr: 'Sélectionnez l’image dans le bon sens.',
+          de: 'Wählen Sie das richtig ausgerichtete Bild.',
+          ru: 'Выберите изображение в правильной ориентации.',
+          pt: 'Selecione a imagem na orientação correta.',
+          ja: '正しい向きの画像を選択してください。',
+        } as Record<string, string>)[lang] || 'Select the image that is upright.'
+      : generatePromptForLanguage(targetCategory, lang);
 
   // Persist challenge in database
   await dbRepository.createChallenge({
@@ -216,7 +266,7 @@ export async function issueCaptchaChallenge(
     options: options.map(o => ({ id: o.id, label: '', icon: o.svg })),
     token,
     expiresAt,
-    maxAttempts: 3,
+    maxAttempts: 4,
   });
 
   return {
@@ -250,6 +300,33 @@ export interface VerificationOutput {
   error_codes: string[];
 }
 
+export async function verifyCaptchaReceipt(input: { token: string; secretKey: string; hostname?: string; action?: string; remoteIp?: string }): Promise<VerificationOutput> {
+  const timestamp = new Date().toISOString();
+  const hostname = input.hostname || 'unknown';
+  const challenge = await dbRepository.getChallengeByToken(input.token);
+  if (!challenge) return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['invalid-input-response'] };
+  const site = await dbRepository.getSiteByKey(challenge.siteKey);
+  const suppliedHash = crypto.createHash('sha256').update(input.secretKey).digest();
+  const expectedHash = site ? Buffer.from(site.secretKeyHash, 'hex') : Buffer.alloc(0);
+  const secretMatches = !!site && expectedHash.length === suppliedHash.length &&
+    expectedHash.length > 0 && crypto.timingSafeEqual(expectedHash, suppliedHash);
+  if (!secretMatches) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: [site ? 'invalid-secret-key' : 'invalid-site'] };
+  }
+  if (!challenge.isConsumed || !challenge.solvedAt) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['captcha-not-solved'] };
+  }
+  const solvedAt = new Date(challenge.solvedAt).getTime();
+  if (!Number.isFinite(solvedAt) || Date.now() - solvedAt > 120000 || solvedAt > Date.now()) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
+  }
+  const claimed = await dbRepository.markChallengeServerVerified(input.token);
+  if (!claimed) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
+  }
+  return { success: true, score: 95, hostname, challenge_ts: timestamp, action: input.action || 'server-verify', development_mode: !IS_PRODUCTION, error_codes: [] };
+}
+
 /**
  * Server-side CAPTCHA verification.
  * Enforces atomic consumption, expiration check, attempt limits, and single-use replay protection.
@@ -266,7 +343,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['missing-input-response'],
     };
   }
@@ -281,7 +358,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['invalid-input-response'],
     };
   }
@@ -304,7 +381,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['missing-input-response'],
     };
   }
@@ -328,7 +405,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -354,7 +431,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -379,41 +456,12 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
 
-  // 4. Secret Key check (if server-to-server verify is being performed).
-  // Invalid credentials must fail closed; never continue into answer verification.
-  if (input.secretKey) {
-    const site = await dbRepository.getSiteByKey(challenge.siteKey);
-    const hashedProvidedSecret = crypto.createHash('sha256').update(input.secretKey).digest('hex');
-    if (!site || hashedProvidedSecret !== site.secretKeyHash) {
-      const secretError = !site ? 'invalid-site' : 'invalid-secret-key';
-      await dbRepository.recordVerificationEvent({
-        siteKey: challenge.siteKey,
-        token: input.token,
-        success: false,
-        score: 0,
-        hostname,
-        action: input.action,
-        clientIp: input.remoteIp,
-        errorCodes: [secretError],
-      });
-      return {
-        success: false,
-        score: 0,
-        hostname,
-        challenge_ts: challengeTs,
-        action: input.action || 'verify',
-        development_mode: true,
-        error_codes: [secretError],
-      };
-    }
-  }
-
-  // 5. Verify Answer correctness using HMAC
+  // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
     const candidateHash = crypto
       .createHmac('sha256', SERVER_SALT)
@@ -448,14 +496,14 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
         hostname,
         challenge_ts: challengeTs,
         action: input.action || 'verify',
-        development_mode: true,
+        development_mode: !IS_PRODUCTION,
         error_codes: errorCodes,
       };
     }
   }
 
   // 6. ATOMIC CONSUMPTION: consume token immediately upon successful verification!
-  const consumed = await dbRepository.consumeChallengeToken(input.token);
+  const consumed = await dbRepository.consumeChallengeToken(input.token, true);
   if (!consumed) {
     // If another concurrent request consumed it first
     errorCodes.push('timeout-or-duplicate');
@@ -465,7 +513,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
       hostname,
       challenge_ts: challengeTs,
       action: input.action || 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: errorCodes,
     };
   }
@@ -488,7 +536,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     hostname,
     challenge_ts: challengeTs,
     action: input.action || 'verify',
-    development_mode: true,
+    development_mode: !IS_PRODUCTION,
     error_codes: [],
   };
 }

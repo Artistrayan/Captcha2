@@ -3,6 +3,7 @@ import request from 'supertest';
 import { app } from '../src/server/app.ts';
 import { dbRepository } from '../src/db/index.ts';
 import crypto from 'node:crypto';
+import { issueCaptchaChallenge } from '../src/captcha/engine.ts';
 
 describe('ShieldCaptcha Security and Verification Suite', () => {
   let testSiteKey: string;
@@ -59,6 +60,39 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     }
     expect((res.body as any).correctAnswerHash).toBeUndefined();
     expect((res.body as any).targetCategory).toBeUndefined();
+  });
+
+  it('Provides a third rotation-match challenge with one unrotated correct option', async () => {
+    let generated: Awaited<ReturnType<typeof issueCaptchaChallenge>> | undefined;
+    let stored: Awaited<ReturnType<typeof dbRepository.getChallengeByToken>> | null = null;
+
+    // The mode is selected securely at random; try enough times to observe the rotation mode.
+    for (let i = 0; i < 30; i++) {
+      const candidate = await issueCaptchaChallenge(testSiteKey, 'localhost', 'en');
+      const row = await dbRepository.getChallengeByToken(candidate.token);
+      if (row?.challengeType === 'ROTATION_MATCH') {
+        generated = candidate;
+        stored = row;
+        break;
+      }
+    }
+
+    expect(generated).toBeDefined();
+    expect(stored).toBeDefined();
+    const decodedOptions = generated!.options.map(option => ({
+      id: option.id,
+      svg: decodeURIComponent(option.svg.slice(option.svg.indexOf(',') + 1)),
+    }));
+    const upright = decodedOptions.filter(option => !option.svg.includes('transform="rotate('));
+    expect(upright).toHaveLength(1);
+
+    const matching = decodedOptions.filter(option =>
+      crypto.createHmac('sha256', process.env.CAPTCHA_SERVER_SALT || 'shield_captcha_internal_salt_dev_98741')
+        .update(`${stored!.id}:${option.id}`)
+        .digest('hex') === stored!.correctAnswerHash
+    );
+    expect(matching).toHaveLength(1);
+    expect(matching[0].id).toBe(upright[0].id);
   });
 
   it('3. Rejects invalid Site Key', async () => {
@@ -127,36 +161,57 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     );
 
     expect(correct).toBeDefined();
+
+    const prematureVerify = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, secretKey: testSecretKey });
+    expect(prematureVerify.body.success).toBe(false);
+    expect(prematureVerify.body.error_codes).toContain('captcha-not-solved');
+
+    const solveRes = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: correct!.id });
+    expect(solveRes.body.success).toBe(true);
+
     const verifyRes = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({ token, selectedOptionId: correct!.id, secretKey: 'definitely-wrong-secret' });
-
+      .send({ token, secretKey: 'definitely-wrong-secret' });
     expect(verifyRes.body.success).toBe(false);
     expect(verifyRes.body.score).toBe(0);
     expect(verifyRes.body.error_codes).toContain('invalid-secret-key');
+
+    // A bad secret must not consume the receipt; the correct site secret still works.
+    const validVerify = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, secretKey: testSecretKey });
+    expect(validVerify.body.success).toBe(true);
   });
 
-  it('6. Locks out challenge after max attempts exceeded', async () => {
+  it('6. Allows four incorrect attempts and locks out the fifth attempt', async () => {
     const chRes = await request(app)
       .post('/api/v1/captcha/challenge')
       .send({ siteKey: testSiteKey });
 
     const { token } = chRes.body;
 
-    // Fail 3 times
-    for (let i = 0; i < 3; i++) {
-      await request(app)
+    // Four incorrect answers are allowed; the challenge is consumed after the fourth.
+    let fourthAttempt: any;
+    for (let i = 0; i < 4; i++) {
+      const attemptRes = await request(app)
         .post('/api/v1/captcha/verify')
         .send({ token, selectedOptionId: 'opt_wrong_attempt' });
+      if (i === 3) fourthAttempt = attemptRes;
     }
+    expect(fourthAttempt.body.success).toBe(false);
+    expect(fourthAttempt.body.error_codes).toContain('incorrect-captcha-sol');
 
-    // 4th attempt must be rejected due to lockout
-    const fourthRes = await request(app)
+    // Fifth attempt must be rejected because the fourth incorrect answer consumed the challenge.
+    const fifthRes = await request(app)
       .post('/api/v1/captcha/verify')
       .send({ token, selectedOptionId: 'opt_wrong_attempt' });
 
-    expect(fourthRes.body.success).toBe(false);
-    expect(['timeout-or-duplicate', 'max-attempts-exceeded']).toContain(fourthRes.body.error_codes[0]);
+    expect(fifthRes.body.success).toBe(false);
+    expect(['timeout-or-duplicate', 'max-attempts-exceeded']).toContain(fifthRes.body.error_codes[0]);
   });
 
   it('7. Replay Attack Prevention: Token is single-use and cannot be verified twice', async () => {
@@ -185,27 +240,25 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
 
     expect(correctOptId).not.toBe('');
 
-    // First verification MUST SUCCEED
+    // The public widget first solves the challenge without exposing the site secret.
+    const solveRes = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: correctOptId });
+    expect(solveRes.body.success).toBe(true);
+
+    // The customer backend validates the solved receipt using its private secret key.
     const firstVerify = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({
-        token,
-        selectedOptionId: correctOptId,
-        secretKey: testSecretKey,
-      });
+      .send({ token, secretKey: testSecretKey });
 
     expect(firstVerify.status).toBe(200);
     expect(firstVerify.body.success).toBe(true);
     expect(firstVerify.body.score).toBeGreaterThanOrEqual(90);
 
-    // SECOND VERIFICATION (Replay Attack) MUST FAIL
+    // Reusing the same server-side receipt MUST FAIL.
     const replayVerify = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({
-        token,
-        selectedOptionId: correctOptId,
-        secretKey: testSecretKey,
-      });
+      .send({ token, secretKey: testSecretKey });
 
     expect(replayVerify.status).toBe(200);
     expect(replayVerify.body.success).toBe(false);

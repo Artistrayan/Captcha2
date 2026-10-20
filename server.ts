@@ -10,7 +10,7 @@ const PORT = process.env.NODE_ENV === 'production' && process.env.PORT && proces
   ? parseInt(process.env.PORT, 10)
   : 3000;
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
 async function startServer() {
   if (!isProduction) {

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema.ts';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, inArray } from 'drizzle-orm';
 
 const { Pool } = pg;
 
@@ -15,7 +15,7 @@ export interface DBStatus {
   connectionError?: string;
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 if (IS_PRODUCTION && !process.env.DATABASE_URL) {
   throw new Error('[Database] DATABASE_URL is required in production; refusing to start with local file storage.');
 }
@@ -67,6 +67,9 @@ interface PersistentState {
 }
 
 function loadState(): PersistentState {
+  if (IS_PRODUCTION) {
+    throw new Error('[Database] PostgreSQL is unavailable. File-based fallback is disabled in production.');
+  }
   if (fs.existsSync(DATA_FILE)) {
     try {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
@@ -241,7 +244,7 @@ if (process.env.DATABASE_URL) {
 export function getDatabaseStatus(): DBStatus {
   return {
     isPostgresConnected: isPgConnected,
-    engine: isPgConnected ? 'postgresql' : 'file_persisted_storage',
+    engine: isPgConnected ? 'postgresql' : (IS_PRODUCTION ? 'postgresql' : 'file_persisted_storage'),
     databaseUrlConfigured: !!process.env.DATABASE_URL,
     connectionError: lastPgError,
   };
@@ -368,19 +371,34 @@ export const dbRepository = {
 
   async deleteSite(id: string, userId: string): Promise<boolean> {
     if (isPgConnected && drizzleDb) {
-      const res = await drizzleDb.delete(schema.sites).where(
-        and(eq(schema.sites.id, id), eq(schema.sites.userId, userId))
-      ).returning();
-      return res.length > 0;
+      return drizzleDb.transaction(async tx => {
+        const ownedSites = await tx.select().from(schema.sites).where(
+          and(eq(schema.sites.id, id), eq(schema.sites.userId, userId))
+        ).limit(1);
+        const deletedSite = ownedSites[0];
+        if (!deletedSite) return false;
+
+        // Verification events intentionally have no FK to sites; delete them explicitly
+        // so deleting a site also deletes its associated analytics and audit trail.
+        await tx.delete(schema.verificationEvents).where(eq(schema.verificationEvents.siteKey, deletedSite.siteKey));
+        const removed = await tx.delete(schema.sites).where(
+          and(eq(schema.sites.id, id), eq(schema.sites.userId, userId))
+        ).returning({ id: schema.sites.id });
+        return removed.length > 0;
+      });
     }
 
     const state = loadState();
     const siteIdx = state.sites.findIndex(s => s.id === id && s.userId === userId);
     if (siteIdx === -1) return false;
 
+    const deletedSite = state.sites[siteIdx];
     state.sites.splice(siteIdx, 1);
-    // Cascade delete challenges
-    state.captchaChallenges = state.captchaChallenges.filter(c => c.siteKey !== state.sites[siteIdx]?.siteKey);
+    // Mirror PostgreSQL cascade behavior in local development storage.
+    state.captchaChallenges = state.captchaChallenges.filter(c => c.siteKey !== deletedSite.siteKey);
+    state.verificationEvents = state.verificationEvents.filter(event => event.siteKey !== deletedSite.siteKey);
+    state.apiKeys = state.apiKeys.filter(key => key.siteId !== deletedSite.id);
+    state.usageRecords = state.usageRecords.filter(record => record.siteId !== deletedSite.id);
     saveState(state);
     return true;
   },
@@ -407,9 +425,10 @@ export const dbRepository = {
       token: data.token,
       expiresAt: data.expiresAt,
       attemptsCount: 0,
-      maxAttempts: data.maxAttempts || 3,
+      maxAttempts: data.maxAttempts || 4,
       isConsumed: false,
       solvedAt: null,
+      serverVerifiedAt: null,
       createdAt: new Date(),
     };
 
@@ -486,10 +505,10 @@ export const dbRepository = {
   },
 
   // Atomic consumption of challenge to prevent replay attacks
-  async consumeChallengeToken(token: string): Promise<boolean> {
+  async consumeChallengeToken(token: string, solved = false): Promise<boolean> {
     if (isPgConnected && drizzleDb) {
       const rows = await drizzleDb.update(schema.captchaChallenges)
-        .set({ isConsumed: true, solvedAt: new Date() })
+        .set({ isConsumed: true, solvedAt: solved ? new Date() : null })
         .where(and(eq(schema.captchaChallenges.token, token), eq(schema.captchaChallenges.isConsumed, false)))
         .returning();
       return rows.length > 0;
@@ -501,7 +520,37 @@ export const dbRepository = {
       return false; // Already consumed or does not exist
     }
     c.isConsumed = true;
-    c.solvedAt = new Date();
+    c.solvedAt = solved ? new Date() : null;
+    saveState(state);
+    return true;
+  },
+
+  // Atomically mark a solved CAPTCHA receipt as verified by the customer backend.
+  // Receipts are accepted once and only within two minutes of a successful solve.
+  async markChallengeServerVerified(token: string): Promise<boolean> {
+    if (isPgConnected && pgPool) {
+      const result = await pgPool.query(
+        `UPDATE captcha_challenges
+         SET server_verified_at = NOW()
+         WHERE token = $1
+           AND is_consumed = TRUE
+           AND solved_at IS NOT NULL
+           AND server_verified_at IS NULL
+           AND solved_at >= NOW() - INTERVAL '2 minutes'
+           AND solved_at <= NOW()
+         RETURNING token`,
+        [token]
+      );
+      return result.rowCount === 1;
+    }
+
+    const state = loadState();
+    const challenge = state.captchaChallenges.find(item => item.token === token);
+    if (!challenge || !challenge.isConsumed || !challenge.solvedAt || challenge.serverVerifiedAt) return false;
+    const solvedAt = new Date(challenge.solvedAt).getTime();
+    const now = Date.now();
+    if (!Number.isFinite(solvedAt) || solvedAt > now || now - solvedAt > 2 * 60 * 1000) return false;
+    challenge.serverVerifiedAt = new Date();
     saveState(state);
     return true;
   },
@@ -544,6 +593,59 @@ export const dbRepository = {
     }
     saveState(state);
     return event;
+  },
+
+  async getAnalyticsSummary(siteKeys: string[], since: Date): Promise<{ totalRequests: number; passedRequests: number; blockedRequests: number; recentEvents: schema.VerificationEvent[]; hourlyTraffic: Array<{ hour: string; passed: number; blocked: number }> }> {
+    if (siteKeys.length === 0) {
+      return { totalRequests: 0, passedRequests: 0, blockedRequests: 0, recentEvents: [], hourlyTraffic: [] };
+    }
+
+    if (isPgConnected && drizzleDb && pgPool) {
+      const counts = await pgPool.query(
+        'SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed FROM verification_events WHERE site_key = ANY($1::text[]) AND created_at >= $2',
+        [siteKeys, since]
+      );
+      const recentEvents = await drizzleDb.select().from(schema.verificationEvents)
+        .where(and(inArray(schema.verificationEvents.siteKey, siteKeys), gte(schema.verificationEvents.createdAt, since)))
+        .orderBy(desc(schema.verificationEvents.createdAt))
+        .limit(50);
+      const hourlyRows = await pgPool.query(
+        'SELECT date_trunc(\'hour\', created_at AT TIME ZONE \'UTC\') AT TIME ZONE \'UTC\' AS hour, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed, COUNT(*) FILTER (WHERE success = FALSE)::int AS blocked FROM verification_events WHERE site_key = ANY($1::text[]) AND created_at >= $2 GROUP BY 1 ORDER BY 1',
+        [siteKeys, since]
+      );
+      const hourlyTraffic = hourlyRows.rows.map((row: { hour: Date | string; passed: number | string; blocked: number | string }) => ({
+        hour: new Date(row.hour).toISOString(),
+        passed: Number(row.passed || 0),
+        blocked: Number(row.blocked || 0),
+      }));
+      const totalRequests = Number(counts.rows[0]?.total || 0);
+      const passedRequests = Number(counts.rows[0]?.passed || 0);
+      return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests, recentEvents, hourlyTraffic };
+    }
+
+    const state = loadState();
+    const events = state.verificationEvents
+      .filter(e => siteKeys.includes(e.siteKey) && new Date(e.createdAt).getTime() >= since.getTime())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const totalRequests = events.length;
+    const passedRequests = events.filter(e => e.success).length;
+    const hourlyMap = new Map<string, { hour: string; passed: number; blocked: number }>();
+    for (const event of events) {
+      const bucket = new Date(event.createdAt);
+      bucket.setUTCMinutes(0, 0, 0);
+      const hour = bucket.toISOString();
+      const current = hourlyMap.get(hour) || { hour, passed: 0, blocked: 0 };
+      if (event.success) current.passed++;
+      else current.blocked++;
+      hourlyMap.set(hour, current);
+    }
+    return {
+      totalRequests,
+      passedRequests,
+      blockedRequests: totalRequests - passedRequests,
+      recentEvents: events.slice(0, 50) as schema.VerificationEvent[],
+      hourlyTraffic: [...hourlyMap.values()].sort((a, b) => a.hour.localeCompare(b.hour)),
+    };
   },
 
   async getRecentEvents(siteKey?: string): Promise<schema.VerificationEvent[]> {
