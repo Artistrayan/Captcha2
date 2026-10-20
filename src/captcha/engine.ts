@@ -131,9 +131,9 @@ export async function issueCaptchaChallenge(
 
     // Normalize hostnames and allow only an explicitly configured exact domain
     // or its subdomains. A wildcard entry would silently authorize every website.
-    const cleanTarget = domain.toLowerCase().trim().replace(/\\.$/, '');
+    const cleanTarget = domain.toLowerCase().trim().replace(/\.$/, '');
     const isAllowed = isSelfTesting || site.domains.some(d => {
-      const cleanD = d.toLowerCase().trim().replace(/\\.$/, '');
+      const cleanD = d.toLowerCase().trim().replace(/\.$/, '');
       if (!cleanD || cleanD === '*' || cleanD.includes('://') || cleanD.includes('/')) return false;
       return cleanD === cleanTarget || cleanTarget.endsWith(`.${cleanD}`);
     });
