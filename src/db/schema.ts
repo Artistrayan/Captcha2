@@ -47,7 +47,7 @@ export const apiKeys = pgTable('api_keys', {
 export const captchaChallenges = pgTable('captcha_challenges', {
   id: text('id').primaryKey(),
   siteKey: text('site_key').notNull().references(() => sites.siteKey, { onDelete: 'cascade' }),
-  challengeType: text('challenge_type').notNull().default('IMAGE_SELECTION'), // 'INVISIBLE' | 'IMAGE_SELECTION' | 'PUZZLE'
+  challengeType: text('challenge_type').notNull().default('IMAGE_SELECTION'), // 'IMAGE_SELECTION' | 'ODD_ONE_OUT' | 'ROTATION_MATCH'
   prompt: text('prompt').notNull(),
   correctAnswerHash: text('correct_answer_hash').notNull(), // Salted SHA-256 of correct answer - NEVER sent to client
   options: jsonb('options').$type<Array<{ id: string; label: string; icon: string }>>().notNull(),
