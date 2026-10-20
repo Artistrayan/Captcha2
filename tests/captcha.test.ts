@@ -48,7 +48,7 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect(res.body.siteKey).toBe(testSiteKey);
     expect(res.body.prompt).toBeDefined();
     expect(res.body.token).toBeDefined();
-    expect(res.body.options).toHaveLength(4);
+    expect(res.body.options).toHaveLength(6);
 
     // SECURITY CHECK: Ensure correct answer or category is NOT exposed in the options payload
     for (const opt of res.body.options) {
@@ -129,7 +129,7 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect(correct).toBeDefined();
     const verifyRes = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({ token, selectedOptionId: correct.id, secretKey: 'definitely-wrong-secret' });
+      .send({ token, selectedOptionId: correct!.id, secretKey: 'definitely-wrong-secret' });
 
     expect(verifyRes.body.success).toBe(false);
     expect(verifyRes.body.score).toBe(0);
