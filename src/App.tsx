@@ -3,7 +3,7 @@ import {
   Shield, Key, Globe, Plus, Trash2, Copy, Check, RefreshCw, Wallet,
   Terminal, ShieldCheck, ShieldAlert, Code2, ExternalLink,
   Layers, Lock, Database, AlertCircle, Eye, EyeOff,
-  Activity, TrendingUp, CheckCircle2, XCircle
+  Activity, TrendingUp, CheckCircle2, XCircle, LifeBuoy, Send, MessageSquare
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -41,7 +41,7 @@ interface HealthStatus {
 export default function App() {
   const { t, meta } = useI18n();
   const [country, setCountry] = useState<string>(() => localStorage.getItem('shieldcaptcha_country') || 'US');
-  const [activeTab, setActiveTab] = useState<'sites' | 'playground' | 'logs' | 'docs' | 'billing'>('sites');
+  const [activeTab, setActiveTab] = useState<'sites' | 'playground' | 'logs' | 'docs' | 'billing' | 'support'>('sites');
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   // User session state (Defaults to developer session)
@@ -95,6 +95,17 @@ export default function App() {
   const [billingTxid, setBillingTxid] = useState('');
   const [billingMessage, setBillingMessage] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [supportIsAdmin, setSupportIsAdmin] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportCategory, setSupportCategory] = useState<'general' | 'technical' | 'billing' | 'security'>('technical');
+  const [supportPriority, setSupportPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
+  const [supportBody, setSupportBody] = useState('');
+  const [supportReply, setSupportReply] = useState('');
+  const [activeTicketId, setActiveTicketId] = useState('');
+  const [supportStatus, setSupportStatus] = useState('in_progress');
+  const [supportBusy, setSupportBusy] = useState(false);
+  const [supportMessage, setSupportMessage] = useState('');
 
 
   // Initialize session & fetch health
@@ -483,6 +494,63 @@ export default function App() {
     fetch('/api/v1/billing/invoices', { headers }).then(r => r.json()).then(d => setBillingInvoices(Array.isArray(d.invoices) ? d.invoices : [])).catch(() => setBillingInvoices([]));
   }, [activeTab, authToken]);
 
+  const loadSupportTickets = async () => {
+    if (!authToken) return;
+    try {
+      const res = await fetch('/api/v1/support/tickets', { headers: { Authorization: `Bearer ${authToken}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load support tickets.');
+      const tickets = Array.isArray(data.tickets) ? data.tickets : [];
+      setSupportTickets(tickets); setSupportIsAdmin(Boolean(data.isAdmin));
+      if (activeTicketId && !tickets.some((ticket: any) => ticket.id === activeTicketId)) setActiveTicketId('');
+    } catch (error: any) {
+      setSupportMessage(error?.message || 'Support inbox is unavailable.');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'support' && authToken) loadSupportTickets();
+  }, [activeTab, authToken]);
+
+  const createSupportTicket = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSupportBusy(true); setSupportMessage('');
+    try {
+      const res = await fetch('/api/v1/support/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ subject: supportSubject, category: supportCategory, priority: supportPriority, body: supportBody }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ticket) throw new Error(data.error || 'Could not create support ticket.');
+      setSupportTickets((current) => [data.ticket, ...current.filter((ticket: any) => ticket.id !== data.ticket.id)]);
+      setActiveTicketId(data.ticket.id); setSupportSubject(''); setSupportBody('');
+      setSupportMessage('Support ticket created. You can follow replies here.');
+    } catch (error: any) {
+      setSupportMessage(error?.message || 'Could not create support ticket.');
+    } finally { setSupportBusy(false); }
+  };
+
+  const sendSupportReply = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!activeTicketId || !supportReply.trim()) return;
+    setSupportBusy(true); setSupportMessage('');
+    try {
+      const res = await fetch(`/api/v1/support/tickets/${encodeURIComponent(activeTicketId)}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ body: supportReply, ...(supportIsAdmin ? { status: supportStatus } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ticket) throw new Error(data.error || 'Could not send reply.');
+      setSupportTickets((current) => current.map((ticket: any) => ticket.id === data.ticket.id ? data.ticket : ticket));
+      setSupportReply('');
+      setSupportMessage('Reply sent.');
+    } catch (error: any) {
+      setSupportMessage(error?.message || 'Could not send reply.');
+    } finally { setSupportBusy(false); }
+  };
+
   const createBillingInvoice = async () => {
     setBillingBusy(true); setBillingMessage('در حال ایجاد فاکتور...');
     try {
@@ -683,6 +751,7 @@ export default function App() {
             { id: 'logs', label: t('tabLogs'), icon: Layers },
             { id: 'docs', label: t('tabDocs'), icon: Code2 },
             { id: 'billing', label: 'پرداخت و اشتراک', icon: Wallet },
+            { id: 'support', label: 'Support', icon: LifeBuoy },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -755,6 +824,39 @@ export default function App() {
             {authError && <p role="alert" className="mt-3 text-xs text-rose-300">{authError}</p>}
           </div>
         )}
+
+        {/* TAB: CUSTOMER SUPPORT */}
+        {activeTab === 'support' && (
+          <div className="max-w-6xl space-y-6">
+            <div>
+              <h1 className="flex items-center gap-2 text-2xl font-bold text-white"><LifeBuoy className="h-6 w-6 text-emerald-400" /> Support Center</h1>
+              <p className="mt-2 text-sm text-slate-400">Create a support ticket, track its status, and reply in one place. Do not include passwords, secret keys, or wallet private keys.</p>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <form onSubmit={createSupportTicket} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+                <h2 className="font-semibold text-white">Open a new ticket</h2>
+                <div><label htmlFor="support-subject" className="mb-1.5 block text-xs text-slate-300">Subject</label><input id="support-subject" required minLength={4} maxLength={160} value={supportSubject} onChange={e => setSupportSubject(e.target.value)} placeholder="Briefly describe the issue" className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white" /></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div><label htmlFor="support-category" className="mb-1.5 block text-xs text-slate-300">Category</label><select id="support-category" value={supportCategory} onChange={e => setSupportCategory(e.target.value as any)} className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white"><option value="general">General</option><option value="technical">Technical issue</option><option value="billing">Billing / subscription</option><option value="security">Security</option></select></div>
+                  <div><label htmlFor="support-priority" className="mb-1.5 block text-xs text-slate-300">Priority</label><select id="support-priority" value={supportPriority} onChange={e => setSupportPriority(e.target.value as any)} className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>
+                </div>
+                <div><label htmlFor="support-body" className="mb-1.5 block text-xs text-slate-300">Message</label><textarea id="support-body" required minLength={10} maxLength={5000} rows={5} value={supportBody} onChange={e => setSupportBody(e.target.value)} placeholder="Explain what happened and what you expected..." className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white" /></div>
+                <button disabled={supportBusy} type="submit" className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"><Send className="h-4 w-4" /> Submit ticket</button>
+              </form>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between"><h2 className="font-semibold text-white">{supportIsAdmin ? 'All support tickets' : 'Your support tickets'}</h2><button type="button" onClick={loadSupportTickets} className="text-xs text-emerald-300 underline">Refresh</button></div>
+                {supportMessage && <p role="status" className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-300">{supportMessage}</p>}
+                {supportTickets.length === 0 ? <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">No support tickets yet.</div> : <div className="space-y-3">{supportTickets.map((ticket: any) => <button type="button" key={ticket.id} onClick={() => { setActiveTicketId(ticket.id); setSupportStatus(ticket.status === 'open' ? 'in_progress' : ticket.status); }} className={`w-full rounded-xl border p-4 text-left transition-colors ${activeTicketId === ticket.id ? 'border-emerald-500/60 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/60 hover:border-slate-600'}`}><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium text-white">{ticket.subject}</span><span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] text-emerald-300">{String(ticket.status).replace('_', ' ')}</span></div><div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-500"><span>#{ticket.id}</span><span>{ticket.category}</span><span>{ticket.priority} priority</span><span>{ticket.messages?.length || 0} messages</span></div></button>)}</div>}
+                {supportTickets.filter((ticket: any) => ticket.id === activeTicketId).map((ticket: any) => <section key={ticket.id} className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70">
+                  <div className="border-b border-slate-800 p-4"><h3 className="font-semibold text-white">{ticket.subject}</h3><p className="mt-1 text-[11px] text-slate-500">Ticket {ticket.id} · Status: {ticket.status}</p></div>
+                  <div className="max-h-80 space-y-3 overflow-y-auto p-4">{(ticket.messages || []).map((message: any) => <div key={message.id} className={`rounded-lg border p-3 ${message.authorRole === 'ADMIN' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-700 bg-slate-950/70'}`}><div className="mb-1 flex items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-200">{message.authorRole === 'ADMIN' ? 'ShieldCaptcha Support' : 'Customer'}</span><span className="text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleString()}</span></div><p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{message.body}</p></div>)}</div>
+                  {ticket.status !== 'closed' && <form onSubmit={sendSupportReply} className="space-y-3 border-t border-slate-800 p-4"><textarea required minLength={2} maxLength={5000} rows={3} value={supportReply} onChange={e => setSupportReply(e.target.value)} placeholder="Write a reply..." className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white" /><div className="flex flex-wrap items-center justify-between gap-3">{supportIsAdmin && <select value={supportStatus} onChange={e => setSupportStatus(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="in_progress">In progress</option><option value="waiting_user">Waiting for user</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>}<button disabled={supportBusy || !supportReply.trim()} type="submit" className="ml-auto inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm text-white hover:bg-slate-600 disabled:opacity-50"><MessageSquare className="h-4 w-4" /> Send reply</button></div></form>}
+                </section>)}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'billing' && (
           <div className="space-y-6 max-w-5xl">
             <div>
