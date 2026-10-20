@@ -97,7 +97,15 @@ export default function App() {
     if (import.meta.env.DEV) {
       loginUser(userEmail);
     } else {
-      setIsLoadingSites(false);
+      const savedToken = sessionStorage.getItem('shieldcaptcha_id_token');
+      const savedEmail = sessionStorage.getItem('shieldcaptcha_user_email');
+      if (savedToken) {
+        setAuthToken(savedToken);
+        if (savedEmail) setUserEmail(savedEmail);
+        fetchSites(savedToken);
+      } else {
+        setIsLoadingSites(false);
+      }
     }
   }, []);
 
@@ -141,6 +149,8 @@ export default function App() {
         };
         throw new Error(messages[code] || 'ورود Firebase ناموفق بود.');
       }
+      sessionStorage.setItem('shieldcaptcha_id_token', data.idToken);
+      sessionStorage.setItem('shieldcaptcha_user_email', data.email || email);
       setAuthToken(data.idToken);
       setUserEmail(data.email || email);
       setAuthPassword('');
@@ -182,8 +192,14 @@ export default function App() {
           OPERATION_NOT_ALLOWED: 'ثبت‌نام با ایمیل و گذرواژه در تنظیمات Firebase فعال نیست.',
           TOO_MANY_ATTEMPTS_TRY_LATER: 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
         };
+        if (code === 'EMAIL_EXISTS') {
+          setAuthMode('login');
+          throw new Error('این ایمیل قبلاً ثبت شده است. به صفحهٔ ورود منتقل شدید؛ با همان ایمیل و گذرواژه وارد شوید.');
+        }
         throw new Error(messages[code] || 'ایجاد حساب در Firebase ناموفق بود.');
       }
+      sessionStorage.setItem('shieldcaptcha_id_token', data.idToken);
+      sessionStorage.setItem('shieldcaptcha_user_email', data.email || userEmail.trim());
       setAuthToken(data.idToken);
       setUserEmail(data.email || userEmail.trim());
       setAuthPassword('');
@@ -205,6 +221,8 @@ export default function App() {
       });
       const data = await res.json();
       if (res.status === 401) {
+        sessionStorage.removeItem('shieldcaptcha_id_token');
+        sessionStorage.removeItem('shieldcaptcha_user_email');
         setAuthToken('');
         setSites([]);
         setSelectedSiteKey('');
@@ -579,6 +597,8 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
+                sessionStorage.removeItem('shieldcaptcha_id_token');
+                sessionStorage.removeItem('shieldcaptcha_user_email');
                 setAuthToken('');
                 setSites([]);
                 setSelectedSiteKey('');
