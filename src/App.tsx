@@ -739,7 +739,7 @@ export default function App() {
                 autoComplete="current-password"
                 value={authPassword}
                 onChange={(event) => setAuthPassword(event.target.value)}
-                placeholder="گذرواژه"
+                placeholder={t('authPassword')}
                 className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
               />
               <button
@@ -805,13 +805,13 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                  <span>وب‌سایت‌های ثبت‌شده</span>
+                  <span>{t('sitesTitle')}</span>
                   <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
                     {userEmail}
                   </span>
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">
-                  کلیدهای عمومی و محرمانه سایت‌های خود را مدیریت کرده و دامنه‌های مجاز را پیکربندی نمایید.
+                  {t('sitesSubtitle')}
                 </p>
               </div>
 
@@ -819,7 +819,7 @@ export default function App() {
                 <button
                   onClick={() => fetchSites()}
                   className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
-                  title="بارگذاری مجدد"
+                  title={t('refreshBtn')}
                 >
                   <RefreshCw className={`w-4 h-4 ${isLoadingSites ? 'animate-spin' : ''}`} />
                 </button>
@@ -842,15 +842,15 @@ export default function App() {
             ) : sites.length === 0 ? (
               <div className="py-16 px-4 rounded-2xl border border-dashed border-slate-800 text-center flex flex-col items-center justify-center gap-3 bg-slate-900/30">
                 <Globe className="w-10 h-10 text-slate-600" />
-                <h3 className="text-sm font-semibold text-slate-300">هیچ سایتی برای این حساب ثبت نشده است</h3>
+                <h3 className="text-sm font-semibold text-slate-300">{t('noSitesTitle')}</h3>
                 <p className="text-xs text-slate-500 max-w-sm">
-                  برای شروع دریافت کلید عمومی Site Key و کلید خصوصی Secret Key، دکمه «ثبت سایت جدید» را بزنید.
+                  {t('noSitesDesc')}
                 </p>
                 <button
                   onClick={() => setIsAddModalOpen(true)}
                   className="mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium cursor-pointer"
                 >
-                  ثبت اولین وب‌سایت
+                  {t('addFirstSite')}
                 </button>
               </div>
             ) : (
@@ -887,14 +887,14 @@ export default function App() {
                       <div className="space-y-2 text-xs">
                         <div>
                           <span className="text-[10px] text-slate-400 font-medium block mb-1">
-                            کلید عمومی (Public Site Key):
+                            {t('publicKeyLabel')}
                           </span>
                           <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800/80 font-mono text-[11px] text-emerald-400">
                             <span className="truncate">{site.siteKey}</span>
                             <button
                               onClick={() => copyToClipboard(site.siteKey, `site-${site.id}`)}
                               className="text-slate-400 hover:text-white p-1 cursor-pointer"
-                              title="کپی کلید عمومی"
+                              title={t('copyPublicKey')}
                             >
                               {copiedKey === `site-${site.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
@@ -905,9 +905,9 @@ export default function App() {
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[10px] text-slate-400 font-medium">
-                              کلید محرمانه (Secret Key):
+                              {t('secretKeyLabel')}
                             </span>
-                            <span className="text-[9px] text-amber-400/80">فقط در سرور نگهداری شود</span>
+                            <span className="text-[9px] text-amber-400/80">{t('serverOnlyNotice')}</span>
                           </div>
                           <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800/60 font-mono text-[11px] text-slate-400">
                             <span className="truncate">{site.maskedSecretKey}</span>
@@ -918,7 +918,7 @@ export default function App() {
                         {/* Whitelisted Domains */}
                         <div>
                           <span className="text-[10px] text-slate-400 font-medium block mb-1">
-                            دامنه‌های مجاز (Domain Binding):
+                            {t('allowedDomains')}
                           </span>
                           <div className="flex flex-wrap gap-1">
                             {site.domains.map((dom, i) => (
@@ -933,7 +933,7 @@ export default function App() {
 
                     <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">
-                        سطح چالش: <span className="text-slate-300 font-medium">{site.challengeDifficulty}</span>
+                        {t('difficultyLabel')} <span className="text-slate-300 font-medium">{site.challengeDifficulty}</span>
                       </span>
                       <button
                         onClick={() => {
@@ -962,7 +962,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-white flex items-center gap-2">
                     <Terminal className="w-4 h-4 text-emerald-400" />
-                    <span>ویجت زنده در وب‌سایت فرضی</span>
+                    <span>{t('playgroundTitle')}</span>
                   </h2>
 
                   {/* Site Selector */}
@@ -995,7 +995,7 @@ export default function App() {
                   />
                 ) : (
                   <div className="text-xs text-slate-500 text-center py-8">
-                    لطفاً ابتدا یک سایت در تب مدیریت سایت‌ها ایجاد کنید.
+                    {t('noSiteWarning')}
                   </div>
                 )}
 
@@ -1030,7 +1030,7 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mb-4">
-                  با کلیک روی هر دکمه، یک سناریوی نفوذ یا رفتار غیرمجاز واقعی به سمت سرور فرستاده شده و رفتار اتمیک سرور ارزیابی می‌شود:
+                  {t('attackLabSubtitle')}
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
@@ -1048,8 +1048,8 @@ export default function App() {
                     onClick={() => runSecurityTest('replay_attack')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-amber-400 mb-1">۲. حمله بازپخش (Replay)</div>
-                    <div className="text-[10px] text-slate-400">ارسال توکن یک‌بارمصرف برای بار دوم و رد آن در سرور</div>
+                    <div className="text-xs font-semibold text-amber-400 mb-1">{t('attackReplay')}</div>
+                    <div className="text-[10px] text-slate-400">{t('attackReplayDesc')}</div>
                   </button>
 
                   <button
@@ -1091,10 +1091,10 @@ export default function App() {
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <Activity className="w-5 h-5 text-emerald-400" />
-                  <span>لاگ‌های امنیتی و تحلیل ترافیک ۲۴ ساعت گذشته</span>
+                  <span>{t('logsTitle')}</span>
                 </h2>
                 <p className="text-xs text-slate-400">
-                  نظارت بلادرنگ بر روند درخواست‌های تأیید هویت، تفکیک ترافیک واقعی و دفع حملات ربات
+                  {t('logsSubtitle')}
                 </p>
               </div>
               <button
@@ -1102,7 +1102,7 @@ export default function App() {
                 className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>بروزرسانی آمار</span>
+                <span>{t('refreshLogs')}</span>
               </button>
             </div>
 
@@ -1110,7 +1110,7 @@ export default function App() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">کل درخواست‌ها (۲۴h)</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">{t('totalRequests24h')}</span>
                   <span className="text-xl font-bold font-mono text-white mt-0.5 block">{trafficStats.total}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-800 text-slate-300">
@@ -1120,7 +1120,7 @@ export default function App() {
 
               <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">تأییدشده (انسان)</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">{t('passedHumans')}</span>
                   <span className="text-xl font-bold font-mono text-emerald-400 mt-0.5 block">{trafficStats.passed}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
@@ -1130,7 +1130,7 @@ export default function App() {
 
               <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">مسدودشده (ربات / نفوذ)</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">{t('blockedBots')}</span>
                   <span className="text-xl font-bold font-mono text-rose-400 mt-0.5 block">{trafficStats.blocked}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400">
@@ -1155,14 +1155,14 @@ export default function App() {
                 <div>
                   <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <span>نمودار روند ترافیک اعتبارسنجی در ۲۴ ساعت گذشته</span>
+                    <span>{t('trafficTrendsTitle')}</span>
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    توزیع ساعتی درخواست‌های تأییدشده (سبز) در برابر تلاش‌های مسدودشده یا نامعتبر (قرمز)
+                    {t('trafficTrendsSubtitle')}
                   </p>
                 </div>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 self-start sm:self-auto">
-                  بازه: ۲۴ ساعت گذشته (Hourly)
+                  {t('range24h')}
                 </span>
               </div>
 
@@ -1209,7 +1209,7 @@ export default function App() {
                               </div>
                               <div className="pt-1 border-t border-slate-800 text-[10px] text-slate-400 font-mono flex items-center justify-between">
                                 <span className="text-white font-bold">{Number(passedVal) + Number(blockedVal)}</span>
-                                <span>مجموع درخواست:</span>
+                                <span>{t('totalRequestsLabel')}</span>
                               </div>
                             </div>
                           );
@@ -1249,26 +1249,26 @@ export default function App() {
             {/* Event Logs Table */}
             <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/50 shadow-sm">
               <div className="p-3.5 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-200">فهرست رویدادهای اخیر (Recent Event Logs)</span>
-                <span className="text-[10px] font-mono text-slate-400">آخرین ۵۰ رویداد</span>
+                <span className="text-xs font-semibold text-slate-200">{t('recentEventsTitle')}</span>
+                <span className="text-[10px] font-mono text-slate-400">{t('last50Events')}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-right">
                   <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] border-b border-slate-800">
                     <tr>
-                      <th className="p-3">زمان</th>
-                      <th className="p-3">Site Key</th>
-                      <th className="p-3">نتیجه (Decision)</th>
-                      <th className="p-3">امتیاز</th>
-                      <th className="p-3">میزبان (Hostname)</th>
-                      <th className="p-3">کدهای خطا / توضیحات</th>
+                      <th className="p-3">{t('tableTime')}</th>
+                      <th className="p-3">{t('tableSiteKey')}</th>
+                      <th className="p-3">{t('tableDecision')}</th>
+                      <th className="p-3">{t('tableScore')}</th>
+                      <th className="p-3">{t('tableHostname')}</th>
+                      <th className="p-3">{t('tableErrors')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono">
                     {logs.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-slate-500">
-                          هنوز رویدادی ثبت نشده است. از تب آزمایشگاه چند چالش را حل کنید تا لاگ‌ها نمایش داده شوند.
+                          {t('noEventsNotice')}
                         </td>
                       </tr>
                     ) : (
@@ -1291,7 +1291,7 @@ export default function App() {
                             {log.errorCodes && log.errorCodes.length > 0 ? (
                               <span className="text-rose-400">{log.errorCodes.join(', ')}</span>
                             ) : (
-                              <span className="text-emerald-500">none (موفق)</span>
+                              <span className="text-emerald-500">{t('noneSuccess')}</span>
                             )}
                           </td>
                         </tr>
@@ -1308,9 +1308,9 @@ export default function App() {
         {activeTab === 'docs' && (
           <div className="space-y-6 max-w-4xl">
             <div>
-              <h2 className="text-xl font-bold text-white">راهنمای ادغام سریع (Quickstart Integration Guide)</h2>
+              <h2 className="text-xl font-bold text-white">{t('docsTitle')}</h2>
               <p className="text-xs text-slate-400 mt-1">
-                نحوه قرار دادن ویجت در فرانت‌اند و اعتبارسنجی توکن حاصل در بک‌اند با کمتر از ۱۰ خط کد.
+                {t('docsSubtitle')}
               </p>
             </div>
 
@@ -1341,12 +1341,12 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <input type="email" placeholder="ایمیل" />
+      <input type="email" placeholder={t('authEmail')} />
       <CaptchaWidget 
         siteKey="${selectedSiteKey || 'sc_site_YOUR_KEY'}" 
         onVerify={(verifiedToken) => setToken(verifiedToken)} 
       />
-      <button type="submit" disabled={!token}>ورود به حساب</button>
+      <button type="submit" disabled={!token}>{t('authSignInButton')}</button>
     </form>
   );
 }`}
@@ -1439,7 +1439,7 @@ app.post('/api/login', async (req, res) => {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">سطح دشواری چالش:</label>
+                <label className="block text-slate-300 font-medium mb-1">{t('difficultySelect')}</label>
                 <select
                   value={newSiteDifficulty}
                   onChange={e => setNewSiteDifficulty(e.target.value as any)}
@@ -1470,7 +1470,7 @@ app.post('/api/login', async (req, res) => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
                 >
-                  انصراف
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -1542,7 +1542,7 @@ app.post('/api/login', async (req, res) => {
                 onClick={() => setOneTimeSecretModal(null)}
                 className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs cursor-pointer"
               >
-                کلید را ذخیره کردم و متوجه شدم
+                {t('savedAcknowledge')}
               </button>
             </div>
           </div>
