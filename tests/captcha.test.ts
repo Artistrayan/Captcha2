@@ -98,6 +98,44 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect(verifyRes.body.error_codes).toContain('incorrect-captcha-sol');
   });
 
+  it('Rejects verification when no option is selected', async () => {
+    const chRes = await request(app)
+      .post('/api/v1/captcha/challenge')
+      .send({ siteKey: testSiteKey, domain: 'localhost' });
+
+    const verifyRes = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token: chRes.body.token });
+
+    expect(verifyRes.body.success).toBe(false);
+    expect(verifyRes.body.score).toBe(0);
+    expect(verifyRes.body.error_codes).toContain('missing-input-response');
+  });
+
+  it('Rejects a wrong secret key even when the selected answer is correct', async () => {
+    const chRes = await request(app)
+      .post('/api/v1/captcha/challenge')
+      .send({ siteKey: testSiteKey, domain: 'localhost' });
+
+    const { token, options } = chRes.body;
+    const challenge = await dbRepository.getChallengeByToken(token);
+    const salt = process.env.CAPTCHA_SERVER_SALT || 'shield_captcha_internal_salt_dev_98741';
+    const correct = options.find((opt: { id: string }) =>
+      crypto.createHmac('sha256', salt)
+        .update(`${challenge!.id}:${opt.id}`)
+        .digest('hex') === challenge!.correctAnswerHash
+    );
+
+    expect(correct).toBeDefined();
+    const verifyRes = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: correct.id, secretKey: 'definitely-wrong-secret' });
+
+    expect(verifyRes.body.success).toBe(false);
+    expect(verifyRes.body.score).toBe(0);
+    expect(verifyRes.body.error_codes).toContain('invalid-secret-key');
+  });
+
   it('6. Locks out challenge after max attempts exceeded', async () => {
     const chRes = await request(app)
       .post('/api/v1/captcha/challenge')
