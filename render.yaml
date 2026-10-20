@@ -19,6 +19,8 @@ services:
         generateValue: true
       - key: SESSION_JWT_SECRET
         generateValue: true
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_KEY
