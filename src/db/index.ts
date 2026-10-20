@@ -15,7 +15,7 @@ export interface DBStatus {
   connectionError?: string;
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 if (IS_PRODUCTION && !process.env.DATABASE_URL) {
   throw new Error('[Database] DATABASE_URL is required in production; refusing to start with local file storage.');
 }
