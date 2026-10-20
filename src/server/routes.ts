@@ -158,7 +158,17 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
 
   const siteSchema = z.object({
     name: z.string().min(2).max(100),
-    domains: z.array(z.string()).min(1),
+    // Accept hostnames only; do not permit URL paths, schemes, or catch-all wildcards.
+    domains: z.array(
+      z.string().trim().min(1).max(253).refine(
+        domain => domain !== '*' &&
+          /^[a-zA-Z0-9.-]+$/.test(domain) &&
+          !domain.startsWith('.') &&
+          !domain.endsWith('.') &&
+          !domain.includes('..'),
+        'Each domain must be a hostname without a scheme, path, or wildcard'
+      )
+    ).min(1).max(50),
     challengeDifficulty: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
     invisibleEnabled: z.boolean().default(true),
     rateLimitPerMinute: z.number().int().min(60).max(10000).default(600),
@@ -186,7 +196,7 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
         userId: user.id,
         name: parsed.data.name,
         siteKey,
-        domains: parsed.data.domains,
+        domains: parsed.data.domains.map(domain => domain.toLowerCase()),
         secretKeyHash,
         secretKeyPrefix,
         maskedSecretKey,
