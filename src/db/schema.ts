@@ -105,6 +105,25 @@ export const auditLogs = pgTable('audit_logs', {
   index('audit_logs_user_id_idx').on(table.userId),
 ]);
 
+
+
+export const supportTickets = pgTable('support_tickets', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subject: text('subject').notNull(),
+  category: text('category').notNull().default('general'),
+  priority: text('priority').notNull().default('normal'),
+  status: text('status').notNull().default('open'),
+  messages: jsonb('messages').$type<Array<{ id: string; authorId: string; authorRole: string; body: string; createdAt: string }>>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('support_tickets_user_updated_idx').on(table.userId, table.updatedAt),
+  index('support_tickets_status_updated_idx').on(table.status, table.updatedAt),
+]);
+
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Site = typeof sites.$inferSelect;
