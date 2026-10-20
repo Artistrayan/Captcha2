@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
+import { checkCaptchaQuota } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -308,6 +309,19 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   }
 
   try {
+    const quota = await checkCaptchaQuota(parsed.data.siteKey);
+    if (!quota.allowed) {
+      res.status(429).json({
+        error: 'Monthly usage limit reached',
+        code: 'usage-limit-exceeded',
+        plan: quota.plan,
+        used: quota.used,
+        limit: quota.limit,
+        message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
+      });
+      return;
+    }
+
     const challenge = await issueCaptchaChallenge(
       parsed.data.siteKey,
       requestDomain,
