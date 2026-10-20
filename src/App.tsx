@@ -353,7 +353,7 @@ export default function App() {
     const buckets = new Map<string, { hour: string; passed: number; blocked: number; total: number }>();
     for (let i = 23; i >= 0; i--) {
       const bucketEnd = new Date(now.getTime() - i * 3600 * 1000);
-      bucketEnd.setMinutes(0, 0, 0);
+      bucketEnd.setUTCMinutes(0, 0, 0);
       const key = new Date(bucketEnd).toISOString();
       const hour = `${bucketEnd.getHours().toString().padStart(2, '0')}:00`;
       buckets.set(key, { hour, passed: 0, blocked: 0, total: 0 });
@@ -361,7 +361,7 @@ export default function App() {
 
     for (const item of hourlyTraffic) {
       const eventHour = new Date(item.hour);
-      eventHour.setMinutes(0, 0, 0);
+      eventHour.setUTCMinutes(0, 0, 0);
       const key = eventHour.toISOString();
       const bucket = buckets.get(key);
       if (bucket) {
