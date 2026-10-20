@@ -57,8 +57,10 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   const fetchChallenge = useCallback(async () => {
     setStatus('loading');
     setErrorMessage(null);
+    setChallenge(null);
     setSelectedOptionId(null);
     setAttempts(0);
+    setVerifiedToken(null);
 
     try {
       const res = await fetch('/api/v1/captcha/challenge', {
@@ -148,6 +150,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         setVerifiedToken(challenge.token);
         onVerify?.(challenge.token, data);
       } else {
+        setVerifiedToken(null);
         const primaryError = data.error_codes?.[0] || 'verification_failed';
         const newAttempts = attempts + 1;
         setAttempts(newAttempts);
