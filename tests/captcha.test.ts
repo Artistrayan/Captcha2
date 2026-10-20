@@ -127,13 +127,30 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     );
 
     expect(correct).toBeDefined();
+
+    const prematureVerify = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, secretKey: testSecretKey });
+    expect(prematureVerify.body.success).toBe(false);
+    expect(prematureVerify.body.error_codes).toContain('captcha-not-solved');
+
+    const solveRes = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: correct!.id });
+    expect(solveRes.body.success).toBe(true);
+
     const verifyRes = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({ token, selectedOptionId: correct!.id, secretKey: 'definitely-wrong-secret' });
-
+      .send({ token, secretKey: 'definitely-wrong-secret' });
     expect(verifyRes.body.success).toBe(false);
     expect(verifyRes.body.score).toBe(0);
     expect(verifyRes.body.error_codes).toContain('invalid-secret-key');
+
+    // A bad secret must not consume the receipt; the correct site secret still works.
+    const validVerify = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, secretKey: testSecretKey });
+    expect(validVerify.body.success).toBe(true);
   });
 
   it('6. Allows four incorrect attempts and locks out the fifth attempt', async () => {
