@@ -165,7 +165,7 @@ export default function App() {
         const messages: Record<string, string> = {
           EMAIL_NOT_FOUND: 'This email is not registered with Firebase.',
           INVALID_PASSWORD: 'Incorrect password.',
-          INVALID_LOGIN_CREDENTIALS: 'ایمیل یا Incorrect password.',
+          INVALID_LOGIN_CREDENTIALS: 'Incorrect email or password.',
           USER_DISABLED: 'This account has been disabled.',
           TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many attempts. Please try again later.',
         };
@@ -820,7 +820,7 @@ export default function App() {
               </button>
             </form>
             {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="mt-3 text-xs text-amber-200">VITE_FIREBASE_API_KEY is not set in the build configuration.</p>}
-            {health && !health.firebaseAuth.isInitialized && <p className="mt-3 text-xs text-amber-200">Firebase Admin سمت سرور آماده نیست؛ Check FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_KEY settings.</p>}
+            {health && !health.firebaseAuth.isInitialized && <p className="mt-3 text-xs text-amber-200">Server-side Firebase Admin is not ready; check FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_KEY settings.</p>}
             {authError && <p role="alert" className="mt-3 text-xs text-rose-300">{authError}</p>}
           </div>
         )}
@@ -864,9 +864,9 @@ export default function App() {
               <p className="mt-2 text-sm leading-6 text-slate-400">USDT payments are accepted on the TRON (TRC20) network only. A subscription activates only after independent on-chain transaction verification.</p>
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-              <div className="flex items-center gap-2 mb-2"><span className={`h-2.5 w-2.5 rounded-full ${billingConfig?.ready ? 'bg-emerald-400' : 'bg-amber-400'}`} /><span className="font-semibold text-white">{billingConfig?.ready ? 'درگاه رمزارزی پیکربندی شده' : 'درگاه هنوز آماده دریافت وجه نیست'}</span></div>
-              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'Network: TRON (TRC20) · Currency: USDT' : 'مدیر سرویس باید آدرس کیف پول دریافت و کلید API ارائه‌دهنده TRON را در متغیرهای محیطی Render تنظیم کند.')}</p>
-              {billingConfig?.ready && <div className="mt-3 break-all rounded-lg bg-slate-950 border border-slate-700 p-3 font-mono text-sm text-emerald-300">{billingConfig.walletAddress}<button className="ml-3 text-xs text-slate-300 underline" onClick={() => copyToClipboard(billingConfig.walletAddress, 'billing-wallet')}>{copiedKey === 'billing-wallet' ? 'کپی شد' : 'کپی آدرس'}</button></div>}
+              <div className="flex items-center gap-2 mb-2"><span className={`h-2.5 w-2.5 rounded-full ${billingConfig?.ready ? 'bg-emerald-400' : 'bg-amber-400'}`} /><span className="font-semibold text-white">{billingConfig?.ready ? 'Crypto payment gateway is configured' : 'Payment gateway is not ready to receive funds'}</span></div>
+              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'Network: TRON (TRC20) · Currency: USDT' : 'The service administrator must configure the receiving wallet address and TRON provider API key in Render environment variables.')}</p>
+              {billingConfig?.ready && <div className="mt-3 break-all rounded-lg bg-slate-950 border border-slate-700 p-3 font-mono text-sm text-emerald-300">{billingConfig.walletAddress}<button className="ml-3 text-xs text-slate-300 underline" onClick={() => copyToClipboard(billingConfig.walletAddress, 'billing-wallet')}>{copiedKey === 'billing-wallet' ? 'Copied' : 'Copy address'}</button></div>}
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {[
@@ -875,11 +875,11 @@ export default function App() {
                 { id: 'business', title: 'Business', price: 199, requests: '5,000,000 + 2,500 bonus requests per purchase' },
               ].map(plan => (
                 <button key={plan.id} type="button" onClick={() => setBillingPlan(plan.id as any)} className={`text-left rounded-xl border p-4 transition-colors ${billingPlan === plan.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/60 hover:border-slate-500'}`}>
-                  <div className="text-sm text-slate-300">{plan.title}</div><div className="mt-2 text-2xl font-bold text-white">${plan.price}<span className="text-xs font-normal text-slate-400"> / 30 روز</span></div><div className="mt-2 text-xs text-slate-400">{plan.requests}</div>
+                  <div className="text-sm text-slate-300">{plan.title}</div><div className="mt-2 text-2xl font-bold text-white">${plan.price}<span className="text-xs font-normal text-slate-400"> / 30 days</span></div><div className="mt-2 text-xs text-slate-400">{plan.requests}</div>
                 </button>
               ))}
             </div>
-            <button type="button" disabled={!billingConfig?.ready || billingBusy} onClick={createBillingInvoice} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed">{billingBusy ? 'در حال پردازش...' : 'ایجاد Invoice پرداخت USDT'}</button>
+            <button type="button" disabled={!billingConfig?.ready || billingBusy} onClick={createBillingInvoice} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed">{billingBusy ? 'Processing...' : 'Create USDT payment invoice'}</button>
             {billingInvoice && (
               <div className="space-y-4 rounded-xl border border-emerald-500/30 bg-slate-900/80 p-4">
                 <h2 className="font-semibold text-white">Invoice {billingInvoice.id}</h2>
@@ -887,9 +887,9 @@ export default function App() {
                   <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">Exact amount</div><div className="mt-1 text-2xl font-bold text-emerald-300">{billingInvoice.amount_usdt} USDT</div></div>
                   <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">Network & expiry</div><div className="mt-1 text-sm text-white">TRON (TRC20)</div><div className="text-xs text-slate-400">{new Date(billingInvoice.expires_at).toLocaleString()}</div></div>
                 </div>
-                <div><label className="mb-1 block text-xs text-slate-400">Receiving address (TRC20 only)</label><div className="break-all rounded-lg bg-slate-950 p-3 font-mono text-xs text-white">{billingInvoice.payment_address || billingConfig?.walletAddress}</div><button className="mt-2 text-xs text-emerald-300 underline" onClick={() => copyToClipboard(billingInvoice.payment_address || billingConfig?.walletAddress, 'invoice-wallet')}>{copiedKey === 'invoice-wallet' ? 'کپی شد' : 'کپی آدرس کیف پول'}</button></div>
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-6 text-amber-200">Send the exact amount. Using the wrong network or token may result in loss of funds. کلید خصوصی کیف پول را هرگز وارد نکنید.</div>
-                {billingInvoice.status !== 'paid' && <div className="space-y-2"><label className="block text-xs text-slate-300" htmlFor="billing-txid">Transaction ID (TXID)</label><input id="billing-txid" value={billingTxid} onChange={e => setBillingTxid(e.target.value)} placeholder="64-character transaction ID" className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-sm text-white" /><button disabled={billingBusy || billingTxid.trim().length !== 64} onClick={verifyBillingPayment} className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white disabled:opacity-40">تأیید پرداخت روی بلاک‌چین</button></div>}
+                <div><label className="mb-1 block text-xs text-slate-400">Receiving address (TRC20 only)</label><div className="break-all rounded-lg bg-slate-950 p-3 font-mono text-xs text-white">{billingInvoice.payment_address || billingConfig?.walletAddress}</div><button className="mt-2 text-xs text-emerald-300 underline" onClick={() => copyToClipboard(billingInvoice.payment_address || billingConfig?.walletAddress, 'invoice-wallet')}>{copiedKey === 'invoice-wallet' ? 'Copied' : 'Copy wallet address'}</button></div>
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-6 text-amber-200">Send the exact amount. Using the wrong network or token may result in loss of funds. Never enter a wallet private key.</div>
+                {billingInvoice.status !== 'paid' && <div className="space-y-2"><label className="block text-xs text-slate-300" htmlFor="billing-txid">Transaction ID (TXID)</label><input id="billing-txid" value={billingTxid} onChange={e => setBillingTxid(e.target.value)} placeholder="64-character transaction ID" className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-sm text-white" /><button disabled={billingBusy || billingTxid.trim().length !== 64} onClick={verifyBillingPayment} className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white disabled:opacity-40">Verify payment on blockchain</button></div>}
                 {billingInvoice.status === 'paid' && <p className="text-sm font-semibold text-emerald-300">Payment confirmed.</p>}
               </div>
             )}
@@ -1423,7 +1423,7 @@ export default function App() {
                 <h3 className="text-sm font-semibold text-white">Embed the widget in your website form (React / HTML)</h3>
               </div>
               <p className="text-xs text-slate-400">
-                ویجت را در صفحه Sign In، ثبت‌نام یا پرداخت خود قرار داده و پس از تکمیل، توکن صادرشده را همراه با فرم ارسال کنید:
+                Place the widget in your sign-in, sign-up, or payment form and submit the generated token with the form:
               </p>
 
               <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">
@@ -1486,7 +1486,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(403).json({ error: 'CAPTCHA verification failed', codes: verification.error_codes });
   }
 
-  // اعتبارسنجی موفق بود؛ ادامه فرایند Sign In...
+  // Verification succeeded; continue the sign-in flow...
 });`}
               </pre>
             </div>
