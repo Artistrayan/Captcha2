@@ -376,6 +376,37 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
     return;
   }
 
+  // Enforce the account's rolling usage quota on verification requests too.
+  // The challenge is looked up server-side; callers cannot choose another site's quota.
+  try {
+    const storedChallenge = await dbRepository.getChallengeByToken(parsed.data.token);
+    if (storedChallenge) {
+      const quota = await checkCaptchaQuota(storedChallenge.siteKey, 1);
+      if (!quota.allowed) {
+        res.status(429).json({
+          success: false,
+          score: 0,
+          error_codes: ['usage-limit-exceeded'],
+          error: 'Monthly usage limit reached',
+          plan: quota.plan,
+          used: quota.used,
+          limit: quota.limit,
+          message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
+        });
+        return;
+      }
+    }
+  } catch (error: any) {
+    console.error('[Quota] Verification quota check failed:', error?.message);
+    res.status(503).json({
+      success: false,
+      score: 0,
+      error_codes: ['quota-check-unavailable'],
+      error: 'Usage quota could not be checked. Please retry shortly.',
+    });
+    return;
+  }
+
   // Express resolves req.ip using only the configured trusted proxy chain.
   // Ignore caller-supplied X-Forwarded-For and JSON remoteIp values.
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
