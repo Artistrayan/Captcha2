@@ -768,9 +768,9 @@ export default function App() {
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {[
-                { id: 'starter', title: 'Starter', price: 9, requests: '100,000 درخواست در ماه' },
-                { id: 'pro', title: 'Pro', price: 49, requests: '1,000,000 درخواست در ماه' },
-                { id: 'business', title: 'Business', price: 199, requests: '5,000,000 درخواست در ماه' },
+                { id: 'starter', title: 'Starter', price: 9, requests: '100,000 + 50 درخواست رایگان در هر خرید' },
+                { id: 'pro', title: 'Pro', price: 49, requests: '1,000,000 + 50 درخواست رایگان در هر خرید' },
+                { id: 'business', title: 'Business', price: 199, requests: '5,000,000 + 50 درخواست رایگان در هر خرید' },
               ].map(plan => (
                 <button key={plan.id} type="button" onClick={() => setBillingPlan(plan.id as any)} className={`text-left rounded-xl border p-4 transition-colors ${billingPlan === plan.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/60 hover:border-slate-500'}`}>
                   <div className="text-sm text-slate-300">{plan.title}</div><div className="mt-2 text-2xl font-bold text-white">${plan.price}<span className="text-xs font-normal text-slate-400"> / 30 روز</span></div><div className="mt-2 text-xs text-slate-400">{plan.requests}</div>
