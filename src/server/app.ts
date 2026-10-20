@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { apiRouter } from './routes.ts';
+import { billingRouter } from './billing.ts';
 
 export const app = express();
 
@@ -17,14 +18,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Explicit CORS
+// Explicit CORS. CAPTCHA embeds need cross-origin requests; billing remains token-authenticated.
 app.use(cors({
-  origin: (origin, callback) => {
-    // In dev / preview, allow any origin or self
-    callback(null, true);
-  },
-  // CAPTCHA embeds need cross-origin requests, but the API does not use cookies.
-  // Never enable credentialed CORS for every origin.
+  origin: (origin, callback) => callback(null, true),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Site-Key'],
 }));
@@ -38,22 +34,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
     const duration = Date.now() - start;
     if (req.path.startsWith('/api/v1')) {
-      // Clean query and avoid logging body secrets
       console.log(`[API] ${req.method} ${req.path} -> ${res.statusCode} (${duration}ms)`);
     }
   });
   next();
 });
 
-// Mount versioned API routes
 app.use('/api/v1', apiRouter);
+app.use('/api/v1/billing', billingRouter);
 
-// Centralized 404 handler for all API routes (ensures JSON response, never HTML)
 app.all('/api/*', (req: Request, res: Response) => {
   res.status(404).json({ error: 'Endpoint Not Found', path: req.originalUrl });
 });
 
-// Centralized error handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('[API Server Error]', err?.message || err);
   res.status(err.status || 500).json({
