@@ -341,7 +341,7 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
   const schema = z.object({
     token: z.string().min(1),
     selectedOptionId: z.string().max(100).optional(),
-    secretKey: z.string().max(512).optional(),
+    secretKey: z.string().min(1).max(512).optional(),
     remoteIp: z.string().max(64).optional(),
     hostname: z.string().max(253).optional(),
     action: z.string().max(128).optional(),
