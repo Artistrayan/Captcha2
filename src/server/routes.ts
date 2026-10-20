@@ -387,5 +387,6 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
         : 0,
     },
     recentEvents: summary.recentEvents.slice(0, 50),
+    hourlyTraffic: summary.hourlyTraffic,
   });
 });
