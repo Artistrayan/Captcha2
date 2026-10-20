@@ -21,6 +21,18 @@ export function rateLimiter(limit: number, windowMs: number) {
     const key = `${req.path}:${ip}`;
     const now = Date.now();
 
+    // Periodically discard expired keys so attacker-controlled IP diversity cannot grow this map forever.
+    if (rateLimits.size > 5000) {
+      for (const [storedKey, storedEntry] of rateLimits) {
+        if (storedEntry.resetAt <= now) rateLimits.delete(storedKey);
+      }
+    }
+
+    if (rateLimits.size >= 10000 && !rateLimits.has(key)) {
+      res.status(429).json({ error: 'Too Many Requests', message: 'Rate limiter capacity reached; retry shortly.', retryAfterMs: windowMs });
+      return;
+    }
+
     const entry = rateLimits.get(key);
     if (!entry || entry.resetAt < now) {
       rateLimits.set(key, { count: 1, resetAt: now + windowMs });
