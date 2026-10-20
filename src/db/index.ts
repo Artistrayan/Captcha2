@@ -620,7 +620,7 @@ export const dbRepository = {
     const hourlyMap = new Map<string, { hour: string; passed: number; blocked: number }>();
     for (const event of events) {
       const bucket = new Date(event.createdAt);
-      bucket.setMinutes(0, 0, 0);
+      bucket.setUTCMinutes(0, 0, 0);
       const hour = bucket.toISOString();
       const current = hourlyMap.get(hour) || { hour, passed: 0, blocked: 0 };
       if (event.success) current.passed++;
