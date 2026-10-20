@@ -20,7 +20,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Default language is English ('en') as requested
   const [lang, setLangState] = useState<LanguageCode>(() => {
-    const saved = localStorage.getItem('shieldcaptcha_lang') as LanguageCode;
+    const saved = localStorage.getItem('shieldcaptcha_lang_v2') as LanguageCode;
     if (saved && SUPPORTED_LANGUAGES.some(l => l.code === saved)) {
       return saved;
     }
@@ -31,7 +31,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setLang = (newLang: LanguageCode) => {
     setLangState(newLang);
-    localStorage.setItem('shieldcaptcha_lang', newLang);
+    localStorage.setItem('shieldcaptcha_lang_v2', newLang);
   };
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setLang,
         t,
         meta,
-        languages: SUPPORTED_LANGUAGES,
+        languages: SUPPORTED_LANGUAGES.filter(l => l.code === 'en' || l.code === 'fa'),
       }}
     >
       {children}
@@ -73,7 +73,7 @@ export function useI18n() {
 }
 
 export const LanguageSelector: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { lang, setLang, meta, languages } = useI18n();
+  const { lang, setLang, meta, languages, t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -93,7 +93,7 @@ export const LanguageSelector: React.FC<{ className?: string }> = ({ className =
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs font-medium transition-all shadow-sm cursor-pointer hover:border-emerald-500/50"
-        title="Select Language / انتخاب زبان"
+        title={t('selectLanguage')}
       >
         <Globe className="w-3.5 h-3.5 text-emerald-400" />
         <span className="text-base leading-none">{meta.flag}</span>
@@ -106,8 +106,8 @@ export const LanguageSelector: React.FC<{ className?: string }> = ({ className =
           className={`absolute ${meta.dir === 'rtl' ? 'left-0' : 'right-0'} mt-1.5 w-52 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl z-50 overflow-hidden py-1.5 backdrop-blur animate-in fade-in zoom-in-95 duration-100`}
         >
           <div className="px-3 py-1.5 text-[10px] font-mono text-slate-400 uppercase tracking-wider border-b border-slate-800/80 mb-1 flex items-center justify-between">
-            <span>Select Language</span>
-            <span className="text-[9px] text-emerald-400">10 Languages</span>
+            <span>{t('selectLanguage')}</span>
+            <span className="text-[9px] text-emerald-400">2 Languages</span>
           </div>
 
           <div className="max-h-64 overflow-y-auto divide-y divide-slate-800/40">
