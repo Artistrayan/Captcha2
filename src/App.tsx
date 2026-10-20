@@ -314,18 +314,29 @@ export default function App() {
       if (!chRes.ok || !challenge.token) throw new Error(challenge.message || challenge.code || 'Challenge issuance failed');
 
       if (scenario === 'wrong_answer') {
-        const verifyRes = await fetch('/api/v1/captcha/verify', {
+        let fourthAttempt: any;
+        for (let i = 0; i < 4; i++) {
+          const verifyRes = await fetch('/api/v1/captcha/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
+          });
+          const attemptData = await verifyRes.json();
+          if (i === 3) fourthAttempt = attemptData;
+        }
+        const fifthRes = await fetch('/api/v1/captcha/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
         });
-        const vData = await verifyRes.json();
-        const rejected = vData.success === false && vData.error_codes?.includes('incorrect-captcha-sol');
+        const fifthAttempt = await fifthRes.json();
+        const fourthAllowed = fourthAttempt?.error_codes?.includes('incorrect-captcha-sol');
+        const fifthBlocked = fifthAttempt.error_codes?.some((code: string) => ['timeout-or-duplicate', 'max-attempts-exceeded'].includes(code));
         setTestResultLog({
-          title: 'تست رد پاسخ اشتباه (Wrong Answer Rejection)',
-          status: rejected ? 'success' : 'failed',
-          code: vData.error_codes?.[0],
-          payload: vData,
+          title: 'تست چهار تلاش مجاز و مسدودشدن تلاش پنجم',
+          status: fourthAllowed && fifthBlocked ? 'success' : 'failed',
+          code: fifthAttempt.error_codes?.[0],
+          payload: { fourthIncorrectAttempt: fourthAttempt, fifthBlockedAttempt: fifthAttempt },
           timestamp: new Date().toLocaleTimeString('fa-IR'),
         });
       } else {
@@ -819,8 +830,8 @@ export default function App() {
                     onClick={() => runSecurityTest('wrong_answer')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-rose-400 mb-1">۱. ارسال پاسخ اشتباه</div>
-                    <div className="text-[10px] text-slate-400">بررسی ثبت خطای incorrect-captcha-sol و محدودیت ۴ تلاش</div>
+                    <div className="text-xs font-semibold text-rose-400 mb-1">۱. چهار تلاش مجاز</div>
+                    <div className="text-[10px] text-slate-400">چهار پاسخ اشتباه پذیرفته می‌شود؛ تلاش پنجم باید رد شود</div>
                   </button>
 
                   <button
