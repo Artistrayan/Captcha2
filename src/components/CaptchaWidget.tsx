@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Shield, RefreshCw, CheckCircle2, AlertTriangle, Clock, Lock } from 'lucide-react';
+import { LanguageCode, translations } from '../i18n/translations.ts';
 
 export interface CaptchaWidgetProps {
   siteKey: string;
@@ -9,6 +9,7 @@ export interface CaptchaWidgetProps {
   theme?: 'dark' | 'light';
   action?: string;
   autoStart?: boolean;
+  lang?: LanguageCode;
 }
 
 interface ChallengeOption {
@@ -34,6 +35,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   theme = 'dark',
   action = 'submit',
   autoStart = true,
+  lang = 'en',
 }) => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'success' | 'error' | 'expired'>('idle');
   const [challenge, setChallenge] = useState<ChallengeData | null>(null);
@@ -42,6 +44,12 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempts, setAttempts] = useState<number>(0);
   const [verifiedToken, setVerifiedToken] = useState<string | null>(null);
+
+  const t = (key: string): string => {
+    const dict = translations[lang] || translations.en;
+    return dict[key] || translations.en[key] || key;
+  };
+  const isRtl = lang === 'fa' || lang === 'ar';
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -54,7 +62,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       const res = await fetch('/api/v1/captcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteKey }),
+        body: JSON.stringify({ siteKey, lang }),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -63,14 +71,14 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         console.error('Non-JSON response from captcha challenge:', rawText.slice(0, 200));
         throw new Error(
           res.status >= 500
-            ? 'خطای موقت در ارتباط با سرویس؛ لطفاً مجدداً تلاش کنید.'
-            : `پاسخ غیرمنتظره از سرور (کد ${res.status})`
+            ? (lang === 'fa' ? 'خطای موقت در ارتباط با سرویس؛ لطفاً مجدداً تلاش کنید.' : 'Temporary server error. Please retry.')
+            : (lang === 'fa' ? `پاسخ غیرمنتظره از سرور (کد ${res.status})` : `Unexpected server response (HTTP ${res.status})`)
         );
       }
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || data.error || data.code || `خطا در دریافت چالش (کد ${res.status})`);
+        throw new Error(data.message || data.error || data.code || `HTTP ${res.status}`);
       }
 
       setChallenge(data);
@@ -79,10 +87,10 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
     } catch (err: any) {
       console.error('Failed to load challenge:', err);
       setStatus('error');
-      setErrorMessage(err.message || 'خطا در برقراری ارتباط با سرور کپچا');
+      setErrorMessage(err.message || (lang === 'fa' ? 'خطا در برقراری ارتباط با سرور کپچا' : 'Failed to connect to CAPTCHA server'));
       onError?.(err.message || 'challenge_fetch_error');
     }
-  }, [siteKey, onError]);
+  }, [siteKey, lang, onError]);
 
   // Handle countdown timer
   useEffect(() => {
@@ -139,17 +147,18 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         onVerify?.(challenge.token, data);
       } else {
         const primaryError = data.error_codes?.[0] || 'verification_failed';
-        setAttempts(prev => prev + 1);
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
 
         if (primaryError === 'challenge-expired' || primaryError === 'timeout-or-duplicate') {
           setStatus('expired');
-          setErrorMessage('چالش منقضی یا نامعتبر شده است. لطفاً دوباره دریافت کنید.');
-        } else if (primaryError === 'max-attempts-exceeded') {
+          setErrorMessage(t('widgetExpiredDesc'));
+        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 3) {
           setStatus('error');
-          setErrorMessage('تعداد دفعات تلاش مجاز به پایان رسید. چالش جدید دریافت کنید.');
+          setErrorMessage(t('widgetMaxAttemptsExceeded'));
         } else {
           setStatus('challenge');
-          setErrorMessage('پاسخ اشتباه است. لطفاً گزینه صحیح را با دقت انتخاب کنید.');
+          setErrorMessage(t('widgetIncorrectAnswer'));
         }
 
         onError?.(primaryError);
@@ -165,6 +174,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
 
   return (
     <div
+      dir={isRtl ? 'rtl' : 'ltr'}
       className={`rounded-xl border transition-all duration-200 overflow-hidden shadow-lg ${
         isDark
           ? 'bg-slate-900 border-slate-700/80 text-slate-100 shadow-emerald-950/20'
@@ -189,7 +199,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
               </span>
             </h4>
             <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              تأیید هویت امن و حریم‌خصوصی‌محور
+              {t('appTagline')}
             </p>
           </div>
         </div>
@@ -210,7 +220,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         {status === 'loading' && (
           <div className="py-8 flex flex-col items-center justify-center gap-3">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
-            <span className="text-xs text-slate-400">در حال دریافت چالش تصویری امن...</span>
+            <span className="text-xs text-slate-400">{t('widgetLoading')}</span>
           </div>
         )}
 
@@ -218,7 +228,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         {status === 'verifying' && (
           <div className="py-8 flex flex-col items-center justify-center gap-3">
             <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
-            <span className="text-xs text-emerald-400 font-medium">در حال ارزیابی پاسخ در سرور...</span>
+            <span className="text-xs text-emerald-400 font-medium">{t('widgetVerifying')}</span>
           </div>
         )}
 
@@ -228,9 +238,9 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             <div className="p-2 rounded-full bg-emerald-500/15 text-emerald-400">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h5 className="text-sm font-semibold text-emerald-400">تأیید هویت با موفقیت انجام شد</h5>
+            <h5 className="text-sm font-semibold text-emerald-400">{t('widgetVerified')}</h5>
             <p className="text-[11px] text-slate-400 max-w-[240px]">
-              توکن امن یک‌بارمصرف صادر شد و در برابر بازپخش محافظت می‌شود.
+              {t('widgetTokenGenerated')}
             </p>
             {verifiedToken && (
               <div className="mt-2 text-[10px] font-mono px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700/60 truncate max-w-full">
@@ -244,14 +254,14 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         {status === 'expired' && (
           <div className="py-6 flex flex-col items-center justify-center text-center gap-2">
             <AlertTriangle className="w-8 h-8 text-amber-400" />
-            <h5 className="text-xs font-semibold text-amber-400">مهلت چالش به پایان رسید</h5>
-            <p className="text-[11px] text-slate-400">برای ادامه، یک چالش تازه درخواست کنید.</p>
+            <h5 className="text-xs font-semibold text-amber-400">{t('widgetExpiredTitle')}</h5>
+            <p className="text-[11px] text-slate-400">{t('widgetExpiredDesc')}</p>
             <button
               onClick={fetchChallenge}
               className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              دریافت چالش جدید
+              {t('widgetRequestNew')}
             </button>
           </div>
         )}
@@ -260,14 +270,14 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         {status === 'error' && (
           <div className="py-6 flex flex-col items-center justify-center text-center gap-2">
             <AlertTriangle className="w-8 h-8 text-rose-400" />
-            <h5 className="text-xs font-semibold text-rose-400">خطا در چالش</h5>
+            <h5 className="text-xs font-semibold text-rose-400">{t('widgetErrorTitle')}</h5>
             <p className="text-[11px] text-slate-400 max-w-[260px]">{errorMessage}</p>
             <button
               onClick={fetchChallenge}
               className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              تلاش مجدد
+              {t('widgetRetry')}
             </button>
           </div>
         )}
@@ -275,15 +285,15 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         {/* Interactive Image Challenge State */}
         {status === 'challenge' && challenge && (
           <div>
-            <div className="mb-3 text-right">
-              <span className="text-[11px] text-emerald-400 font-semibold block mb-0.5">دستور چالش:</span>
+            <div className={`mb-3 ${isRtl ? 'text-right' : 'text-left'}`}>
+              <span className="text-[11px] text-emerald-400 font-semibold block mb-0.5">{t('widgetInstruction')}</span>
               <p className="text-xs font-medium text-slate-100">{challenge.prompt}</p>
             </div>
 
             {errorMessage && (
               <div className="mb-3 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errorMessage} (تلاش {attempts + 1} از ۳)</span>
+                <span>{errorMessage} ({attempts + 1} / 3)</span>
               </div>
             )}
 
@@ -303,16 +313,16 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
                         ? 'border-slate-700/80 bg-slate-800/60 hover:bg-slate-800 hover:border-slate-600'
                         : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
                     }`}
-                    aria-label={`گزینه تصویری شماره ${index + 1}`}
+                    aria-label={`Option ${index + 1}`}
                   >
                     <img
                       src={opt.svg}
-                      alt={`گزینه ${index + 1}`}
+                      alt={`Option ${index + 1}`}
                       className="w-12 h-12 object-contain pointer-events-none select-none transition-transform hover:scale-105"
                       loading="eager"
                     />
                     {isSelected && (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-900" />
+                      <span className={`absolute top-1.5 ${isRtl ? 'left-1.5' : 'right-1.5'} w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-900`} />
                     )}
                   </button>
                 );
@@ -324,7 +334,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
               <button
                 type="button"
                 onClick={fetchChallenge}
-                title="دریافت چالش جدید"
+                title={t('widgetRequestNew')}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -341,7 +351,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
                 }`}
               >
                 <Lock className="w-3.5 h-3.5" />
-                تأیید پاسخ
+                {t('widgetSubmitAnswer')}
               </button>
             </div>
           </div>
@@ -354,10 +364,11 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       }`}>
         <span className="flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-          سرور فعال (Local SVG Protection)
+          ShieldCaptcha Guard
         </span>
-        <span>حفاظت حریم خصوصی</span>
+        <span className="text-slate-400 font-mono text-[9px]">Privacy First</span>
       </div>
     </div>
   );
 };
+

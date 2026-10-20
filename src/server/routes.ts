@@ -161,18 +161,26 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
     const secretKeyPrefix = 'sc_sec_live_';
     const maskedSecretKey = `sc_sec_live_••••••••${rawSecretKey.slice(-4)}`;
 
-    const site = await dbRepository.createSite({
-      userId: user.id,
-      name: parsed.data.name,
-      siteKey,
-      domains: parsed.data.domains,
-      secretKeyHash,
-      secretKeyPrefix,
-      maskedSecretKey,
-      challengeDifficulty: parsed.data.challengeDifficulty,
-      invisibleEnabled: parsed.data.invisibleEnabled,
-      rateLimitPerMinute: parsed.data.rateLimitPerMinute,
-    });
+    let site;
+    try {
+      site = await dbRepository.createSite({
+        userId: user.id,
+        name: parsed.data.name,
+        siteKey,
+        domains: parsed.data.domains,
+        secretKeyHash,
+        secretKeyPrefix,
+        maskedSecretKey,
+        challengeDifficulty: parsed.data.challengeDifficulty,
+        invisibleEnabled: parsed.data.invisibleEnabled,
+        rateLimitPerMinute: parsed.data.rateLimitPerMinute,
+      });
+    } catch (err: any) {
+      console.error('[Server] Failed to create site in DB:', err);
+      res.status(500).json({ error: 'Internal server error', message: 'Could not create site in database.' });
+      return;
+    }
+
 
     // Return the raw secret key EXACTLY ONCE to the owner! It is never stored or returned again.
     res.status(201).json({
@@ -239,6 +247,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(120, 60000), async (req: Reques
   const schema = z.object({
     siteKey: z.string().min(1),
     domain: z.string().optional(),
+    lang: z.string().optional().default('en'),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -262,7 +271,11 @@ apiRouter.post('/captcha/challenge', rateLimiter(120, 60000), async (req: Reques
   }
 
   try {
-    const challenge = await issueCaptchaChallenge(parsed.data.siteKey, requestDomain);
+    const challenge = await issueCaptchaChallenge(
+      parsed.data.siteKey,
+      requestDomain,
+      parsed.data.lang
+    );
 
     res.json({
       challengeId: challenge.challengeId,

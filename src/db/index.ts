@@ -159,55 +159,80 @@ if (process.env.DATABASE_URL) {
     const dbUrl = process.env.DATABASE_URL;
     const isLocalhost = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
 
-    pgPool = new Pool({
-      connectionString: dbUrl,
-      max: 10,
-      connectionTimeoutMillis: 30000, // 30s timeout to allow cloud databases to cold-start
-      idleTimeoutMillis: 30000,
-      ssl: isLocalhost ? false : { rejectUnauthorized: false },
-    });
-    drizzleDb = drizzle(pgPool, { schema });
+    let dbHostname = '';
+    try {
+      const parsedUrl = new URL(dbUrl);
+      dbHostname = parsedUrl.hostname;
+    } catch {}
 
-    // Connect with automatic retries for cloud cold starts
-    const connectWithRetry = async (retries = 6, delayMs = 3000): Promise<void> => {
-      for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-          console.log(`[Database] Attempting PostgreSQL connection (attempt ${attempt}/${retries})...`);
-          await pgPool!.query('SELECT 1');
-          console.log('[Database] PostgreSQL connection verified');
+    // Render internal hostnames (e.g. dpg-xxxx-a) only resolve inside Render's private network.
+    // If running in development/preview outside Render, gracefully use persistent local storage.
+    const isRenderInternalHost =
+      !process.env.RENDER &&
+      (!dbHostname.includes('.') || dbHostname.endsWith('.internal') || dbHostname.startsWith('dpg-'));
 
+    if (isRenderInternalHost) {
+      console.log(`[Database] Render internal host (${dbHostname}) is private to Render. Using local persistent storage in development/preview.`);
+      lastPgError = `Render internal host (${dbHostname}) is private to Render. Local storage active in preview.`;
+      isPgConnected = false;
+    } else {
+      pgPool = new Pool({
+        connectionString: dbUrl,
+        max: 10,
+        connectionTimeoutMillis: 30000, // 30s timeout to allow cloud databases to cold-start
+        idleTimeoutMillis: 30000,
+        ssl: isLocalhost ? false : { rejectUnauthorized: false },
+      });
+      drizzleDb = drizzle(pgPool, { schema });
+
+      // Connect with automatic retries for cloud cold starts
+      const connectWithRetry = async (retries = 6, delayMs = 3000): Promise<void> => {
+        for (let attempt = 1; attempt <= retries; attempt++) {
           try {
-            const { migrate } = await import('drizzle-orm/node-postgres/migrator');
-            const migrationsDir = path.resolve(process.cwd(), 'drizzle');
-            if (!fs.existsSync(migrationsDir)) {
-              throw new Error('Drizzle migrations directory is missing');
+            console.log(`[Database] Attempting PostgreSQL connection (attempt ${attempt}/${retries})...`);
+            await pgPool!.query('SELECT 1');
+            console.log('[Database] PostgreSQL connection verified');
+
+            try {
+              const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+              const migrationsDir = path.resolve(process.cwd(), 'drizzle');
+              if (!fs.existsSync(migrationsDir)) {
+                throw new Error('Drizzle migrations directory is missing');
+              }
+              await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
+              isPgConnected = true;
+              lastPgError = undefined;
+              console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
+              return;
+            } catch (migErr: any) {
+              lastPgError = migErr?.message || 'Migration failed';
+              console.error('[Database] PostgreSQL migration failed:', lastPgError);
+              return;
             }
-            await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
-            isPgConnected = true;
-            lastPgError = undefined;
-            console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
-            return;
-          } catch (migErr: any) {
-            lastPgError = migErr?.message || 'Migration failed';
-            console.error('[Database] PostgreSQL migration failed:', lastPgError);
-            return;
-          }
-        } catch (err: any) {
-          lastPgError = err.message;
-          console.warn(`[Database] Connection attempt ${attempt} failed: ${err.message}`);
-          if (attempt < retries) {
-            console.log(`[Database] Retrying connection in ${delayMs / 1000}s...`);
-            await new Promise(r => setTimeout(r, delayMs));
-          } else {
-            console.error('[Database] All PostgreSQL connection attempts exhausted. Will keep retrying in background.');
-            // Schedule background retry so server remains alive and responsive
-            setTimeout(() => connectWithRetry(3, 5000), 10000);
+          } catch (err: any) {
+            lastPgError = err.message;
+            const isDnsFailure =
+              err.code === 'EAI_AGAIN' ||
+              err.code === 'ENOTFOUND' ||
+              err.message?.includes('getaddrinfo');
+
+            if (isDnsFailure && !process.env.RENDER) {
+              console.log(`[Database] Hostname resolution unavailable outside Render (${err.message}). Using local storage.`);
+              return;
+            }
+
+            if (attempt < retries) {
+              console.log(`[Database] Retrying connection in ${delayMs / 1000}s...`);
+              await new Promise(r => setTimeout(r, delayMs));
+            } else {
+              console.log('[Database] PostgreSQL connection attempts completed; will retry if re-invoked.');
+            }
           }
         }
-      }
-    };
+      };
 
-    connectWithRetry();
+      connectWithRetry();
+    }
   } catch (err: any) {
     lastPgError = err?.message;
   }

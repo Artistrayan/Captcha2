@@ -59,11 +59,47 @@ const CATEGORY_NAMES_EN: Record<string, string> = {
   cloud: 'Cloud',
 };
 
+import { CATEGORY_NAMES_I18N, LanguageCode } from '../i18n/translations.ts';
+
+export function generatePromptForLanguage(category: string, lang = 'en'): string {
+  const catNames = CATEGORY_NAMES_I18N[category] || { en: category } as any;
+  const langKey = (lang || 'en') as LanguageCode;
+  const name = catNames[langKey] || catNames.en || category;
+
+  switch (langKey) {
+    case 'fa':
+      return `تصویر «${name}» را انتخاب کنید.`;
+    case 'es':
+      return `Seleccione la imagen «${name}».`;
+    case 'zh':
+      return `请选择「${name}」图标。`;
+    case 'ar':
+      return `اختر صورة «${name}».`;
+    case 'fr':
+      return `Sélectionnez l'image «${name}».`;
+    case 'de':
+      return `Wählen Sie das Bild «${name}».`;
+    case 'ru':
+      return `Выберите изображение «${name}».`;
+    case 'pt':
+      return `Selecione a imagem «${name}».`;
+    case 'ja':
+      return `「${name}」の画像を選択してください。`;
+    case 'en':
+    default:
+      return `Select the «${name}» image.`;
+  }
+}
+
 /**
  * Creates a visual image challenge with CSPRNG randomization.
  * Correct answer is hashed and kept strictly on the server.
  */
-export async function issueCaptchaChallenge(siteKey: string, domain?: string): Promise<GeneratedChallenge> {
+export async function issueCaptchaChallenge(
+  siteKey: string,
+  domain?: string,
+  lang: string = 'en'
+): Promise<GeneratedChallenge> {
   const site = await dbRepository.getSiteByKey(siteKey);
   if (!site) {
     throw new Error('SITE_KEY_NOT_FOUND');
@@ -143,7 +179,7 @@ export async function issueCaptchaChallenge(siteKey: string, domain?: string): P
     .update(`${challengeId}:${correctOptionId}`)
     .digest('hex');
 
-  const prompt = `تصویر «${CATEGORY_NAMES_FA[targetCategory]} / ${CATEGORY_NAMES_EN[targetCategory]}» را انتخاب کنید.`;
+  const prompt = generatePromptForLanguage(targetCategory, lang);
 
   // Persist challenge in database
   await dbRepository.createChallenge({
