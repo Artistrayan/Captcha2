@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { dbRepository } from '../db/index.ts';
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || (IS_PRODUCTION ? '' : 'shield_captcha_internal_salt_dev_98741');
 if (IS_PRODUCTION && !SERVER_SALT) {
   throw new Error('[Captcha] CAPTCHA_SERVER_SALT is required in production; refusing to start with a default salt.');
