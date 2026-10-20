@@ -20,7 +20,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Default language is English ('en') as requested
   const [lang, setLangState] = useState<LanguageCode>(() => {
-    const saved = localStorage.getItem('shieldcaptcha_lang_v2') as LanguageCode;
+    const saved = localStorage.getItem('shieldcaptcha_lang_v3') as LanguageCode;
     if (saved && SUPPORTED_LANGUAGES.some(l => l.code === saved)) {
       return saved;
     }
@@ -31,7 +31,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setLang = (newLang: LanguageCode) => {
     setLangState(newLang);
-    localStorage.setItem('shieldcaptcha_lang_v2', newLang);
+    localStorage.setItem('shieldcaptcha_lang_v3', newLang);
   };
 
   useEffect(() => {
