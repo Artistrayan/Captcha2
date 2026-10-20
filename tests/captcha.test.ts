@@ -189,27 +189,25 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
 
     expect(correctOptId).not.toBe('');
 
-    // First verification MUST SUCCEED
+    // The public widget first solves the challenge without exposing the site secret.
+    const solveRes = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: correctOptId });
+    expect(solveRes.body.success).toBe(true);
+
+    // The customer backend validates the solved receipt using its private secret key.
     const firstVerify = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({
-        token,
-        selectedOptionId: correctOptId,
-        secretKey: testSecretKey,
-      });
+      .send({ token, secretKey: testSecretKey });
 
     expect(firstVerify.status).toBe(200);
     expect(firstVerify.body.success).toBe(true);
     expect(firstVerify.body.score).toBeGreaterThanOrEqual(90);
 
-    // SECOND VERIFICATION (Replay Attack) MUST FAIL
+    // Reusing the same server-side receipt MUST FAIL.
     const replayVerify = await request(app)
       .post('/api/v1/captcha/verify')
-      .send({
-        token,
-        selectedOptionId: correctOptId,
-        secretKey: testSecretKey,
-      });
+      .send({ token, secretKey: testSecretKey });
 
     expect(replayVerify.status).toBe(200);
     expect(replayVerify.body.success).toBe(false);
