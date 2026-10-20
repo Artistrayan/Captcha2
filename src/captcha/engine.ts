@@ -119,23 +119,31 @@ export async function issueCaptchaChallenge(
   if (IS_PRODUCTION && !domain) {
     throw new Error('DOMAIN_REQUIRED');
   }
-  if (domain && domain !== 'localhost' && domain !== '127.0.0.1') {
+  const cleanTarget = domain?.toLowerCase().trim().replace(/\.$/, '');
+  const isLocalHost = cleanTarget === 'localhost' || cleanTarget === '127.0.0.1';
+
+  // Localhost is a development convenience only. It must never bypass the
+  // production allow-list, even when a caller forges an Origin header.
+  if (IS_PRODUCTION && isLocalHost) {
+    throw new Error('DOMAIN_MISMATCH');
+  }
+
+  if (domain && !(!IS_PRODUCTION && isLocalHost)) {
     let appHostname = '';
     if (process.env.APP_URL) {
       try {
-        appHostname = new URL(process.env.APP_URL).hostname;
+        appHostname = new URL(process.env.APP_URL).hostname.toLowerCase();
       } catch {}
     }
 
-    const isSelfTesting = !!appHostname && domain.toLowerCase() === appHostname.toLowerCase();
+    const isSelfTesting = !!appHostname && cleanTarget === appHostname;
 
     // Normalize hostnames and allow only an explicitly configured exact domain
     // or its subdomains. A wildcard entry would silently authorize every website.
-    const cleanTarget = domain.toLowerCase().trim().replace(/\.$/, '');
     const isAllowed = isSelfTesting || site.domains.some(d => {
       const cleanD = d.toLowerCase().trim().replace(/\.$/, '');
       if (!cleanD || cleanD === '*' || cleanD.includes('://') || cleanD.includes('/')) return false;
-      return cleanD === cleanTarget || cleanTarget.endsWith(`.${cleanD}`);
+      return cleanD === cleanTarget || cleanTarget!.endsWith(`.${cleanD}`);
     });
 
     if (!isAllowed) {
