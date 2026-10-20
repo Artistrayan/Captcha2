@@ -243,7 +243,7 @@ apiRouter.delete('/sites/:id', requireAuth, async (req: Request, res: Response) 
 });
 
 // 7. Issue CAPTCHA Challenge
-apiRouter.post('/captcha/challenge', rateLimiter(120, 60000), async (req: Request, res: Response) => {
+apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     siteKey: z.string().min(1),
     domain: z.string().optional(),
