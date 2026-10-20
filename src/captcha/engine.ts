@@ -142,41 +142,44 @@ export async function issueCaptchaChallenge(
 
   // Difficulty controls the number of visually plausible distractors.
   const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
-
-  // Pick distractor categories with cryptographic shuffling.
+  const challengeMode = crypto.randomInt(0, 2) === 0 ? 'IMAGE_SELECTION' : 'ODD_ONE_OUT';
   const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
-  // Shuffle other categories using Fisher-Yates with crypto.randomInt
   for (let i = otherCategories.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
     [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
   }
-  const selectedDistractors = otherCategories.slice(0, optionCount - 1);
 
-  // Combine target and distractors (difficulty-dependent choices)
-  const challengeSet = [targetCategory, ...selectedDistractors];
-  // Shuffle challengeSet
-  for (let i = challengeSet.length - 1; i > 0; i--) {
+  // Each mode has one server-verified correct option.
+  const challengeItems: Array<{ category: string; correct: boolean }> =
+    challengeMode === 'ODD_ONE_OUT'
+      ? [
+          { category: targetCategory, correct: true },
+          ...Array.from({ length: optionCount - 1 }, () => ({
+            category: otherCategories[0],
+            correct: false,
+          })),
+        ]
+      : [
+          { category: targetCategory, correct: true },
+          ...otherCategories.slice(0, optionCount - 1).map(category => ({
+            category,
+            correct: false,
+          })),
+        ];
+
+  for (let i = challengeItems.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
-    [challengeSet[i], challengeSet[j]] = [challengeSet[j], challengeSet[i]];
+    [challengeItems[i], challengeItems[j]] = [challengeItems[j], challengeItems[i]];
   }
 
-  // Generate randomized opaque IDs for options so client cannot infer answer
   let correctOptionId = '';
   const options: VisualOption[] = [];
-
-  for (const cat of challengeSet) {
+  for (const item of challengeItems) {
     const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
-    if (cat === targetCategory) {
-      correctOptionId = optId;
-    }
-    const svgRaw = SVG_ICONS[cat];
-    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(svgRaw)}`;
-    options.push({
-      id: optId,
-      svg: encodedSvg,
-    });
+    if (item.correct) correctOptionId = optId;
+    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(SVG_ICONS[item.category])}`;
+    options.push({ id: optId, svg: encodedSvg });
   }
-
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
   const token = `sct_${crypto.randomBytes(24).toString('base64url')}`;
   const expiresInSeconds = site.challengeDifficulty === 'HIGH' ? 75 : 90;
@@ -188,13 +191,26 @@ export async function issueCaptchaChallenge(
     .update(`${challengeId}:${correctOptionId}`)
     .digest('hex');
 
-  const prompt = generatePromptForLanguage(targetCategory, lang);
+  const prompt = challengeMode === 'ODD_ONE_OUT'
+    ? ({
+        fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.',
+        en: 'Select the image that is different from the others.',
+        es: 'Seleccione la imagen diferente de las demás.',
+        zh: '请选择与其他图标不同的图片。',
+        ar: 'اختر الصورة المختلفة عن البقية.',
+        fr: 'Sélectionnez l’image différente des autres.',
+        de: 'Wählen Sie das Bild, das sich von den anderen unterscheidet.',
+        ru: 'Выберите изображение, которое отличается от остальных.',
+        pt: 'Selecione a imagem diferente das outras.',
+        ja: 'ほかと異なる画像を選択してください。',
+      } as Record<string, string>)[lang] || 'Select the image that is different from the others.'
+    : generatePromptForLanguage(targetCategory, lang);
 
   // Persist challenge in database
   await dbRepository.createChallenge({
     id: challengeId,
     siteKey,
-    challengeType: 'IMAGE_SELECTION',
+    challengeType: challengeMode,
     prompt,
     correctAnswerHash,
     options: options.map(o => ({ id: o.id, label: '', icon: o.svg })),
