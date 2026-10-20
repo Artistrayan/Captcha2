@@ -143,16 +143,16 @@ export default function App() {
           body: JSON.stringify({ email, name: email.split('@')[0] }),
         });
         const data = await res.json();
-        if (!res.ok || !data.token) throw new Error(data.message || 'ورود آزمایشی ناموفق بود');
+        if (!res.ok || !data.token) throw new Error(data.message || 'Test sign-in failed');
         setAuthToken(data.token);
         fetchSites(data.token);
         return data.token;
       }
 
       const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-      if (!apiKey) throw new Error('کلید عمومی Firebase در تنظیمات ساخت سایت تعریف نشده است.');
-      if (!health?.firebaseAuth.isInitialized) throw new Error('احراز هویت سمت سرور آماده نیست؛ تنظیمات Firebase Admin را بررسی کنید.');
-      if (!password) throw new Error('گذرواژه را وارد کنید.');
+      if (!apiKey) throw new Error('Firebase public API key is missing from the build configuration.');
+      if (!health?.firebaseAuth.isInitialized) throw new Error('Server authentication is not ready; check Firebase Admin configuration.');
+      if (!password) throw new Error('Enter your password.');
 
       const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
@@ -163,13 +163,13 @@ export default function App() {
       if (!res.ok || !data.idToken) {
         const code = data?.error?.message;
         const messages: Record<string, string> = {
-          EMAIL_NOT_FOUND: 'این ایمیل در Firebase ثبت نشده است.',
-          INVALID_PASSWORD: 'گذرواژه صحیح نیست.',
-          INVALID_LOGIN_CREDENTIALS: 'ایمیل یا گذرواژه صحیح نیست.',
-          USER_DISABLED: 'این حساب غیرفعال شده است.',
-          TOO_MANY_ATTEMPTS_TRY_LATER: 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
+          EMAIL_NOT_FOUND: 'This email is not registered with Firebase.',
+          INVALID_PASSWORD: 'Incorrect password.',
+          INVALID_LOGIN_CREDENTIALS: 'ایمیل یا Incorrect password.',
+          USER_DISABLED: 'This account has been disabled.',
+          TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many attempts. Please try again later.',
         };
-        throw new Error(messages[code] || 'ورود Firebase ناموفق بود.');
+        throw new Error(messages[code] || 'Firebase sign-in failed.');
       }
       sessionStorage.setItem('shieldcaptcha_id_token', data.idToken);
       sessionStorage.setItem('shieldcaptcha_user_email', data.email || email);
@@ -179,7 +179,7 @@ export default function App() {
       fetchSites(data.idToken);
       return data.idToken;
     } catch (err: any) {
-      setAuthError(err?.message || 'ورود ناموفق بود.');
+      setAuthError(err?.message || 'Sign-in failed.');
       if (import.meta.env.DEV) console.error('Session login error:', err);
     } finally {
       setIsLoadingSites(false);
@@ -195,9 +195,9 @@ export default function App() {
     setIsLoadingSites(true);
     try {
       const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-      if (!apiKey) throw new Error('کلید عمومی Firebase در تنظیمات ساخت سایت تعریف نشده است.');
-      if (!health?.firebaseAuth.isInitialized) throw new Error('احراز هویت سمت سرور آماده نیست؛ تنظیمات Firebase Admin را بررسی کنید.');
-      if (authPassword.length < 6) throw new Error('گذرواژه باید حداقل ۶ نویسه داشته باشد.');
+      if (!apiKey) throw new Error('Firebase public API key is missing from the build configuration.');
+      if (!health?.firebaseAuth.isInitialized) throw new Error('Server authentication is not ready; check Firebase Admin configuration.');
+      if (authPassword.length < 6) throw new Error('Password must be at least 6 characters.');
 
       const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
@@ -208,17 +208,17 @@ export default function App() {
       if (!res.ok || !data.idToken) {
         const code = data?.error?.message;
         const messages: Record<string, string> = {
-          EMAIL_EXISTS: 'این ایمیل قبلاً ثبت شده است؛ وارد حساب شوید.',
-          INVALID_EMAIL: 'ساختار ایمیل معتبر نیست.',
-          WEAK_PASSWORD: 'گذرواژه ضعیف است؛ حداقل ۶ نویسه وارد کنید.',
-          OPERATION_NOT_ALLOWED: 'ثبت‌نام با ایمیل و گذرواژه در تنظیمات Firebase فعال نیست.',
-          TOO_MANY_ATTEMPTS_TRY_LATER: 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
+          EMAIL_EXISTS: 'This email is already registered. Please sign in.',
+          INVALID_EMAIL: 'Invalid email format.',
+          WEAK_PASSWORD: 'Password is too weak. Use at least 6 characters.',
+          OPERATION_NOT_ALLOWED: 'Email/password sign-up is disabled in Firebase settings.',
+          TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many attempts. Please try again later.',
         };
         if (code === 'EMAIL_EXISTS') {
           setAuthMode('login');
-          throw new Error('این ایمیل قبلاً ثبت شده است. به صفحهٔ ورود منتقل شدید؛ با همان ایمیل و گذرواژه وارد شوید.');
+          throw new Error('This email is already registered. You have been redirected to sign-in; use the same email and password.');
         }
-        throw new Error(messages[code] || 'ایجاد حساب در Firebase ناموفق بود.');
+        throw new Error(messages[code] || 'Firebase account creation failed.');
       }
       sessionStorage.setItem('shieldcaptcha_id_token', data.idToken);
       sessionStorage.setItem('shieldcaptcha_user_email', data.email || userEmail.trim());
@@ -227,7 +227,7 @@ export default function App() {
       setAuthPassword('');
       await fetchSites(data.idToken);
     } catch (err: any) {
-      setAuthError(err?.message || 'ایجاد حساب ناموفق بود.');
+      setAuthError(err?.message || 'Account creation failed.');
     } finally {
       setIsLoadingSites(false);
       setIsSigningIn(false);
@@ -248,7 +248,7 @@ export default function App() {
         setAuthToken('');
         setSites([]);
         setSelectedSiteKey('');
-        setAuthError('نشست ورود معتبر نیست؛ دوباره وارد شوید.');
+        setAuthError('Your sign-in session is invalid. Please sign in again.');
         return;
       }
       if (data.sites) {
@@ -276,7 +276,7 @@ export default function App() {
       }
 
       if (!currentToken) {
-        alert('جلسه کاربری یافت نشد. لطفاً صفحه را بارگذاری مجدد نمایید.');
+        alert('User session not found. Please reload the page.');
         setIsCreatingSite(false);
         return;
       }
@@ -314,17 +314,17 @@ export default function App() {
         // Refresh sites from server to ensure persistence!
         await fetchSites(currentToken);
       } else {
-        alert(data.message || data.error || 'خطا در ثبت سایت');
+        alert(data.message || data.error || 'Failed to register website');
       }
     } catch (err: any) {
-      alert(err.message || 'خطای ارتباط با سرور در ثبت سایت');
+      alert(err.message || 'Server connection error while registering website');
     } finally {
       setIsCreatingSite(false);
     }
   };
 
   const handleDeleteSite = async (siteId: string) => {
-    if (!window.confirm('آیا از حذف این سایت اطمینان دارید؟ تمام کلیدها و رویدادهای مربوطه حذف خواهند شد.')) return;
+    if (!window.confirm('Are you sure you want to delete this website? All related keys and events will be deleted.')) return;
 
     try {
       const res = await fetch(`/api/v1/sites/${siteId}`, {
@@ -355,10 +355,10 @@ export default function App() {
       if (scenario === 'replay_attack') {
         if (!lastVerifiedToken || lastVerifiedSiteKey !== selectedSiteKey) {
           setTestResultLog({
-            title: 'برای آزمون بازپخش ابتدا همین سایت را با ویجت تأیید کنید',
+            title: 'Verify this site with the widget before testing replay protection',
             status: 'failed',
             code: 'verified-token-required',
-            payload: { message: 'ابتدا کپچای ویجت زنده را با موفقیت حل کنید؛ سپس همین توکن تأییدشده را برای آزمون بازپخش دوباره ارسال می‌کنیم.' },
+            payload: { message: 'Complete the live CAPTCHA widget first; then the verified token will be submitted again to test replay protection.' },
             timestamp: new Date().toLocaleTimeString('fa-IR'),
           });
           return;
@@ -373,12 +373,12 @@ export default function App() {
         const replayData = await replayRes.json();
         const blocked = replayData.error_codes?.includes('timeout-or-duplicate');
         setTestResultLog({
-          title: 'تست محافظت در برابر بازپخش توکن (Replay Attack Prevention)',
+          title: 'Replay attack prevention test',
           status: blocked ? 'success' : 'failed',
           code: replayData.error_codes?.[0],
           payload: {
             replayAttempt: replayData,
-            securityResult: blocked ? 'موفق: توکن حل‌شده و مصرف‌شده دوباره پذیرفته نشد.' : 'ناموفق: پاسخ سرور مطابق انتظار نبود.',
+            securityResult: blocked ? 'Passed: a solved and consumed token was rejected on reuse.' : 'Failed: the server response did not match expectations.',
           },
           timestamp: new Date().toLocaleTimeString('fa-IR'),
         });
@@ -414,7 +414,7 @@ export default function App() {
         const fourthAllowed = fourthAttempt?.error_codes?.includes('incorrect-captcha-sol');
         const fifthBlocked = fifthAttempt.error_codes?.some((code: string) => ['timeout-or-duplicate', 'max-attempts-exceeded'].includes(code));
         setTestResultLog({
-          title: 'تست چهار تلاش مجاز و مسدودشدن تلاش پنجم',
+          title: 'Test four allowed attempts and block the fifth',
           status: fourthAllowed && fifthBlocked ? 'success' : 'failed',
           code: fifthAttempt.error_codes?.[0],
           payload: { fourthIncorrectAttempt: fourthAttempt, fifthBlockedAttempt: fifthAttempt },
@@ -434,19 +434,19 @@ export default function App() {
         const vData = await verifyRes.json();
         const rejected = vData.success === false && vData.error_codes?.includes('invalid-secret-key');
         setTestResultLog({
-          title: 'تست رد کلید محرمانه نامعتبر',
+          title: 'Invalid secret key rejection test',
           status: rejected ? 'success' : 'failed',
           code: vData.error_codes?.[0],
           payload: {
             ...vData,
-            securityResult: rejected ? 'موفق: سرور کلید محرمانهٔ نامعتبر را رد کرد.' : 'ناموفق: پاسخ سرور مطابق انتظار نبود.',
+            securityResult: rejected ? 'Passed: the server rejected the invalid secret key.' : 'Failed: the server response did not match expectations.',
           },
           timestamp: new Date().toLocaleTimeString('fa-IR'),
         });
       }
     } catch (err: any) {
       setTestResultLog({
-        title: 'خطای اجرای آزمون',
+        title: 'Test execution error',
         status: 'failed',
         payload: { error: err.message },
         timestamp: new Date().toLocaleTimeString('fa-IR'),
@@ -552,37 +552,37 @@ export default function App() {
   };
 
   const createBillingInvoice = async () => {
-    setBillingBusy(true); setBillingMessage('در حال ایجاد فاکتور...');
+    setBillingBusy(true); setBillingMessage('Creating invoice...');
     try {
       const res = await fetch('/api/v1/billing/invoices', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ plan: billingPlan }),
       });
       const data = await res.json();
-      if (!res.ok || !data.invoice) throw new Error(data.error || 'ایجاد فاکتور ناموفق بود.');
-      setBillingInvoice(data.invoice); setBillingTxid(''); setBillingMessage(data.instructions || 'فاکتور ایجاد شد.');
+      if (!res.ok || !data.invoice) throw new Error(data.error || 'Invoice creation failed.');
+      setBillingInvoice(data.invoice); setBillingTxid(''); setBillingMessage(data.instructions || 'Invoice created.');
       const list = await fetch('/api/v1/billing/invoices', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json());
       setBillingInvoices(Array.isArray(list.invoices) ? list.invoices : []);
-    } catch (e: any) { setBillingMessage(e?.message || 'خطا در ایجاد فاکتور'); }
+    } catch (e: any) { setBillingMessage(e?.message || 'Error creating invoice'); }
     finally { setBillingBusy(false); }
   };
 
   const verifyBillingPayment = async () => {
     if (!billingInvoice || !billingTxid.trim()) return;
-    setBillingBusy(true); setBillingMessage('در حال بررسی تراکنش روی شبکه TRON...');
+    setBillingBusy(true); setBillingMessage('Checking the transaction on the TRON network...');
     try {
       const res = await fetch(`/api/v1/billing/invoices/${encodeURIComponent(billingInvoice.id)}/verify`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ txid: billingTxid.trim() }),
       });
       const data = await res.json();
-      setBillingMessage(data.message || data.error || 'وضعیت پرداخت بررسی شد.');
+      setBillingMessage(data.message || data.error || 'Payment status checked.');
       if (data.status === 'paid') {
         setBillingInvoice({ ...billingInvoice, status: 'paid', txid: billingTxid.trim() });
         const list = await fetch('/api/v1/billing/invoices', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json());
         setBillingInvoices(Array.isArray(list.invoices) ? list.invoices : []);
       }
-    } catch (e: any) { setBillingMessage(e?.message || 'خطا در بررسی تراکنش'); }
+    } catch (e: any) { setBillingMessage(e?.message || 'Error checking transaction'); }
     finally { setBillingBusy(false); }
   };
 
@@ -657,8 +657,8 @@ export default function App() {
                 <input id="auth-password" type="password" required minLength={6} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t('authPasswordHint')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
               </div>
               {authError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm leading-6 text-rose-300">{authError}</p>}
-              {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY در تنظیمات build تعریف نشده است.</p>}
-              {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Firebase Admin سمت سرور آماده نیست؛ تنظیمات Firebase را بررسی کنید.</p>}
+              {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY is not set in the build configuration.</p>}
+              {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Server-side Firebase Admin is not ready; check the Firebase configuration.</p>}
               <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
                 {isSigningIn ? t('authPleaseWait') : authMode === 'login' ? t('authSignInButton') : t('authCreateAccount')}
               </button>
@@ -694,7 +694,7 @@ export default function App() {
           <div className="hidden md:flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60">
               <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-slate-400">ذخیره‌سازی:</span>
+              <span className="text-slate-400">Storage:</span>
               <span className="font-mono text-emerald-400 font-medium">
                 {health?.database.isPostgresConnected ? 'PostgreSQL (Cloud SQL)' : (import.meta.env.PROD ? 'Database unavailable' : 'Drizzle File Storage')}
               </span>
@@ -702,7 +702,7 @@ export default function App() {
 
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60">
               <Lock className="w-3.5 h-3.5 text-teal-400" />
-              <span className="text-slate-400">احراز هویت:</span>
+              <span className="text-slate-400">Authentication:</span>
               <span className="font-mono text-teal-400 font-medium">
                 {health?.firebaseAuth.isInitialized ? 'Firebase Admin Live' : (import.meta.env.PROD ? 'Firebase not configured' : 'Development JWT')}
               </span>
@@ -738,7 +738,7 @@ export default function App() {
               }}
               className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800"
             >
-              خروج امن
+              Sign Out
             </button>
           )}
         </div>
@@ -750,7 +750,7 @@ export default function App() {
             { id: 'playground', label: t('tabPlayground'), icon: Terminal },
             { id: 'logs', label: t('tabLogs'), icon: Layers },
             { id: 'docs', label: t('tabDocs'), icon: Code2 },
-            { id: 'billing', label: 'پرداخت و اشتراک', icon: Wallet },
+            { id: 'billing', label: 'Billing & Subscription', icon: Wallet },
             { id: 'support', label: 'Support', icon: LifeBuoy },
           ].map(tab => {
             const Icon = tab.icon;
@@ -781,10 +781,10 @@ export default function App() {
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
         {!import.meta.env.DEV && !authToken && (
-          <div role="region" aria-label="ورود امن مدیریتی" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-            <h2 className="font-semibold mb-2">ورود امن مدیریتی</h2>
+          <div role="region" aria-label="Secure Dashboard Sign-In" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+            <h2 className="font-semibold mb-2">Secure Dashboard Sign-In</h2>
             <p className="text-xs text-amber-200/90 mb-4">
-              با حساب ایمیل/گذرواژهٔ Firebase وارد شوید. گذرواژه فقط به سرویس Firebase ارسال می‌شود و در ShieldCaptcha ذخیره نمی‌شود.
+              Sign in with your Firebase email and password. Your password is sent only to Firebase and is not stored by ShieldCaptcha.
             </p>
             <form
               className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3"
@@ -799,7 +799,7 @@ export default function App() {
                 autoComplete="username"
                 value={userEmail}
                 onChange={(event) => setUserEmail(event.target.value)}
-                placeholder="ایمیل حساب"
+                placeholder="Account email"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
               />
               <input
@@ -816,11 +816,11 @@ export default function App() {
                 disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized}
                 className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSigningIn ? 'در حال ورود…' : 'ورود'}
+                {isSigningIn ? 'Signing in…' : 'Sign In'}
               </button>
             </form>
-            {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="mt-3 text-xs text-amber-200">VITE_FIREBASE_API_KEY در تنظیمات build تعریف نشده است.</p>}
-            {health && !health.firebaseAuth.isInitialized && <p className="mt-3 text-xs text-amber-200">Firebase Admin سمت سرور آماده نیست؛ تنظیمات FIREBASE_PROJECT_ID و FIREBASE_SERVICE_ACCOUNT_KEY را بررسی کنید.</p>}
+            {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="mt-3 text-xs text-amber-200">VITE_FIREBASE_API_KEY is not set in the build configuration.</p>}
+            {health && !health.firebaseAuth.isInitialized && <p className="mt-3 text-xs text-amber-200">Firebase Admin سمت سرور آماده نیست؛ Check FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_KEY settings.</p>}
             {authError && <p role="alert" className="mt-3 text-xs text-rose-300">{authError}</p>}
           </div>
         )}
@@ -860,43 +860,43 @@ export default function App() {
         {activeTab === 'billing' && (
           <div className="space-y-6 max-w-5xl">
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Wallet className="w-6 h-6 text-emerald-400" /> پرداخت رمزارزی و اشتراک</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-400">پرداخت USDT فقط روی شبکه TRON (TRC20). اشتراک تنها پس از تأیید مستقل تراکنش روی بلاک‌چین فعال می‌شود.</p>
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Wallet className="w-6 h-6 text-emerald-400" /> Crypto Payments & Subscriptions</h1>
+              <p className="mt-2 text-sm leading-6 text-slate-400">USDT payments are accepted on the TRON (TRC20) network only. A subscription activates only after independent on-chain transaction verification.</p>
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
               <div className="flex items-center gap-2 mb-2"><span className={`h-2.5 w-2.5 rounded-full ${billingConfig?.ready ? 'bg-emerald-400' : 'bg-amber-400'}`} /><span className="font-semibold text-white">{billingConfig?.ready ? 'درگاه رمزارزی پیکربندی شده' : 'درگاه هنوز آماده دریافت وجه نیست'}</span></div>
-              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'شبکه: TRON (TRC20) · ارز: USDT' : 'مدیر سرویس باید آدرس کیف پول دریافت و کلید API ارائه‌دهنده TRON را در متغیرهای محیطی Render تنظیم کند.')}</p>
+              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'Network: TRON (TRC20) · Currency: USDT' : 'مدیر سرویس باید آدرس کیف پول دریافت و کلید API ارائه‌دهنده TRON را در متغیرهای محیطی Render تنظیم کند.')}</p>
               {billingConfig?.ready && <div className="mt-3 break-all rounded-lg bg-slate-950 border border-slate-700 p-3 font-mono text-sm text-emerald-300">{billingConfig.walletAddress}<button className="ml-3 text-xs text-slate-300 underline" onClick={() => copyToClipboard(billingConfig.walletAddress, 'billing-wallet')}>{copiedKey === 'billing-wallet' ? 'کپی شد' : 'کپی آدرس'}</button></div>}
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {[
-                { id: 'starter', title: 'Starter', price: 9, requests: '100,000 + 50 درخواست رایگان در هر خرید' },
-                { id: 'pro', title: 'Pro', price: 49, requests: '1,000,000 + 500 درخواست رایگان در هر خرید' },
-                { id: 'business', title: 'Business', price: 199, requests: '5,000,000 + 2,500 درخواست رایگان در هر خرید' },
+                { id: 'starter', title: 'Starter', price: 9, requests: '100,000 + 50 bonus requests per purchase' },
+                { id: 'pro', title: 'Pro', price: 49, requests: '1,000,000 + 500 bonus requests per purchase' },
+                { id: 'business', title: 'Business', price: 199, requests: '5,000,000 + 2,500 bonus requests per purchase' },
               ].map(plan => (
                 <button key={plan.id} type="button" onClick={() => setBillingPlan(plan.id as any)} className={`text-left rounded-xl border p-4 transition-colors ${billingPlan === plan.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/60 hover:border-slate-500'}`}>
                   <div className="text-sm text-slate-300">{plan.title}</div><div className="mt-2 text-2xl font-bold text-white">${plan.price}<span className="text-xs font-normal text-slate-400"> / 30 روز</span></div><div className="mt-2 text-xs text-slate-400">{plan.requests}</div>
                 </button>
               ))}
             </div>
-            <button type="button" disabled={!billingConfig?.ready || billingBusy} onClick={createBillingInvoice} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed">{billingBusy ? 'در حال پردازش...' : 'ایجاد فاکتور پرداخت USDT'}</button>
+            <button type="button" disabled={!billingConfig?.ready || billingBusy} onClick={createBillingInvoice} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed">{billingBusy ? 'در حال پردازش...' : 'ایجاد Invoice پرداخت USDT'}</button>
             {billingInvoice && (
               <div className="space-y-4 rounded-xl border border-emerald-500/30 bg-slate-900/80 p-4">
-                <h2 className="font-semibold text-white">فاکتور {billingInvoice.id}</h2>
+                <h2 className="font-semibold text-white">Invoice {billingInvoice.id}</h2>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">مبلغ دقیق</div><div className="mt-1 text-2xl font-bold text-emerald-300">{billingInvoice.amount_usdt} USDT</div></div>
-                  <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">شبکه و انقضا</div><div className="mt-1 text-sm text-white">TRON (TRC20)</div><div className="text-xs text-slate-400">{new Date(billingInvoice.expires_at).toLocaleString()}</div></div>
+                  <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">Exact amount</div><div className="mt-1 text-2xl font-bold text-emerald-300">{billingInvoice.amount_usdt} USDT</div></div>
+                  <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">Network & expiry</div><div className="mt-1 text-sm text-white">TRON (TRC20)</div><div className="text-xs text-slate-400">{new Date(billingInvoice.expires_at).toLocaleString()}</div></div>
                 </div>
-                <div><label className="mb-1 block text-xs text-slate-400">آدرس دریافت (فقط TRC20)</label><div className="break-all rounded-lg bg-slate-950 p-3 font-mono text-xs text-white">{billingInvoice.payment_address || billingConfig?.walletAddress}</div><button className="mt-2 text-xs text-emerald-300 underline" onClick={() => copyToClipboard(billingInvoice.payment_address || billingConfig?.walletAddress, 'invoice-wallet')}>{copiedKey === 'invoice-wallet' ? 'کپی شد' : 'کپی آدرس کیف پول'}</button></div>
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-6 text-amber-200">مبلغ را دقیقاً ارسال کنید. شبکه یا توکن اشتباه ممکن است باعث ازدست‌رفتن وجه شود. کلید خصوصی کیف پول را هرگز وارد نکنید.</div>
-                {billingInvoice.status !== 'paid' && <div className="space-y-2"><label className="block text-xs text-slate-300" htmlFor="billing-txid">شناسه تراکنش (TXID)</label><input id="billing-txid" value={billingTxid} onChange={e => setBillingTxid(e.target.value)} placeholder="64-character transaction ID" className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-sm text-white" /><button disabled={billingBusy || billingTxid.trim().length !== 64} onClick={verifyBillingPayment} className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white disabled:opacity-40">تأیید پرداخت روی بلاک‌چین</button></div>}
-                {billingInvoice.status === 'paid' && <p className="text-sm font-semibold text-emerald-300">پرداخت تأیید شده است.</p>}
+                <div><label className="mb-1 block text-xs text-slate-400">Receiving address (TRC20 only)</label><div className="break-all rounded-lg bg-slate-950 p-3 font-mono text-xs text-white">{billingInvoice.payment_address || billingConfig?.walletAddress}</div><button className="mt-2 text-xs text-emerald-300 underline" onClick={() => copyToClipboard(billingInvoice.payment_address || billingConfig?.walletAddress, 'invoice-wallet')}>{copiedKey === 'invoice-wallet' ? 'کپی شد' : 'کپی آدرس کیف پول'}</button></div>
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-6 text-amber-200">Send the exact amount. Using the wrong network or token may result in loss of funds. کلید خصوصی کیف پول را هرگز وارد نکنید.</div>
+                {billingInvoice.status !== 'paid' && <div className="space-y-2"><label className="block text-xs text-slate-300" htmlFor="billing-txid">Transaction ID (TXID)</label><input id="billing-txid" value={billingTxid} onChange={e => setBillingTxid(e.target.value)} placeholder="64-character transaction ID" className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-sm text-white" /><button disabled={billingBusy || billingTxid.trim().length !== 64} onClick={verifyBillingPayment} className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white disabled:opacity-40">تأیید پرداخت روی بلاک‌چین</button></div>}
+                {billingInvoice.status === 'paid' && <p className="text-sm font-semibold text-emerald-300">Payment confirmed.</p>}
               </div>
             )}
             {billingMessage && <p role="status" className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm leading-6 text-slate-300">{billingMessage}</p>}
             <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-              <h2 className="mb-3 font-semibold text-white">فاکتورهای اخیر</h2>
-              {billingInvoices.length === 0 ? <p className="text-sm text-slate-500">هنوز فاکتوری ثبت نشده است.</p> : <div className="space-y-2">{billingInvoices.map(inv => <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-950 p-3 text-xs"><span className="font-mono text-slate-300">{inv.id}</span><span className="text-white">{inv.amount_usdt} USDT · {inv.plan_id}</span><span className={inv.status === 'paid' ? 'text-emerald-300' : 'text-amber-300'}>{inv.status}</span></div>)}</div>}
+              <h2 className="mb-3 font-semibold text-white">Recent Invoices</h2>
+              {billingInvoices.length === 0 ? <p className="text-sm text-slate-500">No invoices yet.</p> : <div className="space-y-2">{billingInvoices.map(inv => <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-950 p-3 text-xs"><span className="font-mono text-slate-300">{inv.id}</span><span className="text-white">{inv.amount_usdt} USDT · {inv.plan_id}</span><span className={inv.status === 'paid' ? 'text-emerald-300' : 'text-amber-300'}>{inv.status}</span></div>)}</div>}
             </div>
           </div>
         )}
@@ -939,7 +939,7 @@ export default function App() {
             {isLoadingSites ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-7 h-7 text-emerald-400 animate-spin" />
-                <span className="text-xs text-slate-400">در حال دریافت فهرست سایت‌ها از پایگاه داده...</span>
+                <span className="text-xs text-slate-400">Loading websites from the database...</span>
               </div>
             ) : sites.length === 0 ? (
               <div className="py-16 px-4 rounded-2xl border border-dashed border-slate-800 text-center flex flex-col items-center justify-center gap-3 bg-slate-900/30">
@@ -971,7 +971,7 @@ export default function App() {
                           <div>
                             <h3 className="text-sm font-semibold text-white">{site.name}</h3>
                             <span className="text-[10px] text-slate-500">
-                              ثبت شده: {new Date(site.createdAt).toLocaleDateString('fa-IR')}
+                              Created: {new Date(site.createdAt).toLocaleDateString('en-US')}
                             </span>
                           </div>
                         </div>
@@ -979,7 +979,7 @@ export default function App() {
                         <button
                           onClick={() => handleDeleteSite(site.id)}
                           className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="حذف سایت"
+                          title="Delete website"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1044,7 +1044,7 @@ export default function App() {
                         }}
                         className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
                       >
-                        <span>تست در آزمایشگاه</span>
+                        <span>Test in Playground</span>
                         <ExternalLink className="w-3 h-3" />
                       </button>
                     </div>
@@ -1080,7 +1080,7 @@ export default function App() {
                 </div>
 
                 <p className="text-xs text-slate-400 mb-4">
-                  این ویجت مستقیماً به API سرور (`POST /api/v1/captcha/challenge` و `verify`) متصل است.
+                  This widget connects directly to the server API (`POST /api/v1/captcha/challenge` and `verify`).
                 </p>
 
                 {/* Embedded Widget */}
@@ -1106,13 +1106,13 @@ export default function App() {
                   <div className="mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
                     <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
                       <ShieldCheck className="w-4 h-4" />
-                      <span>پاسخ تأیید شده توسط سرور:</span>
+                      <span>Server-verified response:</span>
                     </div>
                     <div className="font-mono text-[11px] text-slate-300">
-                      امتیاز امنیت (Score): {lastVerificationData.score} / 100
+                      Security score: {lastVerificationData.score} / 100
                     </div>
                     <div className="font-mono text-[10px] text-slate-400 truncate">
-                      توکن تأیید: {lastVerifiedToken}
+                      Verification token: {lastVerifiedToken}
                     </div>
                   </div>
                 )}
@@ -1141,8 +1141,8 @@ export default function App() {
                     onClick={() => runSecurityTest('wrong_answer')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-rose-400 mb-1">۱. چهار تلاش مجاز</div>
-                    <div className="text-[10px] text-slate-400">چهار پاسخ اشتباه پذیرفته می‌شود؛ تلاش پنجم باید رد شود</div>
+                    <div className="text-xs font-semibold text-rose-400 mb-1">1. Four attempts allowed</div>
+                    <div className="text-[10px] text-slate-400">Four incorrect answers are allowed; the fifth attempt should be rejected</div>
                   </button>
 
                   <button
@@ -1159,8 +1159,8 @@ export default function App() {
                     onClick={() => runSecurityTest('backend_verify')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-emerald-400 mb-1">۳. رد کلید محرمانه نامعتبر</div>
-                    <div className="text-[10px] text-slate-400">بررسی ردشدن Secret Key آزمایشی نامعتبر؛ کلید واقعی در مرورگر ارسال نمی‌شود</div>
+                    <div className="text-xs font-semibold text-emerald-400 mb-1">3. Reject invalid secret key</div>
+                    <div className="text-[10px] text-slate-400">Verify that an invalid test Secret Key is rejected; the real key is never sent to the browser</div>
                   </button>
                 </div>
 
@@ -1172,7 +1172,7 @@ export default function App() {
                       <span className={`px-2 py-0.5 rounded text-[10px] font-mono ${
                         testResultLog.status === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
                       }`}>
-                        {testResultLog.status === 'success' ? 'رفتار امنیتی مطابق انتظار' : 'شکست آزمون'}
+                        {testResultLog.status === 'success' ? 'Behavior matches expectations' : 'Test failed'}
                       </span>
                     </div>
 
@@ -1242,7 +1242,7 @@ export default function App() {
 
               <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">نرخ قبولی (Pass Rate)</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">Pass rate</span>
                   <span className="text-xl font-bold font-mono text-teal-300 mt-0.5 block">{trafficStats.rate}%</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400">
@@ -1293,20 +1293,20 @@ export default function App() {
                           return (
                             <div className="bg-slate-900/95 backdrop-blur border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 min-w-[150px] text-right font-sans">
                               <p className="font-mono text-slate-300 font-semibold border-b border-slate-800 pb-1">
-                                ساعت {label}
+                                Hour {label}
                               </p>
                               <div className="flex items-center justify-between gap-3 text-emerald-400 font-mono">
                                 <span>{passedVal}</span>
                                 <span className="flex items-center gap-1.5 text-slate-300 text-[11px]">
                                   <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                                  تأیید شده:
+                                  Verified:
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-3 text-rose-400 font-mono">
                                 <span>{blockedVal}</span>
                                 <span className="flex items-center gap-1.5 text-slate-300 text-[11px]">
                                   <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
-                                  مسدود شده:
+                                  Blocked:
                                 </span>
                               </div>
                               <div className="pt-1 border-t border-slate-800 text-[10px] text-slate-400 font-mono flex items-center justify-between">
@@ -1328,7 +1328,7 @@ export default function App() {
                     <Line
                       type="monotone"
                       dataKey="passed"
-                      name="تأییدشده (Passed)"
+                      name="Verified (Passed)"
                       stroke="#10b981"
                       strokeWidth={2.5}
                       dot={{ r: 2, fill: '#10b981' }}
@@ -1337,7 +1337,7 @@ export default function App() {
                     <Line
                       type="monotone"
                       dataKey="blocked"
-                      name="مسدودشده (Blocked)"
+                      name="Blocked"
                       stroke="#f43f5e"
                       strokeWidth={2.5}
                       dot={{ r: 2, fill: '#f43f5e' }}
@@ -1384,7 +1384,7 @@ export default function App() {
                             <span className={`px-2 py-0.5 rounded text-[10px] ${
                               log.success ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
                             }`}>
-                              {log.success ? 'PASS (تأیید)' : 'BLOCKED (رد شده)'}
+                              {log.success ? 'PASS' : 'BLOCKED'}
                             </span>
                           </td>
                           <td className="p-3 text-slate-200">{log.score}</td>
@@ -1419,11 +1419,11 @@ export default function App() {
             {/* Step 1: Frontend */}
             <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">۱</span>
-                <h3 className="text-sm font-semibold text-white">نمایش ویجت در فرم وب‌سایت (React / HTML)</h3>
+                <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">1</span>
+                <h3 className="text-sm font-semibold text-white">Embed the widget in your website form (React / HTML)</h3>
               </div>
               <p className="text-xs text-slate-400">
-                ویجت را در صفحه ورود، ثبت‌نام یا پرداخت خود قرار داده و پس از تکمیل، توکن صادرشده را همراه با فرم ارسال کنید:
+                ویجت را در صفحه Sign In، ثبت‌نام یا پرداخت خود قرار داده و پس از تکمیل، توکن صادرشده را همراه با فرم ارسال کنید:
               </p>
 
               <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">
@@ -1434,7 +1434,7 @@ export function LoginForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // توکن را به سرور خود بفرستید
+    // Send the token to your server
     await fetch('/api/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, captchaToken: token })
@@ -1458,15 +1458,15 @@ export function LoginForm() {
             {/* Step 2: Backend Verification */}
             <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs font-bold flex items-center justify-center">۲</span>
-                <h3 className="text-sm font-semibold text-white">اعتبارسنجی سرور به سرور (Node.js / Express)</h3>
+                <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 text-xs font-bold flex items-center justify-center">2</span>
+                <h3 className="text-sm font-semibold text-white">Server-to-server verification (Node.js / Express)</h3>
               </div>
               <p className="text-xs text-slate-400">
-                در کنترلر بک‌اند خود، توکن ارسالی را به اندپوینت `/api/v1/captcha/verify` ارسال کنید:
+                In your backend controller, send the submitted token to `/api/v1/captcha/verify`:
               </p>
 
               <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-teal-300 overflow-x-auto">
-{`// در بک‌اند (هرگز Secret Key را در فرانت‌اند قرار ندهید):
+{`// On the backend (never expose the Secret Key in frontend code):
 app.post('/api/login', async (req, res) => {
   const { email, password, captchaToken } = req.body;
 
@@ -1486,7 +1486,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(403).json({ error: 'CAPTCHA verification failed', codes: verification.error_codes });
   }
 
-  // اعتبارسنجی موفق بود؛ ادامه فرایند ورود...
+  // اعتبارسنجی موفق بود؛ ادامه فرایند Sign In...
 });`}
               </pre>
             </div>
@@ -1501,7 +1501,7 @@ app.post('/api/login', async (req, res) => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Globe className="w-4 h-4 text-emerald-400" />
-                <span>ثبت وب‌سایت جدید</span>
+                <span>Register New Website</span>
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1513,20 +1513,20 @@ app.post('/api/login', async (req, res) => {
 
             <form onSubmit={handleCreateSite} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">نام سایت یا پروژه:</label>
+                <label className="block text-slate-300 font-medium mb-1">Website or project name:</label>
                 <input
                   type="text"
                   required
                   value={newSiteName}
                   onChange={e => setNewSiteName(e.target.value)}
-                  placeholder="مثال: فروشگاه دیجی‌شاپ"
+                  placeholder="e.g. My Online Store"
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
               <div>
                 <label className="block text-slate-300 font-medium mb-1">
-                  دامنه‌های مجاز (با کاما جدا کنید):
+                  Allowed domains (comma-separated):
                 </label>
                 <input
                   type="text"
@@ -1536,7 +1536,7 @@ app.post('/api/login', async (req, res) => {
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 font-mono text-emerald-400 focus:ring-1 focus:ring-emerald-500"
                 />
                 <span className="text-[10px] text-slate-500 mt-1 block">
-                  چالش‌ها فقط از این دامنه‌ها قابل صدور خواهند بود.
+                  Challenges can only be issued for these domains.
                 </span>
               </div>
 
@@ -1562,7 +1562,7 @@ app.post('/api/login', async (req, res) => {
                   className="rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
                 />
                 <label htmlFor="invisibleCheck" className="text-slate-300 cursor-pointer">
-                  فعال‌سازی ارزیابی اولیه نامرئی (Invisible Check)
+                  Enable invisible pre-check (Invisible Check)
                 </label>
               </div>
 
@@ -1580,7 +1580,7 @@ app.post('/api/login', async (req, res) => {
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isCreatingSite ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                  <span>ایجاد و دریافت کلیدها</span>
+                  <span>Create and retrieve keys</span>
                 </button>
               </div>
             </form>
@@ -1595,23 +1595,23 @@ app.post('/api/login', async (req, res) => {
             <div className="flex items-center gap-2 text-emerald-400 pb-2 border-b border-slate-800">
               <ShieldCheck className="w-5 h-5" />
               <h3 className="text-sm font-bold text-white">
-                کلیدهای سایت «{oneTimeSecretModal.siteName}» با موفقیت تولید شدند
+                Keys for site “{oneTimeSecretModal.siteName}” were generated successfully
               </h3>
             </div>
 
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
-                <strong>هشدار امنیتی بسیار مهم:</strong>
+                <strong>Critical security warning:</strong>
                 <p className="text-[11px] text-amber-200/90 mt-0.5">
-                  کلید خصوصی فقط این یک‌بار به شما نمایش داده می‌شود. به دلایل امنیتی، سرور فقط هش یک‌طرفه آن را ذخیره می‌کند و امکان مشاهده مجدد آن وجود نخواهد داشت.
+                  The private key is shown only once. For security, the server stores only a one-way hash, and the key cannot be viewed again.
                 </p>
               </div>
             </div>
 
             <div className="space-y-3 text-xs">
               <div>
-                <span className="text-[11px] text-slate-400 block mb-1">کلید عمومی سایت (Site Key):</span>
+                <span className="text-[11px] text-slate-400 block mb-1">Public Site Key:</span>
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-400">
                   <span className="truncate">{oneTimeSecretModal.siteKey}</span>
                   <button
@@ -1625,7 +1625,7 @@ app.post('/api/login', async (req, res) => {
 
               <div>
                 <span className="text-[11px] text-slate-400 block mb-1 font-semibold text-rose-400">
-                  کلید محرمانه اختصاصی (Secret Key):
+                  Private Secret Key:
                 </span>
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-rose-500/40 font-mono text-[11px] text-rose-300">
                   <span className="truncate">{oneTimeSecretModal.secretKey}</span>
