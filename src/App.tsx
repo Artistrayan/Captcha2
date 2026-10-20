@@ -42,8 +42,11 @@ export default function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   // User session state (Defaults to developer session)
-  const [userEmail, setUserEmail] = useState<string>('developer@shieldcaptcha.dev');
+  const [userEmail, setUserEmail] = useState<string>(import.meta.env.DEV ? 'developer@shieldcaptcha.dev' : '');
   const [authToken, setAuthToken] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string>('');
+  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [sites, setSites] = useState<SiteItem[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState<boolean>(true);
   const [selectedSiteKey, setSelectedSiteKey] = useState<string>('');
@@ -96,24 +99,57 @@ export default function App() {
     }
   }, []);
 
-  const loginUser = async (email: string): Promise<string> => {
+  const loginUser = async (email: string, password?: string): Promise<string> => {
     setIsLoadingSites(true);
+    setIsSigningIn(true);
+    setAuthError('');
     try {
-      const res = await fetch('/api/v1/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name: email.split('@')[0] }),
-      });
-      const data = await res.json();
-      if (data.token) {
+      if (import.meta.env.DEV) {
+        const res = await fetch('/api/v1/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name: email.split('@')[0] }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.token) throw new Error(data.message || 'ورود آزمایشی ناموفق بود');
         setAuthToken(data.token);
         fetchSites(data.token);
         return data.token;
       }
-    } catch (err) {
-      console.error('Session login error:', err);
+
+      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+      if (!apiKey) throw new Error('کلید عمومی Firebase در تنظیمات ساخت سایت تعریف نشده است.');
+      if (!health?.firebaseAuth.isInitialized) throw new Error('احراز هویت سمت سرور آماده نیست؛ تنظیمات Firebase Admin را بررسی کنید.');
+      if (!password) throw new Error('گذرواژه را وارد کنید.');
+
+      const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.idToken) {
+        const code = data?.error?.message;
+        const messages: Record<string, string> = {
+          EMAIL_NOT_FOUND: 'این ایمیل در Firebase ثبت نشده است.',
+          INVALID_PASSWORD: 'گذرواژه صحیح نیست.',
+          INVALID_LOGIN_CREDENTIALS: 'ایمیل یا گذرواژه صحیح نیست.',
+          USER_DISABLED: 'این حساب غیرفعال شده است.',
+          TOO_MANY_ATTEMPTS_TRY_LATER: 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
+        };
+        throw new Error(messages[code] || 'ورود Firebase ناموفق بود.');
+      }
+      setAuthToken(data.idToken);
+      setUserEmail(data.email || email);
+      setAuthPassword('');
+      fetchSites(data.idToken);
+      return data.idToken;
+    } catch (err: any) {
+      setAuthError(err?.message || 'ورود ناموفق بود.');
+      if (import.meta.env.DEV) console.error('Session login error:', err);
     } finally {
       setIsLoadingSites(false);
+      setIsSigningIn(false);
     }
     return '';
   };
@@ -472,8 +508,47 @@ export default function App() {
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
         {!import.meta.env.DEV && !authToken && (
-          <div role="alert" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-            ورود امن مدیریتی در نسخهٔ تولیدی هنوز به رابط Firebase Authentication متصل نشده است. ورود آزمایشی برای جلوگیری از جعل هویت غیرفعال است؛ تا زمان اتصال ورود واقعی، مدیریت سایت‌ها در این محیط در دسترس نیست.
+          <div role="region" aria-label="ورود امن مدیریتی" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+            <h2 className="font-semibold mb-2">ورود امن مدیریتی</h2>
+            <p className="text-xs text-amber-200/90 mb-4">
+              با حساب ایمیل/گذرواژهٔ Firebase وارد شوید. گذرواژه فقط به سرویس Firebase ارسال می‌شود و در ShieldCaptcha ذخیره نمی‌شود.
+            </p>
+            <form
+              className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await loginUser(userEmail, authPassword);
+              }}
+            >
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                value={userEmail}
+                onChange={(event) => setUserEmail(event.target.value)}
+                placeholder="ایمیل حساب"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              />
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                placeholder="گذرواژه"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              />
+              <button
+                type="submit"
+                disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized}
+                className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSigningIn ? 'در حال ورود…' : 'ورود'}
+              </button>
+            </form>
+            {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="mt-3 text-xs text-amber-200">VITE_FIREBASE_API_KEY در تنظیمات build تعریف نشده است.</p>}
+            {health && !health.firebaseAuth.isInitialized && <p className="mt-3 text-xs text-amber-200">Firebase Admin سمت سرور آماده نیست؛ تنظیمات FIREBASE_PROJECT_ID و FIREBASE_SERVICE_ACCOUNT_KEY را بررسی کنید.</p>}
+            {authError && <p role="alert" className="mt-3 text-xs text-rose-300">{authError}</p>}
           </div>
         )}
         {/* TAB 1: SITES MANAGEMENT */}
