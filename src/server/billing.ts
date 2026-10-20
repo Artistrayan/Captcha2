@@ -7,6 +7,7 @@ const { Pool } = pg;
 export const billingRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+const BONUS_REQUESTS_PER_PURCHASE = 50;
 const PLANS = {
   starter: { name: 'Starter', baseCents: 900, requests: 100000 },
   pro: { name: 'Pro', baseCents: 4900, requests: 1000000 },
@@ -41,13 +42,13 @@ export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): P
   if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
   const db = getPool();
   const owner = await db.query(
-    `SELECT s.user_id, COALESCE((
-       SELECT bs.request_limit FROM billing_subscriptions bs
-       WHERE bs.user_id = s.user_id AND bs.status = 'active' AND bs.expires_at > NOW()
-       ORDER BY bs.request_limit DESC LIMIT 1
-     ), 10000)::int AS quota
+    `SELECT s.user_id,
+       COALESCE((
+         SELECT SUM(bs.request_limit + $2)::bigint FROM billing_subscriptions bs
+         WHERE bs.user_id = s.user_id AND bs.status = 'active' AND bs.expires_at > NOW()
+       ), 10000)::bigint AS quota
      FROM sites s WHERE s.site_key = $1 LIMIT 1`,
-    [siteKey],
+    [siteKey, BONUS_REQUESTS_PER_PURCHASE],
   );
   if (!owner.rows[0]) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
   const userId = owner.rows[0].user_id;
