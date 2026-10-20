@@ -262,7 +262,23 @@ export async function verifyCaptchaReceipt(input: { token: string; secretKey: st
   const hostname = input.hostname || 'unknown';
   const challenge = await dbRepository.getChallengeByToken(input.token);
   if (!challenge) return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['invalid-input-response'] };
-  return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['captcha-not-solved'] };
+  const site = await dbRepository.getSiteByKey(challenge.siteKey);
+  const suppliedHash = crypto.createHash('sha256').update(input.secretKey).digest('hex');
+  if (!site || suppliedHash !== site.secretKeyHash) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: [site ? 'invalid-secret-key' : 'invalid-site'] };
+  }
+  if (!challenge.isConsumed || !challenge.solvedAt) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['captcha-not-solved'] };
+  }
+  const solvedAt = new Date(challenge.solvedAt).getTime();
+  if (!Number.isFinite(solvedAt) || Date.now() - solvedAt > 120000 || solvedAt > Date.now()) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
+  }
+  const claimed = await dbRepository.markChallengeServerVerified(input.token);
+  if (!claimed) {
+    return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
+  }
+  return { success: true, score: 95, hostname, challenge_ts: timestamp, action: input.action || 'server-verify', development_mode: !IS_PRODUCTION, error_codes: [] };
 }
 
 /**
