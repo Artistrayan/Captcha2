@@ -167,7 +167,7 @@ export default function App() {
       if (!health?.firebaseAuth.isInitialized) throw new Error('احراز هویت سمت سرور آماده نیست؛ تنظیمات Firebase Admin را بررسی کنید.');
       if (authPassword.length < 6) throw new Error('گذرواژه باید حداقل ۶ نویسه داشته باشد.');
 
-      const res = await fetch(\`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=\${encodeURIComponent(apiKey)}\`, {
+      const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: userEmail.trim(), password: authPassword, returnSecureToken: true }),
