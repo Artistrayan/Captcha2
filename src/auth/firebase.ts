@@ -1,5 +1,5 @@
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getAuth, Auth } from 'firebase-admin/auth';
+import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
+import { getAuth, type Auth } from 'firebase-admin/auth';
 import jwt from 'jsonwebtoken';
 import { dbRepository } from '../db/index.ts';
 import { User } from '../db/schema.ts';
@@ -84,7 +84,22 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
 
   const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
 
-  // 1. Try Firebase Admin verifyIdToken if live
+  // 1. Verify if token is a server session JWT signed by SESSION_JWT_SECRET
+  try {
+    const verified = jwt.verify(cleanToken, JWT_SECRET) as any;
+    if (verified && verified.uid && verified.email) {
+      return {
+        uid: verified.uid,
+        email: verified.email,
+        name: verified.name || verified.email.split('@')[0],
+        role: verified.role || 'USER',
+      };
+    }
+  } catch {
+    // Not a server session JWT, proceed to check if it is a Firebase ID Token
+  }
+
+  // 2. Verify with Firebase Admin SDK if live and initialized
   if (isFirebaseAdminInitialized && firebaseAuth) {
     try {
       const decoded = await firebaseAuth.verifyIdToken(cleanToken);
@@ -97,28 +112,11 @@ export async function verifyTokenServerSide(token: string): Promise<DecodedAuthT
         name: decoded.name || decoded.email.split('@')[0],
       };
     } catch (fbErr: any) {
-      // In production, live Firebase must not fall through to dev fallback
-      if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_DEV_TOKENS) {
-        throw new Error(`Firebase token verification failed: ${fbErr.message}`);
-      }
+      throw new Error(`Authentication token verification failed: ${fbErr.message}`);
     }
   }
 
-  // 2. Verify Session JWT signed by server secret (supported in dev & production)
-  try {
-    const verified = jwt.verify(cleanToken, JWT_SECRET) as any;
-    if (!verified || !verified.uid || !verified.email) {
-      throw new Error('Invalid JWT payload');
-    }
-    return {
-      uid: verified.uid,
-      email: verified.email,
-      name: verified.name || verified.email.split('@')[0],
-      role: verified.role || 'USER',
-    };
-  } catch (jwtErr: any) {
-    throw new Error(`Invalid authentication token: ${jwtErr.message}`);
-  }
+  throw new Error('Invalid authentication token: signature verification failed');
 }
 
 /**
