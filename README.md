@@ -8,7 +8,7 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
 
 - Website/site-key management with a one-time display of the secret key.
 - Hostname allow-list validation when issuing challenges.
-- SVG challenges with randomized opaque option IDs.
+- Three SVG challenge patterns: category selection, odd-one-out, and upright/rotation matching, with randomized opaque option IDs.
 - Four incorrect answers allowed per challenge; a fifth request is rejected.
 - 20-second solve deadline.
 - Server-only HMAC answer validation, atomic challenge consumption, and replay protection.
