@@ -19,6 +19,35 @@ function getPool(): pg.Pool {
   if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }, max: 5 });
   return pool;
 }
+export async function checkCaptchaQuota(siteKey: string): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+  // Local file-storage development has no billing database; keep its existing test flow.
+  if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
+  const db = getPool();
+  const owner = await db.query(
+    `SELECT s.user_id, COALESCE((
+       SELECT bs.request_limit FROM billing_subscriptions bs
+       WHERE bs.user_id = s.user_id AND bs.status = 'active' AND bs.expires_at > NOW()
+       ORDER BY bs.request_limit DESC LIMIT 1
+     ), 10000)::int AS quota
+     FROM sites s WHERE s.site_key = $1 LIMIT 1`,
+    [siteKey],
+  );
+  if (!owner.rows[0]) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
+  const userId = owner.rows[0].user_id;
+  const quota = Number(owner.rows[0].quota) || 10000;
+  const usage = await db.query(
+    `SELECT (
+       (SELECT COUNT(*) FROM captcha_challenges c JOIN sites s ON s.site_key = c.site_key
+        WHERE s.user_id = $1 AND c.created_at >= NOW() - INTERVAL '30 days') +
+       (SELECT COUNT(*) FROM verification_events v JOIN sites s ON s.site_key = v.site_key
+        WHERE s.user_id = $1 AND v.created_at >= NOW() - INTERVAL '30 days')
+     )::int AS used`,
+    [userId],
+  );
+  const used = Number(usage.rows[0]?.used || 0);
+  return { allowed: used < quota, used, limit: quota, plan: quota === 10000 ? 'free' : 'paid' };
+}
+
 function configReady() {
   const address = process.env.USDT_TRC20_RECEIVE_ADDRESS || '';
   return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address) && Boolean(process.env.TRON_PRO_API_KEY);
