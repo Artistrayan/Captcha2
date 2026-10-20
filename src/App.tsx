@@ -77,6 +77,7 @@ export default function App() {
 
   // Audit Logs
   const [logs, setLogs] = useState<any[]>([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState({ totalRequests: 0, passedRequests: 0, blockedRequests: 0, passRatePercent: 0 });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Initialize session & fetch health
@@ -320,7 +321,15 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await res.json();
-      if (data.recentEvents) {
+      if (res.ok && data.summary) {
+        setAnalyticsSummary({
+          totalRequests: Number(data.summary.totalRequests) || 0,
+          passedRequests: Number(data.summary.passedRequests) || 0,
+          blockedRequests: Number(data.summary.blockedRequests) || 0,
+          passRatePercent: Number(data.summary.passRatePercent) || 0,
+        });
+      }
+      if (res.ok && data.recentEvents) {
         setLogs(data.recentEvents);
       }
     } catch (err) {
@@ -374,14 +383,13 @@ export default function App() {
     return result;
   }, [logs]);
 
-  // Summary statistics for the currently loaded event set
-  const trafficStats = useMemo(() => {
-    const total = logs.length;
-    const passed = logs.filter(l => l.success).length;
-    const blocked = total - passed;
-    const rate = total > 0 ? Math.round((passed / total) * 100) : 0;
-    return { total, passed, blocked, rate };
-  }, [logs]);
+  // Summary cards use server-side aggregates for the full 24-hour window.
+  const trafficStats = useMemo(() => ({
+    total: analyticsSummary.totalRequests,
+    passed: analyticsSummary.passedRequests,
+    blocked: analyticsSummary.blockedRequests,
+    rate: analyticsSummary.passRatePercent,
+  }), [analyticsSummary]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30">
