@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Shield, Key, Globe, Plus, Trash2, Copy, Check, RefreshCw,
+  Shield, Key, Globe, Plus, Trash2, Copy, Check, RefreshCw, Wallet,
   Terminal, ShieldCheck, ShieldAlert, Code2, ExternalLink,
   Layers, Lock, Database, AlertCircle, Eye, EyeOff,
   Activity, TrendingUp, CheckCircle2, XCircle
@@ -41,7 +41,7 @@ interface HealthStatus {
 export default function App() {
   const { t, meta } = useI18n();
   const [country, setCountry] = useState<string>(() => localStorage.getItem('shieldcaptcha_country') || 'US');
-  const [activeTab, setActiveTab] = useState<'sites' | 'playground' | 'logs' | 'docs'>('sites');
+  const [activeTab, setActiveTab] = useState<'sites' | 'playground' | 'logs' | 'docs' | 'billing'>('sites');
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   // User session state (Defaults to developer session)
@@ -88,6 +88,14 @@ export default function App() {
   const [hourlyTraffic, setHourlyTraffic] = useState<Array<{ hour: string; passed: number; blocked: number }>>([]);
   const [analyticsSummary, setAnalyticsSummary] = useState({ totalRequests: 0, passedRequests: 0, blockedRequests: 0, passRatePercent: 0 });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [billingConfig, setBillingConfig] = useState<any>(null);
+  const [billingInvoices, setBillingInvoices] = useState<any[]>([]);
+  const [billingPlan, setBillingPlan] = useState<'starter' | 'pro' | 'business'>('starter');
+  const [billingInvoice, setBillingInvoice] = useState<any>(null);
+  const [billingTxid, setBillingTxid] = useState('');
+  const [billingMessage, setBillingMessage] = useState('');
+  const [billingBusy, setBillingBusy] = useState(false);
+
 
   // Initialize session & fetch health
   useEffect(() => {
@@ -468,6 +476,49 @@ export default function App() {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'billing' || !authToken) return;
+    const headers = { Authorization: `Bearer ${authToken}` };
+    fetch('/api/v1/billing/config', { headers }).then(r => r.json()).then(setBillingConfig).catch(() => setBillingConfig({ ready: false }));
+    fetch('/api/v1/billing/invoices', { headers }).then(r => r.json()).then(d => setBillingInvoices(Array.isArray(d.invoices) ? d.invoices : [])).catch(() => setBillingInvoices([]));
+  }, [activeTab, authToken]);
+
+  const createBillingInvoice = async () => {
+    setBillingBusy(true); setBillingMessage('در حال ایجاد فاکتور...');
+    try {
+      const res = await fetch('/api/v1/billing/invoices', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ plan: billingPlan }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.invoice) throw new Error(data.error || 'ایجاد فاکتور ناموفق بود.');
+      setBillingInvoice(data.invoice); setBillingTxid(''); setBillingMessage(data.instructions || 'فاکتور ایجاد شد.');
+      const list = await fetch('/api/v1/billing/invoices', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json());
+      setBillingInvoices(Array.isArray(list.invoices) ? list.invoices : []);
+    } catch (e: any) { setBillingMessage(e?.message || 'خطا در ایجاد فاکتور'); }
+    finally { setBillingBusy(false); }
+  };
+
+  const verifyBillingPayment = async () => {
+    if (!billingInvoice || !billingTxid.trim()) return;
+    setBillingBusy(true); setBillingMessage('در حال بررسی تراکنش روی شبکه TRON...');
+    try {
+      const res = await fetch(`/api/v1/billing/invoices/${encodeURIComponent(billingInvoice.id)}/verify`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ txid: billingTxid.trim() }),
+      });
+      const data = await res.json();
+      setBillingMessage(data.message || data.error || 'وضعیت پرداخت بررسی شد.');
+      if (data.status === 'paid') {
+        setBillingInvoice({ ...billingInvoice, status: 'paid', txid: billingTxid.trim() });
+        const list = await fetch('/api/v1/billing/invoices', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json());
+        setBillingInvoices(Array.isArray(list.invoices) ? list.invoices : []);
+      }
+    } catch (e: any) { setBillingMessage(e?.message || 'خطا در بررسی تراکنش'); }
+    finally { setBillingBusy(false); }
+  };
+
+
   // The chart uses complete server-side hourly aggregates, not the latest 50 log rows.
   const traffic24hData = useMemo(() => {
     const now = new Date();
@@ -631,6 +682,7 @@ export default function App() {
             { id: 'playground', label: t('tabPlayground'), icon: Terminal },
             { id: 'logs', label: t('tabLogs'), icon: Layers },
             { id: 'docs', label: t('tabDocs'), icon: Code2 },
+            { id: 'billing', label: 'پرداخت و اشتراک', icon: Wallet },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -703,6 +755,50 @@ export default function App() {
             {authError && <p role="alert" className="mt-3 text-xs text-rose-300">{authError}</p>}
           </div>
         )}
+        {activeTab === 'billing' && (
+          <div className="space-y-6 max-w-5xl">
+            <div>
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Wallet className="w-6 h-6 text-emerald-400" /> پرداخت رمزارزی و اشتراک</h1>
+              <p className="mt-2 text-sm leading-6 text-slate-400">پرداخت USDT فقط روی شبکه TRON (TRC20). اشتراک تنها پس از تأیید مستقل تراکنش روی بلاک‌چین فعال می‌شود.</p>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+              <div className="flex items-center gap-2 mb-2"><span className={`h-2.5 w-2.5 rounded-full ${billingConfig?.ready ? 'bg-emerald-400' : 'bg-amber-400'}`} /><span className="font-semibold text-white">{billingConfig?.ready ? 'درگاه رمزارزی پیکربندی شده' : 'درگاه هنوز آماده دریافت وجه نیست'}</span></div>
+              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'شبکه: TRON (TRC20) · ارز: USDT' : 'مدیر سرویس باید آدرس کیف پول دریافت و کلید API ارائه‌دهنده TRON را در متغیرهای محیطی Render تنظیم کند.')}</p>
+              {billingConfig?.ready && <div className="mt-3 break-all rounded-lg bg-slate-950 border border-slate-700 p-3 font-mono text-sm text-emerald-300">{billingConfig.walletAddress}<button className="ml-3 text-xs text-slate-300 underline" onClick={() => copyToClipboard(billingConfig.walletAddress, 'billing-wallet')}>{copiedKey === 'billing-wallet' ? 'کپی شد' : 'کپی آدرس'}</button></div>}
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                { id: 'starter', title: 'Starter', price: 9, requests: '100,000 درخواست در ماه' },
+                { id: 'pro', title: 'Pro', price: 49, requests: '1,000,000 درخواست در ماه' },
+                { id: 'business', title: 'Business', price: 199, requests: '5,000,000 درخواست در ماه' },
+              ].map(plan => (
+                <button key={plan.id} type="button" onClick={() => setBillingPlan(plan.id as any)} className={`text-left rounded-xl border p-4 transition-colors ${billingPlan === plan.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/60 hover:border-slate-500'}`}>
+                  <div className="text-sm text-slate-300">{plan.title}</div><div className="mt-2 text-2xl font-bold text-white">${plan.price}<span className="text-xs font-normal text-slate-400"> / 30 روز</span></div><div className="mt-2 text-xs text-slate-400">{plan.requests}</div>
+                </button>
+              ))}
+            </div>
+            <button type="button" disabled={!billingConfig?.ready || billingBusy} onClick={createBillingInvoice} className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed">{billingBusy ? 'در حال پردازش...' : 'ایجاد فاکتور پرداخت USDT'}</button>
+            {billingInvoice && (
+              <div className="space-y-4 rounded-xl border border-emerald-500/30 bg-slate-900/80 p-4">
+                <h2 className="font-semibold text-white">فاکتور {billingInvoice.id}</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">مبلغ دقیق</div><div className="mt-1 text-2xl font-bold text-emerald-300">{billingInvoice.amount_usdt} USDT</div></div>
+                  <div className="rounded-lg bg-slate-950 p-3"><div className="text-xs text-slate-400">شبکه و انقضا</div><div className="mt-1 text-sm text-white">TRON (TRC20)</div><div className="text-xs text-slate-400">{new Date(billingInvoice.expires_at).toLocaleString()}</div></div>
+                </div>
+                <div><label className="mb-1 block text-xs text-slate-400">آدرس دریافت (فقط TRC20)</label><div className="break-all rounded-lg bg-slate-950 p-3 font-mono text-xs text-white">{billingInvoice.payment_address || billingConfig?.walletAddress}</div><button className="mt-2 text-xs text-emerald-300 underline" onClick={() => copyToClipboard(billingInvoice.payment_address || billingConfig?.walletAddress, 'invoice-wallet')}>{copiedKey === 'invoice-wallet' ? 'کپی شد' : 'کپی آدرس کیف پول'}</button></div>
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-6 text-amber-200">مبلغ را دقیقاً ارسال کنید. شبکه یا توکن اشتباه ممکن است باعث ازدست‌رفتن وجه شود. کلید خصوصی کیف پول را هرگز وارد نکنید.</div>
+                {billingInvoice.status !== 'paid' && <div className="space-y-2"><label className="block text-xs text-slate-300" htmlFor="billing-txid">شناسه تراکنش (TXID)</label><input id="billing-txid" value={billingTxid} onChange={e => setBillingTxid(e.target.value)} placeholder="64-character transaction ID" className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-sm text-white" /><button disabled={billingBusy || billingTxid.trim().length !== 64} onClick={verifyBillingPayment} className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white disabled:opacity-40">تأیید پرداخت روی بلاک‌چین</button></div>}
+                {billingInvoice.status === 'paid' && <p className="text-sm font-semibold text-emerald-300">پرداخت تأیید شده است.</p>}
+              </div>
+            )}
+            {billingMessage && <p role="status" className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm leading-6 text-slate-300">{billingMessage}</p>}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+              <h2 className="mb-3 font-semibold text-white">فاکتورهای اخیر</h2>
+              {billingInvoices.length === 0 ? <p className="text-sm text-slate-500">هنوز فاکتوری ثبت نشده است.</p> : <div className="space-y-2">{billingInvoices.map(inv => <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-950 p-3 text-xs"><span className="font-mono text-slate-300">{inv.id}</span><span className="text-white">{inv.amount_usdt} USDT · {inv.plan_id}</span><span className={inv.status === 'paid' ? 'text-emerald-300' : 'text-amber-300'}>{inv.status}</span></div>)}</div>}
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: SITES MANAGEMENT */}
         {activeTab === 'sites' && (
           <div className="space-y-6">
