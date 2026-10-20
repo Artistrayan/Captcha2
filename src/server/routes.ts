@@ -333,7 +333,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
 apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     token: z.string().min(1),
-    selectedOptionId: z.string().optional(),
+    selectedOptionId: z.string().min(1),
     secretKey: z.string().optional(),
     remoteIp: z.string().optional(),
     hostname: z.string().optional(),
@@ -348,7 +348,7 @@ apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, 
       challenge_ts: new Date().toISOString(),
       hostname: 'unknown',
       action: 'verify',
-      development_mode: true,
+      development_mode: !IS_PRODUCTION,
       error_codes: ['invalid-request-payload'],
     });
     return;
@@ -386,6 +386,6 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
         ? Math.round((summary.passedRequests / summary.totalRequests) * 100)
         : 0,
     },
-    recentEvents: summary.recentEvents.slice(0, 20),
+    recentEvents: summary.recentEvents.slice(0, 50),
   });
 });
