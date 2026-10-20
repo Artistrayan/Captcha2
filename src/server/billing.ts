@@ -19,7 +19,7 @@ function getPool(): pg.Pool {
   if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }, max: 5 });
   return pool;
 }
-export async function checkCaptchaQuota(siteKey: string): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
   // Local file-storage development has no billing database; keep its existing test flow.
   if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
   const db = getPool();
@@ -45,7 +45,7 @@ export async function checkCaptchaQuota(siteKey: string): Promise<{ allowed: boo
     [userId],
   );
   const used = Number(usage.rows[0]?.used || 0);
-  return { allowed: used < quota, used, limit: quota, plan: quota === 10000 ? 'free' : 'paid' };
+  return { allowed: used + reserveRequests <= quota, used, limit: quota, plan: quota === 10000 ? 'free' : 'paid' };
 }
 
 function configReady() {
