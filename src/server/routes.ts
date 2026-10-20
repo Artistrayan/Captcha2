@@ -333,7 +333,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
 apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     token: z.string().min(1),
-    selectedOptionId: z.string().min(1),
+    selectedOptionId: z.string().optional(),
     secretKey: z.string().optional(),
     remoteIp: z.string().optional(),
     hostname: z.string().optional(),
