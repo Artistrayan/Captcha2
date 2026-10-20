@@ -492,7 +492,7 @@ apiRouter.get('/support/tickets', requireAuth, rateLimiter(60, 60000), async (re
   try {
     const user = (req as any).user;
     const tickets = await dbRepository.getSupportTickets(user.id, user.role === 'ADMIN');
-    res.json({ tickets });
+    res.json({ tickets, isAdmin: user.role === 'ADMIN' });
   } catch (error) {
     console.error('[Support] Failed to load tickets:', error);
     res.status(503).json({ error: 'Support inbox is temporarily unavailable.' });
