@@ -67,6 +67,9 @@ interface PersistentState {
 }
 
 function loadState(): PersistentState {
+  if (IS_PRODUCTION) {
+    throw new Error('[Database] PostgreSQL is unavailable. File-based fallback is disabled in production.');
+  }
   if (fs.existsSync(DATA_FILE)) {
     try {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
@@ -241,7 +244,7 @@ if (process.env.DATABASE_URL) {
 export function getDatabaseStatus(): DBStatus {
   return {
     isPostgresConnected: isPgConnected,
-    engine: isPgConnected ? 'postgresql' : 'file_persisted_storage',
+    engine: isPgConnected ? 'postgresql' : (IS_PRODUCTION ? 'postgresql' : 'file_persisted_storage'),
     databaseUrlConfigured: !!process.env.DATABASE_URL,
     connectionError: lastPgError,
   };
