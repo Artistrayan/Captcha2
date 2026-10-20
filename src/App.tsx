@@ -86,8 +86,12 @@ export default function App() {
       .then(data => setHealth(data))
       .catch(console.error);
 
-    // Login dev session
-    loginUser(userEmail);
+    // Developer sessions are only permitted in local development. Production must use real Firebase sign-in.
+    if (import.meta.env.DEV) {
+      loginUser(userEmail);
+    } else {
+      setIsLoadingSites(false);
+    }
   }, []);
 
   const loginUser = async (email: string): Promise<string> => {
@@ -370,12 +374,12 @@ export default function App() {
     return result;
   }, [logs]);
 
-  // Summary statistics for last 24 hours
+  // Summary statistics for the currently loaded event set
   const trafficStats = useMemo(() => {
     const total = logs.length;
     const passed = logs.filter(l => l.success).length;
     const blocked = total - passed;
-    const rate = total > 0 ? Math.round((passed / total) * 100) : 100;
+    const rate = total > 0 ? Math.round((passed / total) * 100) : 0;
     return { total, passed, blocked, rate };
   }, [logs]);
 
@@ -429,7 +433,7 @@ export default function App() {
               <option value="developer@shieldcaptcha.dev">حساب: Developer (Admin)</option>
               <option value="alice@shieldcaptcha.dev">حساب: Alice (کاربر تست ۱)</option>
               <option value="bob@shieldcaptcha.dev">حساب: Bob (کاربر تست ۲)</option>
-            </select>
+            </select>}
           </div>
         </div>
 
@@ -468,6 +472,11 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
+        {!import.meta.env.DEV && !authToken && (
+          <div role="alert" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+            ورود امن مدیریتی در نسخهٔ تولیدی هنوز به رابط Firebase Authentication متصل نشده است. ورود آزمایشی برای جلوگیری از جعل هویت غیرفعال است؛ تا زمان اتصال ورود واقعی، مدیریت سایت‌ها در این محیط در دسترس نیست.
+          </div>
+        )}
         {/* TAB 1: SITES MANAGEMENT */}
         {activeTab === 'sites' && (
           <div className="space-y-6">
