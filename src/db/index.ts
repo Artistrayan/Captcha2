@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema.ts';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, inArray } from 'drizzle-orm';
 
 const { Pool } = pg;
 
@@ -547,6 +547,39 @@ export const dbRepository = {
     }
     saveState(state);
     return event;
+  },
+
+  async getAnalyticsSummary(siteKeys: string[], since: Date): Promise<{ totalRequests: number; passedRequests: number; blockedRequests: number; recentEvents: schema.VerificationEvent[] }> {
+    if (siteKeys.length === 0) {
+      return { totalRequests: 0, passedRequests: 0, blockedRequests: 0, recentEvents: [] };
+    }
+
+    if (isPgConnected && drizzleDb && pgPool) {
+      const counts = await pgPool.query(
+        'SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed FROM verification_events WHERE site_key = ANY($1::text[]) AND created_at >= $2',
+        [siteKeys, since]
+      );
+      const recentEvents = await drizzleDb.select().from(schema.verificationEvents)
+        .where(and(inArray(schema.verificationEvents.siteKey, siteKeys), gte(schema.verificationEvents.createdAt, since)))
+        .orderBy(desc(schema.verificationEvents.createdAt))
+        .limit(50);
+      const totalRequests = Number(counts.rows[0]?.total || 0);
+      const passedRequests = Number(counts.rows[0]?.passed || 0);
+      return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests, recentEvents };
+    }
+
+    const state = loadState();
+    const events = state.verificationEvents
+      .filter(e => siteKeys.includes(e.siteKey) && new Date(e.createdAt).getTime() >= since.getTime())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const totalRequests = events.length;
+    const passedRequests = events.filter(e => e.success).length;
+    return {
+      totalRequests,
+      passedRequests,
+      blockedRequests: totalRequests - passedRequests,
+      recentEvents: events.slice(0, 50) as schema.VerificationEvent[],
+    };
   },
 
   async getRecentEvents(siteKey?: string): Promise<schema.VerificationEvent[]> {
