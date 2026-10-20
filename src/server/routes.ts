@@ -63,8 +63,10 @@ apiRouter.get('/health', (req: Request, res: Response) => {
   const dbStatus = getDatabaseStatus();
   const firebaseStatus = getFirebaseStatus();
 
-  res.json({
-    status: 'healthy',
+  const isHealthy = (process.env.NODE_ENV !== 'production' || dbStatus.isPostgresConnected) &&
+    (process.env.NODE_ENV !== 'production' || firebaseStatus.isInitialized);
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     version: '1.0.0-mvp',
     database: dbStatus,
@@ -73,8 +75,12 @@ apiRouter.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// 2. User Session Authentication (Dev & Production JWT Session)
+// 2. Development-only session endpoint. Production must use verified Firebase ID tokens.
 apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(404).json({ error: 'Not Found', message: 'Development session authentication is disabled in production.' });
+    return;
+  }
   const bodySchema = z.object({
     email: z.string().email(),
     name: z.string().optional(),
@@ -345,7 +351,8 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
   const siteKeys = new Set(userSites.map(s => s.siteKey));
 
   const allEvents = await dbRepository.getRecentEvents();
-  const userEvents = allEvents.filter(e => siteKeys.has(e.siteKey));
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const userEvents = allEvents.filter(e => siteKeys.has(e.siteKey) && new Date(e.createdAt).getTime() >= cutoff);
 
   const totalRequests = userEvents.length;
   const passedRequests = userEvents.filter(e => e.success).length;
@@ -356,7 +363,7 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
       totalRequests,
       passedRequests,
       blockedRequests,
-      passRatePercent: totalRequests > 0 ? Math.round((passedRequests / totalRequests) * 100) : 100,
+      passRatePercent: totalRequests > 0 ? Math.round((passedRequests / totalRequests) * 100) : 0,
     },
     recentEvents: userEvents.slice(0, 20),
   });
