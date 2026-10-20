@@ -27,7 +27,9 @@ let firebaseAuth: Auth | undefined;
 const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
 const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-if (firebaseProjectId || serviceAccountKey) {
+if (IS_PRODUCTION && !serviceAccountKey) {
+  initError = 'FIREBASE_SERVICE_ACCOUNT_KEY is required in production.';
+} else if (firebaseProjectId || serviceAccountKey) {
   try {
     if (getApps().length === 0) {
       if (serviceAccountKey) {
