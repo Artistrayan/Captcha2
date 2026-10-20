@@ -35,6 +35,28 @@ async function requireBillingAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 billingRouter.use(requireBillingAuth);
+
+const billingRateLimits = new Map<string, { count: number; resetAt: number }>();
+billingRouter.use((req, res, next) => {
+  const userId = (req as any).billingUser?.id || 'unknown';
+  const key = `${userId}:${req.method}:${req.path.split('/').slice(0, 2).join('/')}`;
+  const now = Date.now();
+  if (billingRateLimits.size > 3000) {
+    for (const [storedKey, value] of billingRateLimits) if (value.resetAt <= now) billingRateLimits.delete(storedKey);
+  }
+  const entry = billingRateLimits.get(key);
+  if (!entry || entry.resetAt <= now) {
+    billingRateLimits.set(key, { count: 1, resetAt: now + 60_000 });
+    next();
+    return;
+  }
+  if (entry.count >= 15) {
+    res.status(429).json({ error: 'Billing rate limit exceeded. Please retry in a minute.' });
+    return;
+  }
+  entry.count += 1;
+  next();
+});
 billingRouter.get('/config', (_req, res) => {
   res.json({
     ready: configReady(),
@@ -61,7 +83,7 @@ billingRouter.get('/invoices', async (req, res) => {
 billingRouter.post('/invoices', async (req, res) => {
   const user = (req as any).billingUser;
   const planId = req.body?.plan as PlanId;
-  if (!(planId in PLANS)) { res.status(400).json({ error: 'Invalid plan' }); return; }
+  if (!Object.prototype.hasOwnProperty.call(PLANS, planId)) { res.status(400).json({ error: 'Invalid plan' }); return; }
   if (!configReady()) { res.status(503).json({ error: 'Crypto payments are not configured yet.' }); return; }
   try {
     const plan = PLANS[planId];
