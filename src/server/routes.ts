@@ -333,11 +333,11 @@ apiRouter.post('/captcha/challenge', rateLimiter(10, 60000), async (req: Request
 apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, res: Response) => {
   const schema = z.object({
     token: z.string().min(1),
-    selectedOptionId: z.string().optional(),
-    secretKey: z.string().optional(),
-    remoteIp: z.string().optional(),
-    hostname: z.string().optional(),
-    action: z.string().optional(),
+    selectedOptionId: z.string().max(100).optional(),
+    secretKey: z.string().max(512).optional(),
+    remoteIp: z.string().max(64).optional(),
+    hostname: z.string().max(253).optional(),
+    action: z.string().max(128).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -354,14 +354,30 @@ apiRouter.post('/captcha/verify', rateLimiter(120, 60000), async (req: Request, 
     return;
   }
 
-  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || parsed.data.remoteIp;
+  // Express resolves req.ip using only the configured trusted proxy chain.
+  // Ignore caller-supplied X-Forwarded-For and JSON remoteIp values.
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+  // Hostname supplied in JSON is client-controlled. Prefer browser Origin/Referer
+  // when present, and otherwise report the API request host.
+  let verifyHostname = req.hostname || 'unknown';
+  const verifyOrigin = req.headers.origin || req.headers.referer;
+  if (verifyOrigin) {
+    try {
+      verifyHostname = new URL(verifyOrigin).hostname;
+    } catch {
+      verifyHostname = 'unknown';
+    }
+  } else if (!IS_PRODUCTION) {
+    verifyHostname = parsed.data.hostname || verifyHostname;
+  }
 
   const result = await verifyCaptchaResponse({
     token: parsed.data.token,
     selectedOptionId: parsed.data.selectedOptionId,
     secretKey: parsed.data.secretKey,
     remoteIp: clientIp,
-    hostname: parsed.data.hostname || req.hostname,
+    hostname: verifyHostname,
     action: parsed.data.action,
   });
 
