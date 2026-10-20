@@ -359,7 +359,7 @@ export default function App() {
             status: 'failed',
             code: 'verified-token-required',
             payload: { message: 'Complete the live CAPTCHA widget first; then the verified token will be submitted again to test replay protection.' },
-            timestamp: new Date().toLocaleTimeString('fa-IR'),
+            timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
           });
           return;
         }
@@ -380,7 +380,7 @@ export default function App() {
             replayAttempt: replayData,
             securityResult: blocked ? 'Passed: a solved and consumed token was rejected on reuse.' : 'Failed: the server response did not match expectations.',
           },
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
         });
         return;
       }
@@ -418,7 +418,7 @@ export default function App() {
           status: fourthAllowed && fifthBlocked ? 'success' : 'failed',
           code: fifthAttempt.error_codes?.[0],
           payload: { fourthIncorrectAttempt: fourthAttempt, fifthBlockedAttempt: fifthAttempt },
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
         });
       } else {
         // Never send a real private key from this browser-based lab.
@@ -441,7 +441,7 @@ export default function App() {
             ...vData,
             securityResult: rejected ? 'Passed: the server rejected the invalid secret key.' : 'Failed: the server response did not match expectations.',
           },
-          timestamp: new Date().toLocaleTimeString('fa-IR'),
+          timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
         });
       }
     } catch (err: any) {
@@ -449,7 +449,7 @@ export default function App() {
         title: 'Test execution error',
         status: 'failed',
         payload: { error: err.message },
-        timestamp: new Date().toLocaleTimeString('fa-IR'),
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
       });
     } finally {
       setIsTestingScenario(false);
@@ -849,7 +849,7 @@ export default function App() {
                 {supportTickets.length === 0 ? <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">No support tickets yet.</div> : <div className="space-y-3">{supportTickets.map((ticket: any) => <button type="button" key={ticket.id} onClick={() => { setActiveTicketId(ticket.id); setSupportStatus(ticket.status === 'open' ? 'in_progress' : ticket.status); }} className={`w-full rounded-xl border p-4 text-left transition-colors ${activeTicketId === ticket.id ? 'border-emerald-500/60 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/60 hover:border-slate-600'}`}><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium text-white">{ticket.subject}</span><span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] text-emerald-300">{String(ticket.status).replace('_', ' ')}</span></div><div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-500"><span>#{ticket.id}</span><span>{ticket.category}</span><span>{ticket.priority} priority</span><span>{ticket.messages?.length || 0} messages</span></div></button>)}</div>}
                 {supportTickets.filter((ticket: any) => ticket.id === activeTicketId).map((ticket: any) => <section key={ticket.id} className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70">
                   <div className="border-b border-slate-800 p-4"><h3 className="font-semibold text-white">{ticket.subject}</h3><p className="mt-1 text-[11px] text-slate-500">Ticket {ticket.id} · Status: {ticket.status}</p></div>
-                  <div className="max-h-80 space-y-3 overflow-y-auto p-4">{(ticket.messages || []).map((message: any) => <div key={message.id} className={`rounded-lg border p-3 ${message.authorRole === 'ADMIN' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-700 bg-slate-950/70'}`}><div className="mb-1 flex items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-200">{message.authorRole === 'ADMIN' ? 'ShieldCaptcha Support' : 'Customer'}</span><span className="text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleString()}</span></div><p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{message.body}</p></div>)}</div>
+                  <div className="max-h-80 space-y-3 overflow-y-auto p-4">{(ticket.messages || []).map((message: any) => <div key={message.id} className={`rounded-lg border p-3 ${message.authorRole === 'ADMIN' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-700 bg-slate-950/70'}`}><div className="mb-1 flex items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-200">{message.authorRole === 'ADMIN' ? 'ShieldCaptcha Support' : 'Customer'}</span><span className="text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleString('en-US')}</span></div><p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{message.body}</p></div>)}</div>
                   {ticket.status !== 'closed' && <form onSubmit={sendSupportReply} className="space-y-3 border-t border-slate-800 p-4"><textarea required minLength={2} maxLength={5000} rows={3} value={supportReply} onChange={e => setSupportReply(e.target.value)} placeholder="Write a reply..." className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white" /><div className="flex flex-wrap items-center justify-between gap-3">{supportIsAdmin && <select value={supportStatus} onChange={e => setSupportStatus(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="in_progress">In progress</option><option value="waiting_user">Waiting for user</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>}<button disabled={supportBusy || !supportReply.trim()} type="submit" className="ml-auto inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm text-white hover:bg-slate-600 disabled:opacity-50"><MessageSquare className="h-4 w-4" /> Send reply</button></div></form>}
                 </section>)}
               </div>
@@ -1377,7 +1377,7 @@ export default function App() {
                       logs.map((log, i) => (
                         <tr key={i} className="hover:bg-slate-800/40">
                           <td className="p-3 text-slate-400">
-                            {new Date(log.createdAt).toLocaleTimeString('fa-IR')}
+                            {new Date(log.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                           </td>
                           <td className="p-3 text-slate-300 truncate max-w-[120px]">{log.siteKey}</td>
                           <td className="p-3">
