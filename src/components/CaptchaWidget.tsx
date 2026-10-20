@@ -159,8 +159,11 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
           setStatus('expired');
           setErrorMessage(t('widgetExpiredDesc'));
         } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 3) {
-          setStatus('error');
-          setErrorMessage(t('widgetMaxAttemptsExceeded'));
+          // The server consumes the challenge at the attempt limit. Fetch a fresh
+          // challenge immediately so the widget never remains stuck on a dead token.
+          onError?.(primaryError);
+          await fetchChallenge();
+          return;
         } else {
           setStatus('challenge');
           setErrorMessage(t('widgetIncorrectAnswer'));
