@@ -58,6 +58,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
     setStatus('loading');
     setErrorMessage(null);
     setSelectedOptionId(null);
+    setAttempts(0);
 
     try {
       const res = await fetch('/api/v1/captcha/challenge', {
@@ -294,12 +295,12 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             {errorMessage && (
               <div className="mb-3 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errorMessage} ({attempts + 1} / 3)</span>
+                <span>{errorMessage} ({attempts} / 3)</span>
               </div>
             )}
 
-            {/* 2x2 Visual Options Grid */}
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
+            {/* Adaptive visual options grid: 4, 6, or 8 choices depending on site difficulty */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4">
               {challenge.options.map((opt, index) => {
                 const isSelected = selectedOptionId === opt.id;
                 return (
