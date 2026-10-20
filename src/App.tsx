@@ -46,6 +46,7 @@ export default function App() {
   const [authToken, setAuthToken] = useState<string>('');
   const [authPassword, setAuthPassword] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [sites, setSites] = useState<SiteItem[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState<boolean>(true);
@@ -153,6 +154,46 @@ export default function App() {
       setIsSigningIn(false);
     }
     return '';
+  };
+
+  const handleSignUp = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAuthError('');
+    setIsSigningIn(true);
+    setIsLoadingSites(true);
+    try {
+      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+      if (!apiKey) throw new Error('کلید عمومی Firebase در تنظیمات ساخت سایت تعریف نشده است.');
+      if (!health?.firebaseAuth.isInitialized) throw new Error('احراز هویت سمت سرور آماده نیست؛ تنظیمات Firebase Admin را بررسی کنید.');
+      if (authPassword.length < 6) throw new Error('گذرواژه باید حداقل ۶ نویسه داشته باشد.');
+
+      const res = await fetch(\`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=\${encodeURIComponent(apiKey)}\`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail.trim(), password: authPassword, returnSecureToken: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.idToken) {
+        const code = data?.error?.message;
+        const messages: Record<string, string> = {
+          EMAIL_EXISTS: 'این ایمیل قبلاً ثبت شده است؛ وارد حساب شوید.',
+          INVALID_EMAIL: 'ساختار ایمیل معتبر نیست.',
+          WEAK_PASSWORD: 'گذرواژه ضعیف است؛ حداقل ۶ نویسه وارد کنید.',
+          OPERATION_NOT_ALLOWED: 'ثبت‌نام با ایمیل و گذرواژه در تنظیمات Firebase فعال نیست.',
+          TOO_MANY_ATTEMPTS_TRY_LATER: 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
+        };
+        throw new Error(messages[code] || 'ایجاد حساب در Firebase ناموفق بود.');
+      }
+      setAuthToken(data.idToken);
+      setUserEmail(data.email || userEmail.trim());
+      setAuthPassword('');
+      await fetchSites(data.idToken);
+    } catch (err: any) {
+      setAuthError(err?.message || 'ایجاد حساب ناموفق بود.');
+    } finally {
+      setIsLoadingSites(false);
+      setIsSigningIn(false);
+    }
   };
 
   const fetchSites = async (token = authToken) => {
@@ -440,6 +481,47 @@ export default function App() {
     blocked: analyticsSummary.blockedRequests,
     rate: analyticsSummary.passRatePercent,
   }), [analyticsSummary]);
+
+  if (!import.meta.env.DEV && !authToken) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10 font-sans">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 shadow-lg shadow-emerald-950/50">
+              <Shield className="h-7 w-7 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">ShieldCaptcha</h1>
+            <p className="mt-2 text-sm text-slate-400">ورود امن به پنل مدیریت</p>
+          </div>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
+            <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1">
+              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>ورود</button>
+              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>ایجاد حساب</button>
+            </div>
+            <h2 className="text-lg font-semibold text-white">{authMode === 'login' ? 'به حساب خود وارد شوید' : 'ساخت حساب جدید'}</h2>
+            <p className="mt-1 mb-5 text-xs leading-6 text-slate-400">{authMode === 'login' ? 'برای دسترسی به وب‌سایت‌ها، کلیدها و گزارش‌های امنیتی وارد شوید.' : 'با ایمیل و گذرواژه حساب بسازید تا پنل اختصاصی شما ایجاد شود.'}</p>
+            <form className="space-y-4" onSubmit={authMode === 'login' ? async (event) => { event.preventDefault(); await loginUser(userEmail.trim(), authPassword); } : handleSignUp}>
+              <div>
+                <label htmlFor="auth-email" className="mb-1.5 block text-sm text-slate-300">ایمیل</label>
+                <input id="auth-email" type="email" required autoComplete="email" value={userEmail} onChange={(event) => setUserEmail(event.target.value)} placeholder="name@example.com" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
+              </div>
+              <div>
+                <label htmlFor="auth-password" className="mb-1.5 block text-sm text-slate-300">گذرواژه</label>
+                <input id="auth-password" type="password" required minLength={6} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="حداقل ۶ نویسه" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
+              </div>
+              {authError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm leading-6 text-rose-300">{authError}</p>}
+              {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY در تنظیمات build تعریف نشده است.</p>}
+              {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Firebase Admin سمت سرور آماده نیست؛ تنظیمات Firebase را بررسی کنید.</p>}
+              <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+                {isSigningIn ? 'لطفاً صبر کنید…' : authMode === 'login' ? 'ورود به حساب' : 'ایجاد حساب'}
+              </button>
+            </form>
+            <p className="mt-5 text-center text-xs leading-5 text-slate-500">گذرواژه شما در ShieldCaptcha ذخیره نمی‌شود و برای احراز هویت به Firebase ارسال می‌شود.</p>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30">
