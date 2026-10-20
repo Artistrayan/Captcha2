@@ -9,6 +9,20 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shieldcaptcha
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shieldcaptcha"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,5 +40,9 @@ jobs:
         run: bun run lint
       - name: Security and regression tests
         run: rm -rf .data && NODE_ENV=test bun run test -- --no-file-parallelism
+      - name: Validate PostgreSQL migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shieldcaptcha
+        run: bun run db:migrate
       - name: Production build
         run: bun run build
