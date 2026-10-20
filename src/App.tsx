@@ -77,6 +77,7 @@ export default function App() {
 
   // Audit Logs
   const [logs, setLogs] = useState<any[]>([]);
+  const [hourlyTraffic, setHourlyTraffic] = useState<Array<{ hour: string; passed: number; blocked: number }>>([]);
   const [analyticsSummary, setAnalyticsSummary] = useState({ totalRequests: 0, passedRequests: 0, blockedRequests: 0, passRatePercent: 0 });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -332,6 +333,9 @@ export default function App() {
       if (res.ok && data.recentEvents) {
         setLogs(data.recentEvents);
       }
+      if (res.ok && Array.isArray(data.hourlyTraffic)) {
+        setHourlyTraffic(data.hourlyTraffic);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -343,45 +347,32 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Aggregated traffic trend over the last 24 hours
+  // The chart uses complete server-side hourly aggregates, not the latest 50 log rows.
   const traffic24hData = useMemo(() => {
     const now = new Date();
-    const result: Array<{
-      hour: string;
-      fullTime: string;
-      passed: number;
-      blocked: number;
-      total: number;
-    }> = [];
-
-    // 24 buckets: from 23 hours ago to now
+    const buckets = new Map<string, { hour: string; passed: number; blocked: number; total: number }>();
     for (let i = 23; i >= 0; i--) {
-      const bucketStart = new Date(now.getTime() - (i + 1) * 3600 * 1000);
       const bucketEnd = new Date(now.getTime() - i * 3600 * 1000);
-
-      const hourNumber = bucketEnd.getHours();
-      const hourStr = `${hourNumber.toString().padStart(2, '0')}:00`;
-
-      const eventsInHour = logs.filter(item => {
-        if (!item.createdAt) return false;
-        const time = new Date(item.createdAt).getTime();
-        return time >= bucketStart.getTime() && time < bucketEnd.getTime();
-      });
-
-      const passed = eventsInHour.filter(e => e.success).length;
-      const blocked = eventsInHour.filter(e => !e.success).length;
-
-      result.push({
-        hour: hourStr,
-        fullTime: bucketEnd.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-        passed,
-        blocked,
-        total: passed + blocked,
-      });
+      bucketEnd.setMinutes(0, 0, 0);
+      const key = new Date(bucketEnd).toISOString();
+      const hour = `${bucketEnd.getHours().toString().padStart(2, '0')}:00`;
+      buckets.set(key, { hour, passed: 0, blocked: 0, total: 0 });
     }
 
-    return result;
-  }, [logs]);
+    for (const item of hourlyTraffic) {
+      const eventHour = new Date(item.hour);
+      eventHour.setMinutes(0, 0, 0);
+      const key = eventHour.toISOString();
+      const bucket = buckets.get(key);
+      if (bucket) {
+        bucket.passed = Number(item.passed) || 0;
+        bucket.blocked = Number(item.blocked) || 0;
+        bucket.total = bucket.passed + bucket.blocked;
+      }
+    }
+
+    return [...buckets.values()];
+  }, [hourlyTraffic]);
 
   // Summary cards use server-side aggregates for the full 24-hour window.
   const trafficStats = useMemo(() => ({
