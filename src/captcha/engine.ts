@@ -182,7 +182,7 @@ export async function issueCaptchaChallenge(
   }
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
   const token = `sct_${crypto.randomBytes(24).toString('base64url')}`;
-  const expiresInSeconds = site.challengeDifficulty === 'HIGH' ? 75 : 90;
+  const expiresInSeconds = 20;
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
   // Compute secure HMAC hash of correct option ID
