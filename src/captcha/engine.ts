@@ -286,6 +286,29 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     };
   }
 
+  // A token alone is never proof of a solved challenge: require an explicit option.
+  if (!input.selectedOptionId) {
+    await dbRepository.recordVerificationEvent({
+      siteKey: challenge.siteKey,
+      token: input.token,
+      success: false,
+      score: 0,
+      hostname,
+      action: input.action,
+      clientIp: input.remoteIp,
+      errorCodes: ['missing-input-response'],
+    });
+    return {
+      success: false,
+      score: 0,
+      hostname,
+      challenge_ts: challengeTs,
+      action: input.action || 'verify',
+      development_mode: true,
+      error_codes: ['missing-input-response'],
+    };
+  }
+
   // 1. Replay / Consumption check: Was it already used?
   if (challenge.isConsumed) {
     errorCodes.push('timeout-or-duplicate');
@@ -361,16 +384,32 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     };
   }
 
-  // 4. Secret Key check (if server-to-server verify is being performed)
+  // 4. Secret Key check (if server-to-server verify is being performed).
+  // Invalid credentials must fail closed; never continue into answer verification.
   if (input.secretKey) {
     const site = await dbRepository.getSiteByKey(challenge.siteKey);
-    if (!site) {
-      errorCodes.push('invalid-site');
-    } else {
-      const hashedProvidedSecret = crypto.createHash('sha256').update(input.secretKey).digest('hex');
-      if (hashedProvidedSecret !== site.secretKeyHash) {
-        errorCodes.push('invalid-secret-key');
-      }
+    const hashedProvidedSecret = crypto.createHash('sha256').update(input.secretKey).digest('hex');
+    if (!site || hashedProvidedSecret !== site.secretKeyHash) {
+      const secretError = !site ? 'invalid-site' : 'invalid-secret-key';
+      await dbRepository.recordVerificationEvent({
+        siteKey: challenge.siteKey,
+        token: input.token,
+        success: false,
+        score: 0,
+        hostname,
+        action: input.action,
+        clientIp: input.remoteIp,
+        errorCodes: [secretError],
+      });
+      return {
+        success: false,
+        score: 0,
+        hostname,
+        challenge_ts: challengeTs,
+        action: input.action || 'verify',
+        development_mode: true,
+        error_codes: [secretError],
+      };
     }
   }
 
