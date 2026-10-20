@@ -257,6 +257,14 @@ export interface VerificationOutput {
   error_codes: string[];
 }
 
+export async function verifyCaptchaReceipt(input: { token: string; secretKey: string; hostname?: string; action?: string; remoteIp?: string }): Promise<VerificationOutput> {
+  const timestamp = new Date().toISOString();
+  const hostname = input.hostname || 'unknown';
+  const challenge = await dbRepository.getChallengeByToken(input.token);
+  if (!challenge) return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['invalid-input-response'] };
+  return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['captcha-not-solved'] };
+}
+
 /**
  * Server-side CAPTCHA verification.
  * Enforces atomic consumption, expiration check, attempt limits, and single-use replay protection.
