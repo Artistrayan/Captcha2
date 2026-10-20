@@ -1,7 +1,11 @@
 import crypto from 'node:crypto';
 import { dbRepository } from '../db/index.ts';
 
-const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || 'shield_captcha_internal_salt_dev_98741';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || (IS_PRODUCTION ? '' : 'local-development-only-captcha-salt-change-before-deploy');
+if (IS_PRODUCTION && !SERVER_SALT) {
+  throw new Error('[Captcha] CAPTCHA_SERVER_SALT is required in production; refusing to start with a default salt.');
+}
 
 export interface VisualOption {
   id: string; // e.g. opt_3a7b
@@ -111,7 +115,10 @@ export async function issueCaptchaChallenge(
     throw new Error('SITE_KEY_NOT_FOUND');
   }
 
-  // Domain binding check if domain provided
+  // Domain binding: never implicitly trust arbitrary hosted app domains.
+  if (IS_PRODUCTION && !domain) {
+    throw new Error('DOMAIN_REQUIRED');
+  }
   if (domain && domain !== 'localhost' && domain !== '127.0.0.1') {
     let appHostname = '';
     if (process.env.APP_URL) {
@@ -120,10 +127,7 @@ export async function issueCaptchaChallenge(
       } catch {}
     }
 
-    const isSelfTesting =
-      (appHostname && domain === appHostname) ||
-      domain.endsWith('.onrender.com') ||
-      domain.endsWith('.run.app');
+    const isSelfTesting = !!appHostname && domain.toLowerCase() === appHostname.toLowerCase();
 
     const isAllowed = isSelfTesting || site.domains.some(d => {
       const cleanD = d.toLowerCase().trim();
