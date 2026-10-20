@@ -421,8 +421,8 @@ export default function App() {
               </span>
             </div>
 
-            {/* User Tenant Switcher for Testing Isolation */}
-            <select
+            {/* Test-only tenant switcher; never expose simulated identities in production. */}
+            {import.meta.env.DEV && <select
               value={userEmail}
               onChange={(e) => {
                 setUserEmail(e.target.value);
