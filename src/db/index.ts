@@ -598,7 +598,7 @@ export const dbRepository = {
         .orderBy(desc(schema.verificationEvents.createdAt))
         .limit(50);
       const hourlyRows = await pgPool.query(
-        'SELECT date_trunc(\'hour\', created_at) AS hour, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed, COUNT(*) FILTER (WHERE success = FALSE)::int AS blocked FROM verification_events WHERE site_key = ANY($1::text[]) AND created_at >= $2 GROUP BY 1 ORDER BY 1',
+        'SELECT date_trunc(\'hour\', created_at AT TIME ZONE \'UTC\') AT TIME ZONE \'UTC\' AS hour, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed, COUNT(*) FILTER (WHERE success = FALSE)::int AS blocked FROM verification_events WHERE site_key = ANY($1::text[]) AND created_at >= $2 GROUP BY 1 ORDER BY 1',
         [siteKeys, since]
       );
       const hourlyTraffic = hourlyRows.rows.map((row: { hour: Date | string; passed: number | string; blocked: number | string }) => ({
