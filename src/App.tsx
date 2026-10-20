@@ -768,6 +768,7 @@ export default function App() {
                     siteKey={selectedSiteKey}
                     onVerify={(token, data) => {
                       setLastVerifiedToken(token);
+                      setLastVerifiedSiteKey(selectedSiteKey);
                       setLastVerificationData(data);
                     }}
                     onError={(code) => console.log('Widget error:', code)}
