@@ -177,6 +177,14 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
       )
     ).min(1).max(50),
     challengeDifficulty: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
+    challengeModel: z.enum(['AUTO', 'IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH', 'TEXT', 'MATH', 'SHAPES']).default('AUTO'),
+    captchaSettings: z.object({
+      textLength: z.number().int().min(4).max(7).default(5),
+      noise: z.number().int().min(0).max(80).default(36),
+      rotation: z.number().int().min(0).max(60).default(22),
+      expiresInSeconds: z.number().int().min(10).max(20).default(20),
+      maxAttempts: z.number().int().min(1).max(4).default(4),
+    }).default({ textLength: 5, noise: 36, rotation: 22, expiresInSeconds: 20, maxAttempts: 4 }),
     invisibleEnabled: z.boolean().default(true),
     rateLimitPerMinute: z.number().int().min(60).max(10000).default(600),
   });
@@ -208,6 +216,8 @@ apiRouter.post('/sites', requireAuth, rateLimiter(30, 60000), async (req: Reques
         secretKeyPrefix,
         maskedSecretKey,
         challengeDifficulty: parsed.data.challengeDifficulty,
+        challengeModel: parsed.data.challengeModel,
+        captchaSettings: parsed.data.captchaSettings,
         invisibleEnabled: parsed.data.invisibleEnabled,
         rateLimitPerMinute: parsed.data.rateLimitPerMinute,
       });
