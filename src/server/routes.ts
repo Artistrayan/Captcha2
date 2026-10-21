@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
-import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken } from '../auth/firebase.ts';
+import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
 import { checkCaptchaQuota, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial } from './billing.ts';
 
@@ -145,6 +145,94 @@ apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res
       role: user.role,
     },
   });
+});
+
+
+// Short-lived, hashed email verification codes. Codes are never logged or returned to the client.
+const emailVerificationCodes = new Map<string, { codeHash: string; expiresAt: number; attempts: number; sentAt: number }>();
+const hashEmailCode = (email: string, code: string) =>
+  crypto.createHash('sha256').update(`${email.toLowerCase()}:${code}:${process.env.SESSION_JWT_SECRET || 'shieldcaptcha-email-code'}`).digest('hex');
+
+apiRouter.post('/auth/email-code/send', rateLimiter(3, 15 * 60 * 1000), async (req: Request, res: Response) => {
+  const parsed = z.object({ email: z.string().trim().email().max(254) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'Invalid email address.' }); return; }
+  const email = parsed.data.email.toLowerCase();
+  const now = Date.now();
+  const previous = emailVerificationCodes.get(email);
+  if (previous && now - previous.sentAt < 60_000) {
+    res.status(429).json({ error: 'Please wait 60 seconds before requesting another code.' }); return;
+  }
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.AUTH_EMAIL_FROM;
+  if (!apiKey || !from) {
+    res.status(503).json({ error: 'Email verification is not configured yet. The administrator must set RESEND_API_KEY and AUTH_EMAIL_FROM in Render.' }); return;
+  }
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  try {
+    const mailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to: [email],
+        subject: 'Your ShieldCaptcha verification code',
+        text: `Your ShieldCaptcha verification code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px"><h2>ShieldCaptcha</h2><p>Your email verification code is:</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px">${code}</p><p>This code expires in 10 minutes. If you did not request it, ignore this email.</p></div>`,
+      }),
+    });
+    if (!mailResponse.ok) {
+      const detail = await mailResponse.text();
+      console.error('[Auth] Verification email delivery failed:', mailResponse.status, detail.slice(0, 300));
+      res.status(502).json({ error: 'Could not send the verification email. Check the email provider configuration.' }); return;
+    }
+    emailVerificationCodes.set(email, { codeHash: hashEmailCode(email, code), expiresAt: now + 10 * 60 * 1000, attempts: 0, sentAt: now });
+    res.json({ ok: true, message: 'Verification code sent. Check your inbox and spam folder.' });
+  } catch (error) {
+    console.error('[Auth] Verification email delivery failed:', error);
+    res.status(502).json({ error: 'Could not send the verification email.' });
+  }
+});
+
+apiRouter.post('/auth/email-code/verify', rateLimiter(10, 15 * 60 * 1000), async (req: Request, res: Response) => {
+  const parsed = z.object({
+    email: z.string().trim().email().max(254),
+    code: z.string().regex(/^\\d{6}$/),
+    password: z.string().min(8).max(128),
+    name: z.string().trim().max(80).optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'Enter a valid email, six-digit code, and password of at least 8 characters.' }); return; }
+  const email = parsed.data.email.toLowerCase();
+  const record = emailVerificationCodes.get(email);
+  if (!record || record.expiresAt <= Date.now()) {
+    emailVerificationCodes.delete(email);
+    res.status(400).json({ error: 'The code is missing or expired. Request a new code.' }); return;
+  }
+  record.attempts += 1;
+  if (record.attempts > 5) {
+    emailVerificationCodes.delete(email);
+    res.status(429).json({ error: 'Too many incorrect attempts. Request a new code.' }); return;
+  }
+  const submittedHash = hashEmailCode(email, parsed.data.code);
+  const expected = Buffer.from(record.codeHash, 'hex');
+  const actual = Buffer.from(submittedHash, 'hex');
+  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+    res.status(400).json({ error: 'Incorrect verification code.' }); return;
+  }
+  if (!getFirebaseStatus().isInitialized) {
+    res.status(503).json({ error: 'Firebase Admin is not configured.' }); return;
+  }
+  try {
+    const result = await createVerifiedFirebaseUser(email, parsed.data.password, parsed.data.name);
+    emailVerificationCodes.delete(email);
+    res.json({ ok: true, customToken: result.customToken, email: result.email });
+  } catch (error: any) {
+    if (error?.code === 'auth/email-already-exists') {
+      emailVerificationCodes.delete(email);
+      res.status(409).json({ error: 'This email already has an account. Please sign in instead.' }); return;
+    }
+    console.error('[Auth] Verified account creation failed:', error?.message || error);
+    res.status(500).json({ error: 'Could not create the account. Please try again.' });
+  }
 });
 
 // 3. User profile
