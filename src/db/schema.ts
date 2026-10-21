@@ -107,6 +107,16 @@ export const auditLogs = pgTable('audit_logs', {
 
 
 
+export const emailVerificationCodes = pgTable('email_verification_codes', {
+  email: text('email').primaryKey(),
+  codeHash: text('code_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  sentAt: timestamp('sent_at', { withTimezone: true }).notNull(),
+}, (table) => [
+  index('email_verification_codes_expires_idx').on(table.expiresAt),
+]);
+
 export const supportTickets = pgTable('support_tickets', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

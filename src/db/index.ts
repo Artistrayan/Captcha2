@@ -65,6 +65,7 @@ interface PersistentState {
     createdAt: string;
   }>;
   supportTickets: schema.SupportTicket[];
+  emailVerificationCodes: Array<{ email: string; codeHash: string; expiresAt: Date; attempts: number; sentAt: Date }>;
 }
 
 function loadState(): PersistentState {
@@ -76,6 +77,7 @@ function loadState(): PersistentState {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
       const parsed = JSON.parse(raw) as PersistentState;
       if (!Array.isArray(parsed.supportTickets)) parsed.supportTickets = [];
+      if (!Array.isArray(parsed.emailVerificationCodes)) parsed.emailVerificationCodes = [];
       return parsed;
     } catch {
       // fallback
@@ -142,6 +144,7 @@ function loadState(): PersistentState {
     ],
     auditLogs: [],
     supportTickets: [],
+    emailVerificationCodes: [],
   };
 
   saveState(initialState);
@@ -682,6 +685,62 @@ export const dbRepository = {
     const totalRequests = events.length;
     const passedRequests = events.filter(event => event.success).length;
     return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests };
+  },
+
+  // EMAIL VERIFICATION CODES: persisted in PostgreSQL in production, disk-backed only in local development.
+  async getEmailVerificationCode(email: string): Promise<{ email: string; codeHash: string; expiresAt: Date; attempts: number; sentAt: Date } | null> {
+    const normalizedEmail = email.toLowerCase();
+    if (isPgConnected && drizzleDb) {
+      const rows = await drizzleDb.select().from(schema.emailVerificationCodes)
+        .where(eq(schema.emailVerificationCodes.email, normalizedEmail)).limit(1);
+      return rows[0] || null;
+    }
+    const record = loadState().emailVerificationCodes.find(item => item.email === normalizedEmail);
+    return record ? { ...record, expiresAt: new Date(record.expiresAt), sentAt: new Date(record.sentAt) } : null;
+  },
+
+  async upsertEmailVerificationCode(data: { email: string; codeHash: string; expiresAt: Date; attempts?: number; sentAt: Date }): Promise<void> {
+    const record = { email: data.email.toLowerCase(), codeHash: data.codeHash, expiresAt: data.expiresAt, attempts: data.attempts ?? 0, sentAt: data.sentAt };
+    if (isPgConnected && drizzleDb) {
+      await drizzleDb.insert(schema.emailVerificationCodes).values(record).onConflictDoUpdate({
+        target: schema.emailVerificationCodes.email,
+        set: { codeHash: record.codeHash, expiresAt: record.expiresAt, attempts: record.attempts, sentAt: record.sentAt },
+      });
+      return;
+    }
+    const state = loadState();
+    const idx = state.emailVerificationCodes.findIndex(item => item.email === record.email);
+    if (idx >= 0) state.emailVerificationCodes[idx] = record;
+    else state.emailVerificationCodes.push(record);
+    saveState(state);
+  },
+
+  async incrementEmailVerificationAttempts(email: string): Promise<number | null> {
+    const normalizedEmail = email.toLowerCase();
+    if (isPgConnected && drizzleDb) {
+      const rows = await drizzleDb.update(schema.emailVerificationCodes)
+        .set({ attempts: sql`${schema.emailVerificationCodes.attempts} + 1` })
+        .where(and(eq(schema.emailVerificationCodes.email, normalizedEmail), sql`${schema.emailVerificationCodes.expiresAt} > NOW()`))
+        .returning({ attempts: schema.emailVerificationCodes.attempts });
+      return rows[0]?.attempts ?? null;
+    }
+    const state = loadState();
+    const record = state.emailVerificationCodes.find(item => item.email === normalizedEmail);
+    if (!record || new Date(record.expiresAt).getTime() <= Date.now()) return null;
+    record.attempts += 1;
+    saveState(state);
+    return record.attempts;
+  },
+
+  async deleteEmailVerificationCode(email: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase();
+    if (isPgConnected && drizzleDb) {
+      await drizzleDb.delete(schema.emailVerificationCodes).where(eq(schema.emailVerificationCodes.email, normalizedEmail));
+      return;
+    }
+    const state = loadState();
+    state.emailVerificationCodes = state.emailVerificationCodes.filter(item => item.email !== normalizedEmail);
+    saveState(state);
   },
 
   // SUPPORT TICKETS
