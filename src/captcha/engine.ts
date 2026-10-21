@@ -218,7 +218,7 @@ export async function issueCaptchaChallenge(
       if (item.correct) correctOptionId = optId;
       let optionSvg = SVG_ICONS[item.category];
       if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
-        optionSvg = optionSvg.replace(/(<svg\\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`).replace(/<\/svg>\s*$/, '</g></svg>');
+        optionSvg = optionSvg.replace(/(<svg\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`).replace(/<\/svg>\s*$/, '</g></svg>');
       }
       options.push({ id: optId, svg: `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}` });
     }
