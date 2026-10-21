@@ -203,6 +203,9 @@ if (process.env.DATABASE_URL) {
                 throw new Error('Drizzle migrations directory is missing');
               }
               await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
+              // Backward-compatible additive settings migration for existing deployments.
+              await pgPool!.query("ALTER TABLE sites ADD COLUMN IF NOT EXISTS challenge_model text NOT NULL DEFAULT 'AUTO'");
+              await pgPool!.query("ALTER TABLE sites ADD COLUMN IF NOT EXISTS captcha_settings jsonb NOT NULL DEFAULT '{\"textLength\":5,\"noise\":36,\"rotation\":22,\"expiresInSeconds\":20,\"maxAttempts\":4}'::jsonb");
               isPgConnected = true;
               lastPgError = undefined;
               console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
@@ -339,6 +342,8 @@ export const dbRepository = {
     secretKeyPrefix: string;
     maskedSecretKey: string;
     challengeDifficulty?: 'LOW' | 'MEDIUM' | 'HIGH';
+    challengeModel?: 'AUTO' | 'IMAGE_SELECTION' | 'ODD_ONE_OUT' | 'ROTATION_MATCH' | 'TEXT' | 'MATH' | 'SHAPES';
+    captchaSettings?: { textLength: number; noise: number; rotation: number; expiresInSeconds: number; maxAttempts: number };
     invisibleEnabled?: boolean;
     rateLimitPerMinute?: number;
   }): Promise<schema.Site> {
@@ -352,6 +357,8 @@ export const dbRepository = {
       secretKeyPrefix: data.secretKeyPrefix,
       maskedSecretKey: data.maskedSecretKey,
       challengeDifficulty: data.challengeDifficulty || 'MEDIUM',
+      challengeModel: data.challengeModel || 'AUTO',
+      captchaSettings: data.captchaSettings || { textLength: 5, noise: 36, rotation: 22, expiresInSeconds: 20, maxAttempts: 4 },
       invisibleEnabled: data.invisibleEnabled ?? true,
       rateLimitPerMinute: data.rateLimitPerMinute || 600,
       createdAt: new Date(),
