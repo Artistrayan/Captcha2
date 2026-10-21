@@ -84,6 +84,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if ((req as any).user?.role !== 'ADMIN') {
+    res.status(403).json({ error: 'Forbidden', message: 'Administrator access required.' });
+    return;
+  }
+  next();
+}
+
+
 // 1. Health check
 apiRouter.get('/health', (req: Request, res: Response) => {
   const dbStatus = getDatabaseStatus();
@@ -100,6 +109,75 @@ apiRouter.get('/health', (req: Request, res: Response) => {
     serverMode: process.env.NODE_ENV || 'development',
   });
 });
+
+// Administrator-only console APIs. Never return secret hashes or raw CAPTCHA answers.
+apiRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const [users, sites, tickets, events] = await Promise.all([
+      dbRepository.getAllUsers(),
+      dbRepository.getAllSites(),
+      dbRepository.getSupportTickets('', true),
+      dbRepository.getRecentEvents(),
+    ]);
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    const recentEvents = events.filter(event => new Date(event.createdAt).getTime() >= since);
+    const passed = recentEvents.filter(event => event.success).length;
+    res.json({
+      users: users.length,
+      sites: sites.length,
+      tickets: tickets.length,
+      openTickets: tickets.filter(ticket => ticket.status === 'open' || ticket.status === 'in_progress').length,
+      requests24h: recentEvents.length,
+      passed24h: passed,
+      blocked24h: recentEvents.length - passed,
+      passRate24h: recentEvents.length ? Math.round((passed / recentEvents.length) * 100) : 0,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Admin] Overview failed:', error);
+    res.status(500).json({ error: 'Could not load administrator overview.' });
+  }
+});
+
+apiRouter.get('/admin/users', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const users = await dbRepository.getAllUsers();
+    res.json({ users: users.map(user => ({ id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt, updatedAt: user.updatedAt })) });
+  } catch (error) {
+    console.error('[Admin] Users list failed:', error);
+    res.status(500).json({ error: 'Could not load users.' });
+  }
+});
+
+apiRouter.get('/admin/sites', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const [sites, users] = await Promise.all([dbRepository.getAllSites(), dbRepository.getAllUsers()]);
+    const ownerEmails = new Map(users.map(user => [user.id, user.email]));
+    res.json({ sites: sites.map(site => ({
+      id: site.id, userId: site.userId, ownerEmail: ownerEmails.get(site.userId) || 'unknown',
+      name: site.name, siteKey: site.siteKey, domains: site.domains, challengeDifficulty: site.challengeDifficulty,
+      invisibleEnabled: site.invisibleEnabled, rateLimitPerMinute: site.rateLimitPerMinute, createdAt: site.createdAt,
+    })) });
+  } catch (error) {
+    console.error('[Admin] Sites list failed:', error);
+    res.status(500).json({ error: 'Could not load registered websites.' });
+  }
+});
+
+apiRouter.get('/admin/events', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const events = await dbRepository.getRecentEvents();
+    res.json({ events: events.map(event => ({
+      id: event.id, siteKey: event.siteKey, success: event.success, score: event.score,
+      hostname: event.hostname, action: event.action, errorCodes: event.errorCodes,
+      createdAt: event.createdAt,
+    })) });
+  } catch (error) {
+    console.error('[Admin] Events list failed:', error);
+    res.status(500).json({ error: 'Could not load security activity.' });
+  }
+});
+
 
 // 2. Development-only session endpoint. Production must use verified Firebase ID tokens.
 apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res: Response) => {
