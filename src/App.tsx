@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { CaptchaWidget } from './components/CaptchaWidget.tsx';
 import { LanguageSelector, useI18n } from './i18n/LanguageContext.tsx';
+import { AutoTranslate } from './i18n/AutoTranslate.tsx';
 
 interface SiteItem {
   id: string;
@@ -624,6 +625,7 @@ export default function App() {
 
   if (!import.meta.env.DEV && !authToken) {
     return (
+      <AutoTranslate lang={meta.code as any}>
       <div dir={meta.dir} className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10 font-sans">
         <div className="w-full max-w-md">
           <div className="flex justify-end mb-4"><LanguageSelector /></div>
@@ -667,10 +669,12 @@ export default function App() {
           </section>
         </div>
       </div>
+      </AutoTranslate>
     );
   }
 
   return (
+    <AutoTranslate lang={meta.code as any}>
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30">
       {/* Top Navigation */}
       <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur sticky top-0 z-40">
@@ -1651,5 +1655,6 @@ app.post('/api/login', async (req, res) => {
         </div>
       )}
     </div>
+    </AutoTranslate>
   );
 }
