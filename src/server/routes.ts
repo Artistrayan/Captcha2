@@ -72,7 +72,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     const decoded = await verifyTokenServerSide(authHeader);
     const user = await getOrCreateUser(decoded);
-    (req as any).user = user;
+    // Initial admin access is determined only from a server-side allowlist and a verified token email.
+    const configuredAdminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const verifiedEmail = (decoded.email || '').trim().toLowerCase();
+    (req as any).user = configuredAdminEmail && verifiedEmail === configuredAdminEmail
+      ? { ...user, role: 'ADMIN' }
+      : user;
     next();
   } catch (err: any) {
     res.status(401).json({ error: 'Unauthorized', message: err.message || 'Invalid authentication token' });
