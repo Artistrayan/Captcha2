@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
-import { checkCaptchaQuota, checkSiteRegistrationQuota } from './billing.ts';
+import { checkCaptchaQuota, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -327,19 +327,40 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
     requestDomain = parsed.data.domain || requestDomain;
   }
 
+  let freeTrialReservationUserId: string | undefined;
   try {
-    // Reserve capacity for the challenge plus at least one verification event, so a challenge issued at the quota boundary can still be solved.
-    const quota = await checkCaptchaQuota(parsed.data.siteKey, 2);
-    if (!quota.allowed) {
+    // Free accounts receive 10 CAPTCHA challenges total per account. Reservation is atomic
+    // and account-wide, so parallel requests or deleting/recreating a site cannot reset it.
+    const trial = await reserveFreeCaptchaTrial(parsed.data.siteKey);
+    if (trial.isFree && !trial.allowed) {
       res.status(429).json({
-        error: 'Monthly usage limit reached',
-        code: 'usage-limit-exceeded',
-        plan: quota.plan,
-        used: quota.used,
-        limit: quota.limit,
-        message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
+        error: 'Free trial allowance exhausted',
+        code: 'free-trial-exhausted',
+        plan: 'free',
+        used: trial.used,
+        limit: 10,
+        message: parsed.data.lang.toLowerCase().startsWith('fa')
+          ? 'اعتبار رایگان آزمایش کپچا تمام شده است. برای ادامه، اشتراک تهیه کنید.'
+          : 'Your 10 free CAPTCHA tests are used up. Upgrade to a paid subscription to continue.',
       });
       return;
+    }
+    if (trial.isFree && trial.allowed) freeTrialReservationUserId = trial.userId;
+
+    // Paid subscriptions use their rolling 30-day request allowance.
+    if (!trial.isFree) {
+      const quota = await checkCaptchaQuota(parsed.data.siteKey, 2);
+      if (!quota.allowed) {
+        res.status(429).json({
+          error: 'Monthly usage limit reached',
+          code: 'usage-limit-exceeded',
+          plan: quota.plan,
+          used: quota.used,
+          limit: quota.limit,
+          message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
+        });
+        return;
+      }
     }
 
     const challenge = await issueCaptchaChallenge(
@@ -348,6 +369,8 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
       parsed.data.lang
     );
 
+    // Keep the reservation only when a challenge was successfully created.
+    freeTrialReservationUserId = undefined;
     res.json({
       challengeId: challenge.challengeId,
       siteKey: challenge.siteKey,
@@ -358,6 +381,9 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
       expiresAt: challenge.expiresAt,
     });
   } catch (err: any) {
+    if (freeTrialReservationUserId) {
+      await releaseFreeCaptchaTrial(freeTrialReservationUserId).catch(() => undefined);
+    }
     if (err.message === 'SITE_KEY_NOT_FOUND') {
       res.status(404).json({ error: 'Invalid Site Key', code: 'site-key-not-found' });
       return;
