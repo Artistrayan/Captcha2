@@ -668,6 +668,22 @@ export const dbRepository = {
   },
 
 
+  async getGlobalAnalyticsSummary(since: Date): Promise<{ totalRequests: number; passedRequests: number; blockedRequests: number }> {
+    if (isPgConnected && drizzleDb && pgPool) {
+      const result = await pgPool.query(
+        'SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE success = TRUE)::int AS passed FROM verification_events WHERE created_at >= $1',
+        [since]
+      );
+      const totalRequests = Number(result.rows[0]?.total || 0);
+      const passedRequests = Number(result.rows[0]?.passed || 0);
+      return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests };
+    }
+    const events = loadState().verificationEvents.filter(event => new Date(event.createdAt).getTime() >= since.getTime());
+    const totalRequests = events.length;
+    const passedRequests = events.filter(event => event.success).length;
+    return { totalRequests, passedRequests, blockedRequests: totalRequests - passedRequests };
+  },
+
   // SUPPORT TICKETS
   async getSupportTickets(userId: string, isAdmin = false): Promise<schema.SupportTicket[]> {
     if (isPgConnected && drizzleDb) {
