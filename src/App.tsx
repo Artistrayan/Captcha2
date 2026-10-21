@@ -18,6 +18,8 @@ interface SiteItem {
   domains: string[];
   maskedSecretKey: string;
   challengeDifficulty: string;
+  challengeModel?: string;
+  captchaSettings?: { textLength: number; noise: number; rotation: number; expiresInSeconds: number; maxAttempts: number };
   invisibleEnabled: boolean;
   rateLimitPerMinute: number;
   createdAt: string;
@@ -56,6 +58,12 @@ export default function App() {
   const [newSiteName, setNewSiteName] = useState('');
   const [newSiteDomains, setNewSiteDomains] = useState('localhost, 127.0.0.1');
   const [newSiteDifficulty, setNewSiteDifficulty] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
+  const [newSiteModel, setNewSiteModel] = useState<'AUTO' | 'IMAGE_SELECTION' | 'ODD_ONE_OUT' | 'ROTATION_MATCH' | 'TEXT' | 'MATH' | 'SHAPES'>('AUTO');
+  const [captchaTextLength, setCaptchaTextLength] = useState(5);
+  const [captchaNoise, setCaptchaNoise] = useState(36);
+  const [captchaRotation, setCaptchaRotation] = useState(22);
+  const [captchaExpiry, setCaptchaExpiry] = useState(20);
+  const [captchaMaxAttempts, setCaptchaMaxAttempts] = useState(4);
   const [newSiteInvisible, setNewSiteInvisible] = useState(true);
   const [isCreatingSite, setIsCreatingSite] = useState(false);
 
@@ -215,6 +223,14 @@ export default function App() {
           name: newSiteName,
           domains: domainsArr.length > 0 ? domainsArr : ['localhost'],
           challengeDifficulty: newSiteDifficulty,
+          challengeModel: newSiteModel,
+          captchaSettings: {
+            textLength: captchaTextLength,
+            noise: captchaNoise,
+            rotation: captchaRotation,
+            expiresInSeconds: captchaExpiry,
+            maxAttempts: captchaMaxAttempts,
+          },
           invisibleEnabled: newSiteInvisible,
         }),
       });
@@ -1240,6 +1256,48 @@ app.post('/api/login', async (req, res) => {
                   <option value="MEDIUM">متوسط (Medium - استاندارد تجاری)</option>
                   <option value="HIGH">دقیق (High - فرم‌های حساس یا پرداخت)</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">مدل ساخت کپچا:</label>
+                <select value={newSiteModel} onChange={e => setNewSiteModel(e.target.value as typeof newSiteModel)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white">
+                  <option value="AUTO">خودکار (چرخش بین مدل‌های تصویری)</option>
+                  <option value="IMAGE_SELECTION">انتخاب تصویر</option>
+                  <option value="ODD_ONE_OUT">تصویر متفاوت</option>
+                  <option value="ROTATION_MATCH">تشخیص جهت صحیح</option>
+                  <option value="TEXT">حروف و نویز</option>
+                  <option value="MATH">محاسبات ریاضی</option>
+                  <option value="SHAPES">انتخاب شکل</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">طول حروف (۴ تا ۷)</label>
+                  <select value={captchaTextLength} onChange={e => setCaptchaTextLength(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white">
+                    {[4,5,6,7].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">شدت نویز (۰ تا ۸۰)</label>
+                  <input type="number" min={0} max={80} value={captchaNoise} onChange={e => setCaptchaNoise(Math.max(0, Math.min(80, Number(e.target.value))))} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">چرخش (۰ تا ۶۰)</label>
+                  <input type="number" min={0} max={60} value={captchaRotation} onChange={e => setCaptchaRotation(Math.max(0, Math.min(60, Number(e.target.value))))} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">انقضا (۱۰ تا ۲۰ ثانیه)</label>
+                  <select value={captchaExpiry} onChange={e => setCaptchaExpiry(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white">
+                    {[10,15,20].map(n => <option key={n} value={n}>{n} ثانیه</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">تلاش مجاز (۱ تا ۴)</label>
+                  <select value={captchaMaxAttempts} onChange={e => setCaptchaMaxAttempts(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white">
+                    {[1,2,3,4].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-1">
