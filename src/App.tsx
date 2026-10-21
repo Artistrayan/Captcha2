@@ -51,6 +51,9 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [sites, setSites] = useState<SiteItem[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState<boolean>(true);
@@ -192,47 +195,109 @@ export default function App() {
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
     setAuthError('');
+    if (!emailCodeSent) {
+      setAuthError('First request the verification code sent to your email.');
+      return;
+    }
     setIsSigningIn(true);
     setIsLoadingSites(true);
     try {
-      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-      if (!apiKey) throw new Error('Firebase public API key is missing from the build configuration.');
-      if (!health?.firebaseAuth.isInitialized) throw new Error('Server authentication is not ready; check Firebase Admin configuration.');
-      if (authPassword.length < 6) throw new Error('Password must be at least 6 characters.');
-
-      const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail.trim(), password: authPassword, returnSecureToken: true }),
+      if (!import.meta.env.VITE_FIREBASE_API_KEY) throw new Error('Firebase public API key is missing from the build configuration.');
+      if (!health?.firebaseAuth.isInitialized) throw new Error('Server-side Firebase authentication is not ready.');
+      if (!/^\\d{6}$/.test(emailCode.trim())) throw new Error('Enter the six-digit code sent to your email.');
+      if (authPassword.length < 8) throw new Error('Password must be at least 8 characters.');
+      const verifyRes = await fetch('/api/v1/auth/email-code/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail.trim(), code: emailCode.trim(), password: authPassword }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.idToken) {
-        const code = data?.error?.message;
-        const messages: Record<string, string> = {
-          EMAIL_EXISTS: 'This email is already registered. Please sign in.',
-          INVALID_EMAIL: 'Invalid email format.',
-          WEAK_PASSWORD: 'Password is too weak. Use at least 6 characters.',
-          OPERATION_NOT_ALLOWED: 'Email/password sign-up is disabled in Firebase settings.',
-          TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many attempts. Please try again later.',
-        };
-        if (code === 'EMAIL_EXISTS') {
-          setAuthMode('login');
-          throw new Error('This email is already registered. You have been redirected to sign-in; use the same email and password.');
-        }
-        throw new Error(messages[code] || 'Firebase account creation failed.');
-      }
-      sessionStorage.setItem('shieldcaptcha_id_token', data.idToken);
-      sessionStorage.setItem('shieldcaptcha_user_email', data.email || userEmail.trim());
-      setAuthToken(data.idToken);
-      setUserEmail(data.email || userEmail.trim());
-      setAuthPassword('');
-      await fetchSites(data.idToken);
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.customToken) throw new Error(verifyData.error || 'Email verification failed.');
+      const exchangeRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${encodeURIComponent(import.meta.env.VITE_FIREBASE_API_KEY)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: verifyData.customToken, returnSecureToken: true }),
+      });
+      const authData = await exchangeRes.json();
+      if (!exchangeRes.ok || !authData.idToken) throw new Error(authData?.error?.message || 'Could not finish sign-in after email verification.');
+      sessionStorage.setItem('shieldcaptcha_id_token', authData.idToken);
+      sessionStorage.setItem('shieldcaptcha_user_email', authData.email || userEmail.trim());
+      setAuthToken(authData.idToken);
+      setUserEmail(authData.email || userEmail.trim());
+      setAuthPassword(''); setEmailCode(''); setEmailCodeSent(false);
+      await fetchSites(authData.idToken);
     } catch (err: any) {
       setAuthError(err?.message || 'Account creation failed.');
     } finally {
       setIsLoadingSites(false);
       setIsSigningIn(false);
     }
+  };
+
+  const sendEmailVerificationCode = async () => {
+    setAuthError('');
+    const email = userEmail.trim();
+    if (!email) { setAuthError('Enter your Gmail address first.'); return; }
+    setIsSigningIn(true);
+    try {
+      const res = await fetch('/api/v1/auth/email-code/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send verification code.');
+      setEmailCodeSent(true);
+      setAuthError(data.message || 'Verification code sent. Check your inbox and spam folder.');
+    } catch (err: any) {
+      setAuthError(err?.message || 'Could not send verification code.');
+    } finally { setIsSigningIn(false); }
+  };
+
+  const signInWithGoogle = async () => {
+    setAuthError('');
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    if (!clientId || !apiKey) {
+      setAuthError('Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID and VITE_FIREBASE_API_KEY in Render.');
+      return;
+    }
+    setGoogleBusy(true);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const win = window as any;
+        const begin = () => {
+          try {
+            const client = win.google.accounts.oauth2.initTokenClient({
+              client_id: clientId,
+              scope: 'openid email profile',
+              callback: async (response: any) => {
+                if (response.error || !response.access_token) { reject(new Error(response.error_description || response.error || 'Google sign-in was cancelled.')); return; }
+                try {
+                  const body = new URLSearchParams({ access_token: response.access_token, providerId: 'google.com', requestUri: window.location.origin, returnSecureToken: 'true', returnIdpCredential: 'true' });
+                  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postBody: body.toString(), requestUri: window.location.origin, returnSecureToken: true, returnIdpCredential: true }) });
+                  const data = await res.json();
+                  if (!res.ok || !data.idToken) throw new Error(data?.error?.message || 'Google sign-in failed.');
+                  sessionStorage.setItem('shieldcaptcha_id_token', data.idToken);
+                  sessionStorage.setItem('shieldcaptcha_user_email', data.email || '');
+                  setAuthToken(data.idToken); setUserEmail(data.email || ''); setAuthPassword('');
+                  await fetchSites(data.idToken);
+                  resolve();
+                } catch (error) { reject(error); }
+              },
+            });
+            client.requestAccessToken();
+          } catch (error) { reject(error); }
+        };
+        if (win.google?.accounts?.oauth2) { begin(); return; }
+        const existing = document.querySelector('script[data-google-identity]') as HTMLScriptElement | null;
+        const script = existing || document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true; script.defer = true; script.dataset.googleIdentity = 'true';
+        script.onload = begin;
+        script.onerror = () => reject(new Error('Could not load Google sign-in.'));
+        if (!existing) document.head.appendChild(script);
+      });
+    } catch (err: any) {
+      setAuthError(err?.message || 'Google sign-in failed.');
+    } finally { setGoogleBusy(false); }
   };
 
   const fetchSites = async (token = authToken) => {
@@ -645,8 +710,8 @@ export default function App() {
           </div>
           <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
             <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1">
-              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authLogin')}</button>
-              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authSignup')}</button>
+              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setEmailCodeSent(false); setEmailCode(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authLogin')}</button>
+              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); setEmailCodeSent(false); setEmailCode(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authSignup')}</button>
             </div>
             <h2 className="text-lg font-semibold text-white">{authMode === 'login' ? t('authWelcomeBack') : t('authCreateAccount')}</h2>
             <p className="mt-1 mb-5 text-xs leading-6 text-slate-400">{authMode === 'login' ? t('authLoginDescription') : t('authSignupDescription')}</p>
@@ -661,16 +726,25 @@ export default function App() {
                   <option value="IN">India</option><option value="CN">China</option><option value="US">United States</option><option value="ID">Indonesia</option><option value="PK">Pakistan</option><option value="NG">Nigeria</option><option value="BR">Brazil</option><option value="BD">Bangladesh</option><option value="RU">Russia</option><option value="ET">Ethiopia</option>
                 </select>
               </div>}
+              {authMode === 'signup' && <div className="space-y-2">
+                {!emailCodeSent ? <button type="button" onClick={() => void sendEmailVerificationCode()} disabled={isSigningIn || !userEmail.trim()} className="w-full rounded-lg border border-emerald-500/40 px-4 py-3 text-sm font-semibold text-emerald-300 disabled:opacity-50">{isSigningIn ? 'Sending code…' : 'Send Gmail verification code'}</button> : <div>
+                  <label htmlFor="auth-email-code" className="mb-1.5 block text-sm text-slate-300">Email verification code</label>
+                  <input id="auth-email-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} placeholder="6-digit code" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
+                  <button type="button" onClick={() => void sendEmailVerificationCode()} disabled={isSigningIn} className="mt-2 text-xs text-emerald-300 underline disabled:opacity-50">Send code again</button>
+                </div>}
+              </div>}
               <div>
                 <label htmlFor="auth-password" className="mb-1.5 block text-sm text-slate-300">{t('authPassword')}</label>
-                <input id="auth-password" type="password" required minLength={6} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t('authPasswordHint')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
+                <input id="auth-password" type="password" required minLength={authMode === 'login' ? 6 : 8} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={authMode === 'signup' ? 'At least 8 characters' : t('authPasswordHint')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
               </div>
               {authError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm leading-6 text-rose-300">{authError}</p>}
               {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY is not set in the build configuration.</p>}
               {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Server-side Firebase Admin is not ready; check the Firebase configuration.</p>}
-              <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
-                {isSigningIn ? t('authPleaseWait') : authMode === 'login' ? t('authSignInButton') : t('authCreateAccount')}
+              <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized || (authMode === 'signup' && !emailCodeSent)} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+                {isSigningIn ? t('authPleaseWait') : authMode === 'login' ? t('authSignInButton') : 'Verify code and create account'}
               </button>
+              <div className="relative py-1 text-center text-xs text-slate-500"><span className="bg-slate-900 px-3">or</span></div>
+              <button type="button" onClick={() => void signInWithGoogle()} disabled={googleBusy || isSigningIn} className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-700 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-50"><span className="text-base font-bold">G</span>{googleBusy ? 'Connecting to Google…' : 'Continue with Google'}</button>
             </form>
             <p className="mt-5 text-center text-xs leading-5 text-slate-500">{t('authPasswordPrivacy')}</p>
           </section>
