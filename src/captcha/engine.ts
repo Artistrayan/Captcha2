@@ -217,7 +217,7 @@ export async function issueCaptchaChallenge(
       if (item.correct) correctOptionId = optId;
       let optionSvg = SVG_ICONS[item.category];
       if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
-        optionSvg = optionSvg.replace(/(<svg\\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`).replace(/<\\/svg>\\s*$/, '</g></svg>');
+        optionSvg = optionSvg.replace(/(<svg\\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`).replace(/<\/svg>\s*$/, '</g></svg>');
       }
       options.push({ id: optId, svg: `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}` });
     }
@@ -240,34 +240,6 @@ export async function issueCaptchaChallenge(
     .createHmac('sha256', SERVER_SALT)
     .update(`${challengeId}:${challengeMode === 'TEXT' ? correctAnswer.toLowerCase() : correctOptionId}`)
     .digest('hex');
-
-  const prompt = challengeMode === 'ODD_ONE_OUT'
-    ? ({
-        fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.',
-        en: 'Select the image that is different from the others.',
-        es: 'Seleccione la imagen diferente de las demás.',
-        zh: '请选择与其他图标不同的图片。',
-        ar: 'اختر الصورة المختلفة عن البقية.',
-        fr: 'Sélectionnez l’image différente des autres.',
-        de: 'Wählen Sie das Bild, das sich von den anderen unterscheidet.',
-        ru: 'Выберите изображение, которое отличается от остальных.',
-        pt: 'Selecione a imagem diferente das outras.',
-        ja: 'ほかと異なる画像を選択してください。',
-      } as Record<string, string>)[lang] || 'Select the image that is different from the others.'
-    : challengeMode === 'ROTATION_MATCH'
-      ? ({
-          fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.',
-          en: 'Select the image that is upright.',
-          es: 'Seleccione la imagen que está en la orientación correcta.',
-          zh: '请选择方向正确的图片。',
-          ar: 'اختر الصورة ذات الاتجاه الصحيح.',
-          fr: 'Sélectionnez l’image dans le bon sens.',
-          de: 'Wählen Sie das richtig ausgerichtete Bild.',
-          ru: 'Выберите изображение в правильной ориентации.',
-          pt: 'Selecione a imagem na orientação correta.',
-          ja: '正しい向きの画像を選択してください。',
-        } as Record<string, string>)[lang] || 'Select the image that is upright.'
-      : generatePromptForLanguage(targetCategory, lang);
 
   // Persist challenge in database
   await dbRepository.createChallenge({
