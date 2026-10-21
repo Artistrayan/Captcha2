@@ -204,7 +204,7 @@ export default function App() {
     try {
       if (!import.meta.env.VITE_FIREBASE_API_KEY) throw new Error('Firebase public API key is missing from the build configuration.');
       if (!health?.firebaseAuth.isInitialized) throw new Error('Server-side Firebase authentication is not ready.');
-      if (!/^\\d{6}$/.test(emailCode.trim())) throw new Error('Enter the six-digit code sent to your email.');
+      if (!/^\d{6}$/.test(emailCode.trim())) throw new Error('Enter the six-digit code sent to your email.');
       if (authPassword.length < 8) throw new Error('Password must be at least 8 characters.');
       const verifyRes = await fetch('/api/v1/auth/email-code/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -729,7 +729,7 @@ export default function App() {
               {authMode === 'signup' && <div className="space-y-2">
                 {!emailCodeSent ? <button type="button" onClick={() => void sendEmailVerificationCode()} disabled={isSigningIn || !userEmail.trim()} className="w-full rounded-lg border border-emerald-500/40 px-4 py-3 text-sm font-semibold text-emerald-300 disabled:opacity-50">{isSigningIn ? 'Sending code…' : 'Send Gmail verification code'}</button> : <div>
                   <label htmlFor="auth-email-code" className="mb-1.5 block text-sm text-slate-300">Email verification code</label>
-                  <input id="auth-email-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} placeholder="6-digit code" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
+                  <input id="auth-email-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
                   <button type="button" onClick={() => void sendEmailVerificationCode()} disabled={isSigningIn} className="mt-2 text-xs text-emerald-300 underline disabled:opacity-50">Send code again</button>
                 </div>}
               </div>}
