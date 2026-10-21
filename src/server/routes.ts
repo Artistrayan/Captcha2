@@ -328,6 +328,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
       challengeId: challenge.challengeId,
       siteKey: challenge.siteKey,
       prompt: challenge.prompt,
+      challengeType: challenge.challengeType,
       options: challenge.options, // Contains randomized opaque IDs + SVGs without solution hints!
       token: challenge.token,
       expiresInSeconds: challenge.expiresInSeconds,
