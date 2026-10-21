@@ -45,6 +45,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempts, setAttempts] = useState<number>(0);
   const [verifiedToken, setVerifiedToken] = useState<string | null>(null);
+  const [freeTrialExhausted, setFreeTrialExhausted] = useState(false);
 
   const t = (key: string): string => {
     const dict = translations[lang] || translations.en;
@@ -61,6 +62,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
     setSelectedOptionId(null);
     setAttempts(0);
     setVerifiedToken(null);
+    setFreeTrialExhausted(false);
 
     try {
       const res = await fetch('/api/v1/captcha/challenge', {
@@ -82,6 +84,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.code === 'free-trial-exhausted') setFreeTrialExhausted(true);
         throw new Error(data.message || data.error || data.code || `HTTP ${res.status}`);
       }
 
@@ -280,13 +283,14 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             <AlertTriangle className="w-8 h-8 text-rose-400" />
             <h5 className="text-xs font-semibold text-rose-400">{t('widgetErrorTitle')}</h5>
             <p className="text-[11px] text-slate-400 max-w-[260px]">{errorMessage}</p>
-            <button
+            {!freeTrialExhausted && <button
               onClick={fetchChallenge}
               className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               {t('widgetRetry')}
-            </button>
+            </button>}
+            {freeTrialExhausted && <p className="mt-2 text-[11px] text-amber-300">{lang === 'fa' ? 'برای ادامه آزمایش، اشتراک تهیه کنید.' : 'Upgrade your subscription to continue testing.'}</p>}
           </div>
         )}
 
