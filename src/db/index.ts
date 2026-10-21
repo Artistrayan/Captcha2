@@ -205,7 +205,7 @@ if (process.env.DATABASE_URL) {
               await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
               // Backward-compatible additive settings migration for existing deployments.
               await pgPool!.query("ALTER TABLE sites ADD COLUMN IF NOT EXISTS challenge_model text NOT NULL DEFAULT 'AUTO'");
-              await pgPool!.query("ALTER TABLE sites ADD COLUMN IF NOT EXISTS captcha_settings jsonb NOT NULL DEFAULT '{\"textLength\":5,\"noise\":36,\"rotation\":22,\"expiresInSeconds\":20,\"maxAttempts\":4}'::jsonb");
+              await pgPool!.query(`ALTER TABLE sites ADD COLUMN IF NOT EXISTS captcha_settings jsonb NOT NULL DEFAULT '{"textLength":5,"noise":36,"rotation":22,"expiresInSeconds":20,"maxAttempts":4}'::jsonb`);
               isPgConnected = true;
               lastPgError = undefined;
               console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
