@@ -19,6 +19,7 @@ export interface GeneratedChallenge {
   targetCategory: string;
   options: VisualOption[];
   challengeType: string;
+  maxAttempts: number;
   token: string;
   expiresAt: Date;
   expiresInSeconds: number;
@@ -263,6 +264,7 @@ export async function issueCaptchaChallenge(
     targetCategory,
     options,
     challengeType: challengeMode,
+    maxAttempts: Math.max(1, Math.min(4, Number(settings.maxAttempts) || 4)),
     token,
     expiresAt,
     expiresInSeconds,
