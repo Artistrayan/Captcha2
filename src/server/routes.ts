@@ -196,7 +196,7 @@ apiRouter.post('/auth/email-code/send', rateLimiter(3, 15 * 60 * 1000), async (r
 apiRouter.post('/auth/email-code/verify', rateLimiter(10, 15 * 60 * 1000), async (req: Request, res: Response) => {
   const parsed = z.object({
     email: z.string().trim().email().max(254),
-    code: z.string().regex(/^\\d{6}$/),
+    code: z.string().regex(/^\d{6}$/),
     password: z.string().min(8).max(128),
     name: z.string().trim().max(80).optional(),
   }).safeParse(req.body);
