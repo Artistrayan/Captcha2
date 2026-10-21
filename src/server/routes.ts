@@ -113,24 +113,21 @@ apiRouter.get('/health', (req: Request, res: Response) => {
 // Administrator-only console APIs. Never return secret hashes or raw CAPTCHA answers.
 apiRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const [users, sites, tickets, events] = await Promise.all([
+    const [users, sites, tickets, analytics] = await Promise.all([
       dbRepository.getAllUsers(),
       dbRepository.getAllSites(),
       dbRepository.getSupportTickets('', true),
-      dbRepository.getRecentEvents(),
+      dbRepository.getGlobalAnalyticsSummary(new Date(Date.now() - 24 * 60 * 60 * 1000)),
     ]);
-    const since = Date.now() - 24 * 60 * 60 * 1000;
-    const recentEvents = events.filter(event => new Date(event.createdAt).getTime() >= since);
-    const passed = recentEvents.filter(event => event.success).length;
     res.json({
       users: users.length,
       sites: sites.length,
       tickets: tickets.length,
       openTickets: tickets.filter(ticket => ticket.status === 'open' || ticket.status === 'in_progress').length,
-      requests24h: recentEvents.length,
-      passed24h: passed,
-      blocked24h: recentEvents.length - passed,
-      passRate24h: recentEvents.length ? Math.round((passed / recentEvents.length) * 100) : 0,
+      requests24h: analytics.totalRequests,
+      passed24h: analytics.passedRequests,
+      blocked24h: analytics.blockedRequests,
+      passRate24h: analytics.totalRequests ? Math.round((analytics.passedRequests / analytics.totalRequests) * 100) : 0,
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
