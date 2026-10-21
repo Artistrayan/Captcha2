@@ -63,7 +63,7 @@ function translateNode(node: React.ReactNode, lang: LanguageCode): React.ReactNo
       if (typeof value === 'string') nextProps[attr] = lookup.get(value) || value;
     });
     if (props.children !== undefined) nextProps.children = walk(props.children as React.ReactNode);
-    return React.cloneElement(child, nextProps);
+    return React.cloneElement(child as React.ReactElement<any>, nextProps);
   };
   return walk(node);
 }
