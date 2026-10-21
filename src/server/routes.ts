@@ -223,8 +223,7 @@ apiRouter.post('/auth/session', rateLimiter(30, 60000), async (req: Request, res
 });
 
 
-// Short-lived, hashed email verification codes. Codes are never logged or returned to the client.
-const emailVerificationCodes = new Map<string, { codeHash: string; expiresAt: number; attempts: number; sentAt: number }>();
+// Short-lived, hashed email verification codes are persisted so server restarts do not invalidate them.
 const hashEmailCode = (email: string, code: string) =>
   crypto.createHash('sha256').update(`${email.toLowerCase()}:${code}:${process.env.SESSION_JWT_SECRET || 'shieldcaptcha-email-code'}`).digest('hex');
 
@@ -233,8 +232,14 @@ apiRouter.post('/auth/email-code/send', rateLimiter(3, 15 * 60 * 1000), async (r
   if (!parsed.success) { res.status(400).json({ error: 'Invalid email address.' }); return; }
   const email = parsed.data.email.toLowerCase();
   const now = Date.now();
-  const previous = emailVerificationCodes.get(email);
-  if (previous && now - previous.sentAt < 60_000) {
+  let previous;
+  try {
+    previous = await dbRepository.getEmailVerificationCode(email);
+  } catch (error) {
+    console.error('[Auth] Could not read email verification state:', error);
+    res.status(503).json({ error: 'Email verification is temporarily unavailable. Please try again.' }); return;
+  }
+  if (previous && now - new Date(previous.sentAt).getTime() < 60_000) {
     res.status(429).json({ error: 'Please wait 60 seconds before requesting another code.' }); return;
   }
   const apiKey = process.env.RESEND_API_KEY;
@@ -260,7 +265,13 @@ apiRouter.post('/auth/email-code/send', rateLimiter(3, 15 * 60 * 1000), async (r
       console.error('[Auth] Verification email delivery failed:', mailResponse.status, detail.slice(0, 300));
       res.status(502).json({ error: 'Could not send the verification email. Check the email provider configuration.' }); return;
     }
-    emailVerificationCodes.set(email, { codeHash: hashEmailCode(email, code), expiresAt: now + 10 * 60 * 1000, attempts: 0, sentAt: now });
+    await dbRepository.upsertEmailVerificationCode({
+      email,
+      codeHash: hashEmailCode(email, code),
+      expiresAt: new Date(now + 10 * 60 * 1000),
+      attempts: 0,
+      sentAt: new Date(now),
+    });
     res.json({ ok: true, message: 'Verification code sent. Check your inbox and spam folder.' });
   } catch (error) {
     console.error('[Auth] Verification email delivery failed:', error);
@@ -277,14 +288,29 @@ apiRouter.post('/auth/email-code/verify', rateLimiter(10, 15 * 60 * 1000), async
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Enter a valid email, six-digit code, and password of at least 8 characters.' }); return; }
   const email = parsed.data.email.toLowerCase();
-  const record = emailVerificationCodes.get(email);
-  if (!record || record.expiresAt <= Date.now()) {
-    emailVerificationCodes.delete(email);
+  let record;
+  try {
+    record = await dbRepository.getEmailVerificationCode(email);
+  } catch (error) {
+    console.error('[Auth] Could not read email verification state:', error);
+    res.status(503).json({ error: 'Email verification is temporarily unavailable. Please try again.' }); return;
+  }
+  if (!record || new Date(record.expiresAt).getTime() <= Date.now()) {
+    await dbRepository.deleteEmailVerificationCode(email).catch(() => undefined);
     res.status(400).json({ error: 'The code is missing or expired. Request a new code.' }); return;
   }
-  record.attempts += 1;
-  if (record.attempts > 5) {
-    emailVerificationCodes.delete(email);
+  let attemptCount: number | null;
+  try {
+    attemptCount = await dbRepository.incrementEmailVerificationAttempts(email);
+  } catch (error) {
+    console.error('[Auth] Could not update email verification attempts:', error);
+    res.status(503).json({ error: 'Email verification is temporarily unavailable. Please try again.' }); return;
+  }
+  if (attemptCount === null) {
+    res.status(400).json({ error: 'The code is missing or expired. Request a new code.' }); return;
+  }
+  if (attemptCount > 5) {
+    await dbRepository.deleteEmailVerificationCode(email).catch(() => undefined);
     res.status(429).json({ error: 'Too many incorrect attempts. Request a new code.' }); return;
   }
   const submittedHash = hashEmailCode(email, parsed.data.code);
@@ -298,11 +324,11 @@ apiRouter.post('/auth/email-code/verify', rateLimiter(10, 15 * 60 * 1000), async
   }
   try {
     const result = await createVerifiedFirebaseUser(email, parsed.data.password, parsed.data.name);
-    emailVerificationCodes.delete(email);
+    await dbRepository.deleteEmailVerificationCode(email);
     res.json({ ok: true, customToken: result.customToken, email: result.email });
   } catch (error: any) {
     if (error?.code === 'auth/email-already-exists') {
-      emailVerificationCodes.delete(email);
+      await dbRepository.deleteEmailVerificationCode(email);
       res.status(409).json({ error: 'This email already has an account. Please sign in instead.' }); return;
     }
     console.error('[Auth] Verified account creation failed:', error?.message || error);
