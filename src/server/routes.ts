@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
-import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser } from '../auth/firebase.ts';
+import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser, isEmailRegistered } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
 import { checkCaptchaQuota, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial } from './billing.ts';
 
@@ -231,6 +231,23 @@ apiRouter.post('/auth/email-code/send', rateLimiter(3, 15 * 60 * 1000), async (r
   const parsed = z.object({ email: z.string().trim().email().max(254) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Invalid email address.' }); return; }
   const email = parsed.data.email.toLowerCase();
+
+  // Do not send a signup verification code to an address that already has an account.
+  // Users with existing accounts should use the sign-in flow instead.
+  try {
+    if (await isEmailRegistered(email)) {
+      res.status(409).json({
+        error: 'This email already has an account. Please sign in instead.',
+        code: 'EMAIL_ALREADY_REGISTERED',
+      });
+      return;
+    }
+  } catch (error: any) {
+    console.error('[Auth] Existing-email lookup failed:', error?.message || error);
+    res.status(503).json({ error: 'Could not check this email right now. Please try again.' });
+    return;
+  }
+
   const now = Date.now();
   let previous;
   try {

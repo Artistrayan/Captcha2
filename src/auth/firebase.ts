@@ -171,6 +171,30 @@ export async function getOrCreateUser(decoded: DecodedAuthToken): Promise<User> 
 }
 
 
+/**
+ * Checks Firebase Authentication and the application database before starting email signup.
+ * A Firebase user may exist before its profile has been synchronized into PostgreSQL.
+ */
+export async function isEmailRegistered(email: string): Promise<boolean> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!isFirebaseAdminInitialized || !firebaseAuth) {
+    throw new Error('Firebase Admin is not configured.');
+  }
+
+  try {
+    await firebaseAuth.getUserByEmail(normalizedEmail);
+    return true;
+  } catch (error: any) {
+    if (error?.code !== 'auth/user-not-found') {
+      throw error;
+    }
+  }
+
+  const appUser = await dbRepository.getUserByEmail(normalizedEmail);
+  return Boolean(appUser);
+}
+
 /** Creates an account only after the server has validated the emailed one-time code. */
 export async function createVerifiedFirebaseUser(email: string, password: string, name?: string): Promise<{ customToken: string; email: string }> {
   if (!isFirebaseAdminInitialized || !firebaseAuth) {
