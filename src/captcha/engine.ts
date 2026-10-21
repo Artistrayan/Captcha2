@@ -164,7 +164,8 @@ export async function issueCaptchaChallenge(
     ? (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH'] as const)[crypto.randomInt(0, 3)]
     : configuredModel;
   const settings = (site as any).captchaSettings || { textLength: 5, noise: 36, rotation: 22, expiresInSeconds: 20, maxAttempts: 4 };
-  const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
+  const baseOptionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
+  const optionCount = challengeMode === 'SHAPES' ? Math.min(baseOptionCount, 6) : baseOptionCount;
   const shapeCategories = ['triangle', 'square', 'circle', 'diamond', 'pentagon', 'hexagon'];
   const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
   let targetCategory = '';
@@ -224,12 +225,12 @@ export async function issueCaptchaChallenge(
     }
     const names = (lang === 'fa' ? { triangle: 'مثلث', square: 'مربع', circle: 'دایره', diamond: 'لوزی', pentagon: 'پنج‌ضلعی', hexagon: 'شش‌ضلعی' } : { triangle: 'triangle', square: 'square', circle: 'circle', diamond: 'diamond', pentagon: 'pentagon', hexagon: 'hexagon' }) as Record<string, string>;
     prompt = challengeMode === 'SHAPES'
-      ? (lang === 'fa' ? `همه شکل‌های «${names[targetCategory] || targetCategory}» را انتخاب کنید.` : `Select the ${names[targetCategory] || targetCategory} shape.`)
+      ? (lang === 'fa' ? `شکل «${names[targetCategory] || targetCategory}» را انتخاب کنید.` : `Select the ${names[targetCategory] || targetCategory} shape.`)
       : challengeMode === 'ODD_ONE_OUT'
         ? (({ fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.', en: 'Select the image that is different from the others.' } as Record<string, string>)[lang] || 'Select the image that is different from the others.')
         : challengeMode === 'ROTATION_MATCH'
           ? (({ fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.', en: 'Select the image in the correct orientation.' } as Record<string, string>)[lang] || 'Select the image in the correct orientation.')
-          : (({ fa: 'تصویر مربوط به دسته مشخص‌شده را انتخاب کنید.', en: 'Select the matching image.' } as Record<string, string>)[lang] || 'Select the matching image.');
+          : generatePromptForLanguage(targetCategory, lang);
   }
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
   const token = `sct_${crypto.randomBytes(24).toString('base64url')}`;
