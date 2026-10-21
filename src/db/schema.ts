@@ -23,6 +23,8 @@ export const sites = pgTable('sites', {
   secretKeyPrefix: text('secret_key_prefix').notNull(), // sc_sec_live_
   maskedSecretKey: text('masked_secret_key').notNull(), // sc_sec_••••••••12ab
   challengeDifficulty: text('challenge_difficulty').notNull().default('MEDIUM'), // 'LOW' | 'MEDIUM' | 'HIGH'
+  challengeModel: text('challenge_model').notNull().default('AUTO'), // 'AUTO' | 'IMAGE_SELECTION' | 'ODD_ONE_OUT' | 'ROTATION_MATCH' | 'TEXT' | 'MATH' | 'SHAPES'
+  captchaSettings: jsonb('captcha_settings').$type<{ textLength: number; noise: number; rotation: number; expiresInSeconds: number; maxAttempts: number }>().notNull().default({ textLength: 5, noise: 36, rotation: 22, expiresInSeconds: 20, maxAttempts: 4 }),
   invisibleEnabled: boolean('invisible_enabled').notNull().default(true),
   rateLimitPerMinute: integer('rate_limit_per_minute').notNull().default(600),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

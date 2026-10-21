@@ -22,6 +22,8 @@ interface ChallengeData {
   challengeId: string;
   siteKey: string;
   prompt: string;
+  challengeType?: string;
+  maxAttempts?: number;
   options: ChallengeOption[];
   token: string;
   expiresInSeconds: number;
@@ -41,6 +43,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   const [status, setStatus] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'success' | 'error' | 'expired'>('idle');
   const [challenge, setChallenge] = useState<ChallengeData | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [typedAnswer, setTypedAnswer] = useState('');
   const [timeLeft, setTimeLeft] = useState<number>(20);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempts, setAttempts] = useState<number>(0);
@@ -59,6 +62,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
     setErrorMessage(null);
     setChallenge(null);
     setSelectedOptionId(null);
+    setTypedAnswer('');
     setAttempts(0);
     setVerifiedToken(null);
 
@@ -122,7 +126,9 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   }, [autoStart, siteKey, fetchChallenge]);
 
   const handleVerify = async () => {
-    if (!challenge || !selectedOptionId) return;
+    const isTypedModel = challenge?.challengeType === 'TEXT' || challenge?.challengeType === 'MATH';
+    const submittedAnswer = isTypedModel ? typedAnswer.trim() : selectedOptionId;
+    if (!challenge || !submittedAnswer) return;
 
     setStatus('verifying');
     setErrorMessage(null);
@@ -133,7 +139,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token: challenge.token,
-          selectedOptionId,
+          selectedOptionId: submittedAnswer,
           action,
         }),
       });
@@ -158,7 +164,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         if (primaryError === 'challenge-expired' || primaryError === 'timeout-or-duplicate') {
           setStatus('expired');
           setErrorMessage(t('widgetExpiredDesc'));
-        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
+        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= (challenge.maxAttempts || 4)) {
           // The server consumes the challenge at the attempt limit. Fetch a fresh
           // challenge immediately so the widget never remains stuck on a dead token.
           onError?.(primaryError);
@@ -301,11 +307,28 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             {errorMessage && (
               <div className="mb-3 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errorMessage} ({attempts} / 4)</span>
+                <span>{errorMessage} ({attempts} / {challenge.maxAttempts || 4})</span>
               </div>
             )}
 
-            {/* Adaptive visual options grid: 4, 6, or 8 choices depending on site difficulty */}
+            {challenge.challengeType === 'TEXT' && challenge.options[0] && (
+              <img src={challenge.options[0].svg} alt="CAPTCHA characters" className="w-full max-w-[220px] h-[72px] rounded-lg mb-3 select-none" draggable={false} />
+            )}
+
+            {(challenge.challengeType === 'TEXT' || challenge.challengeType === 'MATH') ? (
+              <input
+                type="text"
+                inputMode={challenge.challengeType === 'MATH' ? 'numeric' : 'text'}
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={challenge.challengeType === 'TEXT' ? 7 : 4}
+                value={typedAnswer}
+                onChange={e => setTypedAnswer(e.target.value)}
+                aria-label={challenge.challengeType === 'TEXT' ? 'CAPTCHA characters' : 'Math answer'}
+                placeholder={challenge.challengeType === 'TEXT' ? (lang === 'fa' ? 'حروف را وارد کنید' : 'Enter characters') : (lang === 'fa' ? 'پاسخ را وارد کنید' : 'Enter answer')}
+                className={`w-full mb-4 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 ${isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+              />
+            ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4">
               {challenge.options.map((opt, index) => {
                 const isSelected = selectedOptionId === opt.id;
@@ -336,6 +359,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
                 );
               })}
             </div>
+            )}
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
@@ -350,7 +374,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
 
               <button
                 type="button"
-                disabled={!selectedOptionId}
+                disabled={!(challenge.challengeType === 'TEXT' || challenge.challengeType === 'MATH' ? typedAnswer.trim() : selectedOptionId)}
                 onClick={handleVerify}
                 className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                   selectedOptionId

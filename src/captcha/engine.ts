@@ -18,6 +18,8 @@ export interface GeneratedChallenge {
   prompt: string;
   targetCategory: string;
   options: VisualOption[];
+  challengeType: string;
+  maxAttempts: number;
   token: string;
   expiresAt: Date;
   expiresInSeconds: number;
@@ -40,7 +42,13 @@ const SVG_ICONS: Record<string, string> = {
   clock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
   bell: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   camera: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
-  cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
+  cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/> </svg>`,
+  triangle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3 22 21H2Z" fill="#38bdf8" stroke="#0f172a" stroke-width="1.5"/></svg>`,
+  square: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" fill="#f59e0b" stroke="#0f172a" stroke-width="1.5"/></svg>`,
+  circle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#34d399" stroke="#0f172a" stroke-width="1.5"/></svg>`,
+  diamond: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="#f472b6" stroke="#0f172a" stroke-width="1.5"/></svg>`,
+  pentagon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2 22 9 18 21H6L2 9Z" fill="#a78bfa" stroke="#0f172a" stroke-width="1.5"/></svg>`,
+  hexagon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 3H18L23 12 18 21H6L1 12Z" fill="#fb923c" stroke="#0f172a" stroke-width="1.5"/></svg>`,
 };
 
 const CATEGORIES = Object.keys(SVG_ICONS);
@@ -151,110 +159,90 @@ export async function issueCaptchaChallenge(
     }
   }
 
-  // Pick one of three visual challenge modes using a cryptographically secure RNG.
-  const challengeMode = (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH'] as const)[crypto.randomInt(0, 3)];
+  // Model is chosen from the per-site configuration; AUTO randomly rotates visual modes.
+  const configuredModel = (site as any).challengeModel || 'AUTO';
+  const challengeMode = configuredModel === 'AUTO'
+    ? (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH'] as const)[crypto.randomInt(0, 3)]
+    : configuredModel;
+  const settings = (site as any).captchaSettings || { textLength: 5, noise: 36, rotation: 22, expiresInSeconds: 20, maxAttempts: 4 };
+  const baseOptionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
+  const optionCount = challengeMode === 'SHAPES' ? Math.min(baseOptionCount, 6) : baseOptionCount;
+  const shapeCategories = ['triangle', 'square', 'circle', 'diamond', 'pentagon', 'hexagon'];
   const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
-  const targetPool = challengeMode === 'ROTATION_MATCH' ? rotationCategories : CATEGORIES;
-  const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
-
-  // Difficulty controls the number of visually plausible distractors.
-  const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
-  const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
-  for (let i = otherCategories.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
-  }
-
-  const rotationAngles = [45, 90, 135, 180, 225, 270, 315];
-  for (let i = rotationAngles.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [rotationAngles[i], rotationAngles[j]] = [rotationAngles[j], rotationAngles[i]];
-  }
-
-  // Each mode has exactly one server-verified correct option.
-  const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number }> =
-    challengeMode === 'ROTATION_MATCH'
-      ? [
-          { category: targetCategory, correct: true, rotationAngle: 0 },
-          ...rotationAngles.slice(0, optionCount - 1).map(rotationAngle => ({
-            category: targetCategory,
-            correct: false,
-            rotationAngle,
-          })),
-        ]
-      : challengeMode === 'ODD_ONE_OUT'
-        ? [
-            { category: targetCategory, correct: true },
-            ...Array.from({ length: optionCount - 1 }, () => ({
-              category: otherCategories[0],
-              correct: false,
-            })),
-          ]
-        : [
-            { category: targetCategory, correct: true },
-            ...otherCategories.slice(0, optionCount - 1).map(category => ({
-              category,
-              correct: false,
-            })),
-          ];
-
-  for (let i = challengeItems.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [challengeItems[i], challengeItems[j]] = [challengeItems[j], challengeItems[i]];
-  }
-
+  let targetCategory = '';
   let correctOptionId = '';
   const options: VisualOption[] = [];
-  for (const item of challengeItems) {
-    const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
-    if (item.correct) correctOptionId = optId;
-    let optionSvg = SVG_ICONS[item.category];
-    if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
-      optionSvg = optionSvg
-        .replace(/(<svg\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`)
-        .replace(/<\/svg>\s*$/, '</g></svg>');
+  let prompt = '';
+  let correctAnswer = '';
+
+  if (challengeMode === 'TEXT') {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const length = Math.max(4, Math.min(7, Number(settings.textLength) || 5));
+    correctAnswer = Array.from({ length }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join('');
+    correctOptionId = correctAnswer;
+    prompt = ({ fa: 'حروف نمایش‌داده‌شده را وارد کنید.', en: 'Type the characters shown.', es: 'Escriba los caracteres mostrados.', ar: 'اكتب الأحرف الظاهرة.', fr: 'Saisissez les caractères affichés.', de: 'Geben Sie die angezeigten Zeichen ein.', ru: 'Введите показанные символы.', pt: 'Digite os caracteres exibidos.', ja: '表示された文字を入力してください。', zh: '请输入显示的字符。' } as Record<string, string>)[lang] || 'Type the characters shown.';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="72" viewBox="0 0 220 72"><rect width="220" height="72" rx="8" fill="#f1f5f9"/><path d="M0 20L220 52M0 60L220 12M30 0L180 72M0 35L220 30" stroke="#94a3b8" stroke-width="${Math.max(1, Number(settings.noise) / 20)}" opacity=".55"/><text x="110" y="47" text-anchor="middle" font-family="monospace" font-size="28" font-weight="700" letter-spacing="5" fill="#0f172a">${correctAnswer}</text></svg>`;
+    options.push({ id: 'text-captcha-image', svg: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}` });
+  } else if (challengeMode === 'MATH') {
+    const a = crypto.randomInt(2, 13), b = crypto.randomInt(1, 10);
+    const op = (['+', '-', '×'] as const)[crypto.randomInt(0, 3)];
+    const left = op === '-' ? Math.max(a, b) : a;
+    const right = op === '-' ? Math.min(a, b) : b;
+    correctAnswer = String(op === '+' ? left + right : op === '-' ? left - right : left * right);
+    correctOptionId = correctAnswer;
+    prompt = ({ fa: `پاسخ این محاسبه را وارد کنید: ${left} ${op} ${right} = ؟`, en: `Enter the result: ${left} ${op} ${right} = ?`, es: `Escriba el resultado: ${left} ${op} ${right} = ?`, ar: `أدخل الناتج: ${left} ${op} ${right} = ؟`, fr: `Entrez le résultat : ${left} ${op} ${right} = ?`, de: `Ergebnis eingeben: ${left} ${op} ${right} = ?`, ru: `Введите результат: ${left} ${op} ${right} = ?`, pt: `Digite o resultado: ${left} ${op} ${right} = ?`, ja: `計算結果を入力してください: ${left} ${op} ${right} = ?`, zh: `请输入计算结果：${left} ${op} ${right} = ?` } as Record<string, string>)[lang] || `Enter the result: ${left} ${op} ${right} = ?`;
+  } else {
+    const targetPool = challengeMode === 'ROTATION_MATCH' ? rotationCategories : challengeMode === 'SHAPES' ? shapeCategories : CATEGORIES.filter(c => !shapeCategories.includes(c));
+    targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
+    const otherCategories = targetPool.filter(c => c !== targetCategory);
+    for (let i = otherCategories.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
     }
-    const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}`;
-    options.push({ id: optId, svg: encodedSvg });
+    const rotationScale = Math.max(0.2, Math.min(60, Number(settings.rotation) || 22)) / 22;
+    const rotationAngles = [45, 90, 135, 180, 225, 270, 315].map(angle => Math.min(359, Math.round(angle * rotationScale)));
+    for (let i = rotationAngles.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [rotationAngles[i], rotationAngles[j]] = [rotationAngles[j], rotationAngles[i]];
+    }
+    const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number }> =
+      challengeMode === 'ROTATION_MATCH'
+        ? [{ category: targetCategory, correct: true, rotationAngle: 0 }, ...rotationAngles.slice(0, optionCount - 1).map(rotationAngle => ({ category: targetCategory, correct: false, rotationAngle }))]
+        : challengeMode === 'ODD_ONE_OUT'
+          ? [{ category: targetCategory, correct: true }, ...Array.from({ length: optionCount - 1 }, () => ({ category: otherCategories[0] || targetCategory, correct: false }))]
+          : [{ category: targetCategory, correct: true }, ...otherCategories.slice(0, optionCount - 1).map(category => ({ category, correct: false }))];
+    for (let i = challengeItems.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [challengeItems[i], challengeItems[j]] = [challengeItems[j], challengeItems[i]];
+    }
+    for (const item of challengeItems) {
+      const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
+      if (item.correct) correctOptionId = optId;
+      let optionSvg = SVG_ICONS[item.category];
+      if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
+        optionSvg = optionSvg.replace(/(<svg\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`).replace(/<\/svg>\s*$/, '</g></svg>');
+      }
+      options.push({ id: optId, svg: `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}` });
+    }
+    const names = (lang === 'fa' ? { triangle: 'مثلث', square: 'مربع', circle: 'دایره', diamond: 'لوزی', pentagon: 'پنج‌ضلعی', hexagon: 'شش‌ضلعی' } : { triangle: 'triangle', square: 'square', circle: 'circle', diamond: 'diamond', pentagon: 'pentagon', hexagon: 'hexagon' }) as Record<string, string>;
+    prompt = challengeMode === 'SHAPES'
+      ? (lang === 'fa' ? `شکل «${names[targetCategory] || targetCategory}» را انتخاب کنید.` : `Select the ${names[targetCategory] || targetCategory} shape.`)
+      : challengeMode === 'ODD_ONE_OUT'
+        ? (({ fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.', en: 'Select the image that is different from the others.' } as Record<string, string>)[lang] || 'Select the image that is different from the others.')
+        : challengeMode === 'ROTATION_MATCH'
+          ? (({ fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.', en: 'Select the image in the correct orientation.' } as Record<string, string>)[lang] || 'Select the image in the correct orientation.')
+          : generatePromptForLanguage(targetCategory, lang);
   }
   const challengeId = `ch_${crypto.randomBytes(12).toString('hex')}`;
   const token = `sct_${crypto.randomBytes(24).toString('base64url')}`;
-  const expiresInSeconds = 20;
+  const expiresInSeconds = Math.max(10, Math.min(20, Number(settings.expiresInSeconds) || 20));
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
   // Compute secure HMAC hash of correct option ID
   const correctAnswerHash = crypto
     .createHmac('sha256', SERVER_SALT)
-    .update(`${challengeId}:${correctOptionId}`)
+    .update(`${challengeId}:${challengeMode === 'TEXT' ? correctAnswer.toLowerCase() : correctOptionId}`)
     .digest('hex');
-
-  const prompt = challengeMode === 'ODD_ONE_OUT'
-    ? ({
-        fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.',
-        en: 'Select the image that is different from the others.',
-        es: 'Seleccione la imagen diferente de las demás.',
-        zh: '请选择与其他图标不同的图片。',
-        ar: 'اختر الصورة المختلفة عن البقية.',
-        fr: 'Sélectionnez l’image différente des autres.',
-        de: 'Wählen Sie das Bild, das sich von den anderen unterscheidet.',
-        ru: 'Выберите изображение, которое отличается от остальных.',
-        pt: 'Selecione a imagem diferente das outras.',
-        ja: 'ほかと異なる画像を選択してください。',
-      } as Record<string, string>)[lang] || 'Select the image that is different from the others.'
-    : challengeMode === 'ROTATION_MATCH'
-      ? ({
-          fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.',
-          en: 'Select the image that is upright.',
-          es: 'Seleccione la imagen que está en la orientación correcta.',
-          zh: '请选择方向正确的图片。',
-          ar: 'اختر الصورة ذات الاتجاه الصحيح.',
-          fr: 'Sélectionnez l’image dans le bon sens.',
-          de: 'Wählen Sie das richtig ausgerichtete Bild.',
-          ru: 'Выберите изображение в правильной ориентации.',
-          pt: 'Selecione a imagem na orientação correta.',
-          ja: '正しい向きの画像を選択してください。',
-        } as Record<string, string>)[lang] || 'Select the image that is upright.'
-      : generatePromptForLanguage(targetCategory, lang);
 
   // Persist challenge in database
   await dbRepository.createChallenge({
@@ -266,7 +254,7 @@ export async function issueCaptchaChallenge(
     options: options.map(o => ({ id: o.id, label: '', icon: o.svg })),
     token,
     expiresAt,
-    maxAttempts: 4,
+    maxAttempts: Math.max(1, Math.min(4, Number(settings.maxAttempts) || 4)),
   });
 
   return {
@@ -275,6 +263,8 @@ export async function issueCaptchaChallenge(
     prompt,
     targetCategory,
     options,
+    challengeType: challengeMode,
+    maxAttempts: Math.max(1, Math.min(4, Number(settings.maxAttempts) || 4)),
     token,
     expiresAt,
     expiresInSeconds,
@@ -465,7 +455,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
   if (input.selectedOptionId) {
     const candidateHash = crypto
       .createHmac('sha256', SERVER_SALT)
-      .update(`${challenge.id}:${input.selectedOptionId}`)
+      .update(`${challenge.id}:${challenge.challengeType === 'TEXT' ? input.selectedOptionId.toLowerCase() : input.selectedOptionId}`)
       .digest('hex');
 
     // Use timingSafeEqual to prevent timing attacks
