@@ -808,6 +808,15 @@ export default function App() {
             </select>}
           </div>
           <LanguageSelector />
+          {authToken && userEmail.trim().toLowerCase() === 'tattoo.rayan2015@gmail.com' && (
+            <a
+              href="/admin"
+              className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
+              title="ورود به پنل اختصاصی مدیریت سامانه"
+            >
+              پنل مدیریت
+            </a>
+          )}
           {authToken && (
             <button
               type="button"
