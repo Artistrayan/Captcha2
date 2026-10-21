@@ -1092,6 +1092,7 @@ export default function App() {
                   <CaptchaWidget
                     key={selectedSiteKey}
                     siteKey={selectedSiteKey}
+                    lang={meta.code as any}
                     onVerify={(token, data) => {
                       setLastVerifiedToken(token);
                       setLastVerifiedSiteKey(selectedSiteKey);
