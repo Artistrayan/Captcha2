@@ -305,6 +305,21 @@ export const dbRepository = {
     return newUser;
   },
 
+  // ADMIN READ METHODS (never expose credential hashes through the API)
+  async getAllUsers(): Promise<schema.User[]> {
+    if (isPgConnected && drizzleDb) {
+      return drizzleDb.select().from(schema.users).orderBy(desc(schema.users.createdAt)).limit(500);
+    }
+    return [...loadState().users].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 500);
+  },
+
+  async getAllSites(): Promise<schema.Site[]> {
+    if (isPgConnected && drizzleDb) {
+      return drizzleDb.select().from(schema.sites).orderBy(desc(schema.sites.createdAt)).limit(500);
+    }
+    return [...loadState().sites].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 500);
+  },
+
   // SITE METHODS
   async getSitesByUserId(userId: string): Promise<schema.Site[]> {
     if (isPgConnected && drizzleDb) {
