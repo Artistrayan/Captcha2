@@ -496,14 +496,20 @@ export default function App() {
   }, [activeTab, authToken]);
 
   const loadSupportTickets = async () => {
-    if (!authToken) return;
+    if (!authToken) {
+      setSupportTickets([]);
+      setSupportMessage('Please sign in to open a support ticket or view replies.');
+      return;
+    }
     try {
       const res = await fetch('/api/v1/support/tickets', { headers: { Authorization: `Bearer ${authToken}` } });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not load support tickets.');
+      if (!res.ok) throw new Error(data.message || data.error || 'Could not load support tickets.');
       const tickets = Array.isArray(data.tickets) ? data.tickets : [];
-      setSupportTickets(tickets); setSupportIsAdmin(Boolean(data.isAdmin));
+      setSupportTickets(tickets);
+      setSupportIsAdmin(Boolean(data.isAdmin));
       if (activeTicketId && !tickets.some((ticket: any) => ticket.id === activeTicketId)) setActiveTicketId('');
+      setSupportMessage('');
     } catch (error: any) {
       setSupportMessage(error?.message || 'Support inbox is unavailable.');
     }
@@ -524,9 +530,10 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok || !data.ticket) throw new Error(data.error || 'Could not create support ticket.');
-      setSupportTickets((current) => [data.ticket, ...current.filter((ticket: any) => ticket.id !== data.ticket.id)]);
-      setActiveTicketId(data.ticket.id); setSupportSubject(''); setSupportBody('');
-      setSupportMessage('Support ticket created. You can follow replies here.');
+      setActiveTicketId(data.ticket.id);
+      setSupportSubject(''); setSupportBody('');
+      await loadSupportTickets();
+      setSupportMessage('Support ticket created successfully. You can follow replies here.');
     } catch (error: any) {
       setSupportMessage(error?.message || 'Could not create support ticket.');
     } finally { setSupportBusy(false); }
@@ -544,9 +551,9 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok || !data.ticket) throw new Error(data.error || 'Could not send reply.');
-      setSupportTickets((current) => current.map((ticket: any) => ticket.id === data.ticket.id ? data.ticket : ticket));
       setSupportReply('');
-      setSupportMessage('Reply sent.');
+      await loadSupportTickets();
+      setSupportMessage('Reply sent successfully.');
     } catch (error: any) {
       setSupportMessage(error?.message || 'Could not send reply.');
     } finally { setSupportBusy(false); }
