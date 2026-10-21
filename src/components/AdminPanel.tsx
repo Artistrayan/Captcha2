@@ -1,13 +1,31 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Activity, AlertCircle, CheckCircle2, Clock, LifeBuoy, LogOut, RefreshCw, Send, ShieldCheck } from 'lucide-react';
+import { Activity, AlertCircle, Building2, CheckCircle2, Clock, LayoutDashboard, LifeBuoy, LogOut, RefreshCw, Send, ShieldCheck, Users } from 'lucide-react';
 
 type TicketMessage = { id: string; authorId: string; authorRole: string; body: string; createdAt: string };
 type Ticket = { id: string; userId: string; subject: string; category: string; priority: string; status: string; messages: TicketMessage[]; createdAt: string; updatedAt: string };
+type Overview = { users: number; sites: number; tickets: number; openTickets: number; requests24h: number; passed24h: number; blocked24h: number; passRate24h: number; generatedAt: string };
+type AdminUser = { id: string; email: string; name: string; role: string; createdAt: string };
+type AdminSite = { id: string; name: string; siteKey: string; ownerEmail: string; domains: string[]; challengeDifficulty: string; invisibleEnabled: boolean; rateLimitPerMinute: number; createdAt: string };
+type AdminEvent = { id: string; siteKey: string; success: boolean; score: number; hostname: string; action: string; errorCodes: string[]; createdAt: string };
+type Section = 'overview' | 'users' | 'sites' | 'tickets' | 'activity';
+const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
+  { id: 'overview', label: 'نمای کلی سامانه', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { id: 'users', label: 'مدیریت کاربران', icon: <Users className="h-4 w-4" /> },
+  { id: 'sites', label: 'وب‌سایت‌ها و کلیدها', icon: <Building2 className="h-4 w-4" /> },
+  { id: 'tickets', label: 'تیکت‌های پشتیبانی', icon: <LifeBuoy className="h-4 w-4" /> },
+  { id: 'activity', label: 'رویدادهای امنیتی', icon: <Activity className="h-4 w-4" /> },
+];
 const statuses = ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'];
+const dateText = (value: string) => value ? new Date(value).toLocaleString('fa-IR') : '—';
 
 export default function AdminPanel() {
   const [token, setToken] = useState(() => sessionStorage.getItem('shieldcaptcha_id_token') || '');
   const [email] = useState(() => sessionStorage.getItem('shieldcaptcha_user_email') || '');
+  const [section, setSection] = useState<Section>('overview');
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [sites, setSites] = useState<AdminSite[]>([]);
+  const [events, setEvents] = useState<AdminEvent[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [reply, setReply] = useState('');
@@ -18,26 +36,42 @@ export default function AdminPanel() {
   const [error, setError] = useState('');
   const selected = tickets.find(ticket => ticket.id === selectedId);
 
-  const loadTickets = useCallback(async () => {
+  const api = useCallback(async (path: string) => {
+    const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await response.json();
+    if (response.status === 401) throw new Error('نشست ورود معتبر نیست. از صفحه اصلی دوباره وارد شوید.');
+    if (response.status === 403) throw new Error('این حساب مجوز مدیریت سامانه را ندارد.');
+    if (!response.ok) throw new Error(data.error || data.message || 'دریافت اطلاعات ناموفق بود.');
+    return data;
+  }, [token]);
+
+  const loadAll = useCallback(async () => {
     if (!token) { setLoading(false); return; }
     setLoading(true); setError('');
     try {
-      const response = await fetch('/api/v1/support/tickets', { headers: { Authorization: `Bearer ${token}` } });
-      const data = await response.json();
-      if (response.status === 401) throw new Error('نشست ورود معتبر نیست. ابتدا از صفحه اصلی وارد حساب شوید.');
-      if (!response.ok) throw new Error(data.error || 'بارگذاری تیکت‌ها ناموفق بود.');
-      if (!data.isAdmin) throw new Error('این حساب دسترسی مدیر ندارد.');
-      const next: Ticket[] = data.tickets || [];
-      setTickets(next); setIsAdmin(true);
-      const active = next.find(t => t.id === selectedId) || next[0];
-      setSelectedId(active?.id || '');
-      if (active) setStatus(active.status);
+      const [overviewData, userData, siteData, eventData, ticketData] = await Promise.all([
+        api('/api/v1/admin/overview'),
+        api('/api/v1/admin/users'),
+        api('/api/v1/admin/sites'),
+        api('/api/v1/admin/events'),
+        api('/api/v1/support/tickets'),
+      ]);
+      if (!ticketData.isAdmin) throw new Error('این حساب مجوز مدیریت سامانه را ندارد.');
+      setOverview(overviewData);
+      setUsers(userData.users || []);
+      setSites(siteData.sites || []);
+      setEvents(eventData.events || []);
+      const nextTickets: Ticket[] = ticketData.tickets || [];
+      setTickets(nextTickets);
+      setSelectedId(current => nextTickets.some(ticket => ticket.id === current) ? current : (nextTickets[0]?.id || ''));
+      setIsAdmin(true);
     } catch (err) {
-      setIsAdmin(false); setError(err instanceof Error ? err.message : 'خطای ناشناخته');
+      setIsAdmin(false);
+      setError(err instanceof Error ? err.message : 'خطای ناشناخته هنگام دریافت اطلاعات');
     } finally { setLoading(false); }
-  }, [token, selectedId]);
+  }, [token, api]);
 
-  useEffect(() => { void loadTickets(); }, [loadTickets]);
+  useEffect(() => { void loadAll(); }, [loadAll]);
 
   const sendReply = async () => {
     if (!selected || reply.trim().length < 2) return;
@@ -48,49 +82,66 @@ export default function AdminPanel() {
         body: JSON.stringify({ body: reply.trim(), status }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'ارسال پاسخ ناموفق بود.');
-      setReply(''); await loadTickets();
+      if (!response.ok) throw new Error(data.error || data.message || 'ارسال پاسخ ناموفق بود.');
+      setReply('');
+      await loadAll();
     } catch (err) { setError(err instanceof Error ? err.message : 'ارسال پاسخ ناموفق بود.'); }
     finally { setBusy(false); }
   };
 
   const signOut = () => {
-    sessionStorage.removeItem('shieldcaptcha_id_token'); sessionStorage.removeItem('shieldcaptcha_user_email');
-    setToken(''); setTickets([]); setIsAdmin(false); window.location.href = '/';
+    sessionStorage.removeItem('shieldcaptcha_id_token');
+    sessionStorage.removeItem('shieldcaptcha_user_email');
+    setToken(''); setIsAdmin(false); window.location.href = '/';
   };
 
+  const pageTitle = sections.find(item => item.id === section)?.label || 'پنل مدیریت';
   return <div dir="rtl" className="min-h-screen bg-slate-950 text-slate-100">
-    <header className="border-b border-slate-800 bg-slate-900/80"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5">
-      <div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400"><ShieldCheck className="h-6 w-6" /></div><div><h1 className="text-xl font-bold">پنل مدیریت ShieldCaptcha</h1><p className="mt-1 text-xs text-slate-400">مدیریت پشتیبانی و درخواست‌های کاربران</p></div></div>
-      <div className="flex items-center gap-2"><a href="/" className="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">بازگشت به برنامه</a>{token && <button onClick={signOut} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800"><LogOut className="h-4 w-4" />خروج</button>}</div>
-    </div></header>
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-6">
-      {!token ? <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6"><AlertCircle className="mb-3 h-6 w-6 text-amber-400" /><h2 className="font-semibold">ابتدا وارد حساب مدیر شوید</h2><p className="my-3 text-sm text-slate-300">از صفحه اصلی با حساب {email || 'مدیر'} وارد شوید، سپس این صفحه را دوباره باز کنید.</p><a href="/" className="inline-flex rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">رفتن به صفحه ورود</a></section> : <>
-        {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric icon={<LifeBuoy />} label="همه تیکت‌ها" value={tickets.length} />
-          <Metric icon={<Clock />} label="باز" value={tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length} />
-          <Metric icon={<Activity />} label="در انتظار پاسخ کاربر" value={tickets.filter(t => t.status === 'waiting_user').length} />
-          <Metric icon={<CheckCircle2 />} label="حل‌شده یا بسته" value={tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length} />
-        </div>
-        {loading ? <div className="rounded-xl border border-slate-800 p-8 text-center text-sm text-slate-400">در حال بررسی دسترسی و بارگذاری اطلاعات واقعی...</div> : !isAdmin ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm text-amber-100">دسترسی مدیر تأیید نشد. باز کردن این آدرس به‌تنهایی دسترسی ایجاد نمی‌کند.</div> :
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="flex items-center justify-between border-b border-slate-800 p-4"><h2 className="font-semibold">صندوق پشتیبانی</h2><button onClick={() => void loadTickets()} className="rounded-lg border border-slate-700 p-2 hover:bg-slate-800" title="بروزرسانی"><RefreshCw className="h-4 w-4" /></button></div>
-            <div className="max-h-[65vh] overflow-y-auto">{tickets.length === 0 ? <p className="p-6 text-sm text-slate-400">هنوز تیکتی ثبت نشده است.</p> : tickets.map(ticket => <button key={ticket.id} onClick={() => { setSelectedId(ticket.id); setStatus(ticket.status); }} className={`block w-full border-b border-slate-800/80 p-4 text-right hover:bg-slate-800/70 ${selectedId === ticket.id ? 'bg-emerald-500/10' : ''}`}>
-              <div className="flex items-start justify-between gap-3"><span className="font-medium">{ticket.subject}</span><span className="shrink-0 rounded-md bg-slate-800 px-2 py-1 text-[10px]">{ticket.status}</span></div><p className="mt-2 text-xs text-slate-400">کاربر: {ticket.userId} · {ticket.category} · اولویت {ticket.priority}</p><p className="mt-1 text-[10px] text-slate-500">{new Date(ticket.updatedAt).toLocaleString('fa-IR')}</p>
-            </button>)}</div>
+    <header className="border-b border-slate-800 bg-slate-900/90">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400"><ShieldCheck className="h-6 w-6" /></div><div><h1 className="text-xl font-bold">مرکز مدیریت ShieldCaptcha</h1><p className="mt-1 text-xs text-slate-400">کنترل کاربران، وب‌سایت‌ها، فعالیت امنیتی و پشتیبانی</p></div></div>
+        <div className="flex items-center gap-2"><a href="/" className="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">صفحه اصلی برنامه</a><button onClick={() => void loadAll()} disabled={loading || !token} className="rounded-lg border border-slate-700 p-2 hover:bg-slate-800 disabled:opacity-50" title="تازه‌سازی"><RefreshCw className="h-4 w-4" /></button>{token && <button onClick={signOut} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800"><LogOut className="h-4 w-4" />خروج</button>}</div>
+      </div>
+    </header>
+    <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
+      {!token ? <section className="mx-auto max-w-xl rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6"><AlertCircle className="mb-3 h-6 w-6 text-amber-400" /><h2 className="font-semibold">ابتدا وارد حساب مدیر شوید</h2><p className="my-3 text-sm text-slate-300">از صفحه اصلی با حساب مدیریتی {email || 'خود'} وارد شوید و سپس این صفحه را باز کنید.</p><a href="/" className="inline-flex rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">رفتن به صفحه ورود</a></section> : <>
+        {error && <div role="alert" className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>}
+        <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+          <aside className="h-fit rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
+            <p className="px-3 pb-3 pt-2 text-[11px] font-semibold text-slate-500">منوی مدیریت</p>
+            <nav className="space-y-1">{sections.map(item => <button key={item.id} onClick={() => setSection(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right text-sm transition ${section === item.id ? 'bg-emerald-500/15 font-semibold text-emerald-300 ring-1 ring-emerald-500/20' : 'text-slate-300 hover:bg-slate-800'}`}>{item.icon}<span>{item.label}</span>{item.id === 'tickets' && overview?.openTickets ? <span className="mr-auto rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] text-rose-300">{overview.openTickets}</span> : null}</button>)}</nav>
+            <div className="mt-4 border-t border-slate-800 px-3 pt-4 text-[11px] leading-6 text-slate-500">این منو مستقل از داشبورد کاربران است. عملیات و آمار فقط از API واقعی سرور دریافت می‌شوند.</div>
+          </aside>
+          <section className="min-w-0 space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs text-emerald-400">ADMIN CONSOLE</p><h2 className="mt-1 text-2xl font-bold">{pageTitle}</h2></div><p className="text-xs text-slate-500">{overview ? `آخرین به‌روزرسانی: ${dateText(overview.generatedAt)}` : ''}</p></div>
+            {loading ? <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-10 text-center text-sm text-slate-400">در حال دریافت اطلاعات مدیریتی از سرور...</div> : !isAdmin ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm text-amber-100">دسترسی مدیر تأیید نشد. دسترسی این صفحه توسط سرور کنترل می‌شود.</div> : <>
+              {section === 'overview' && <div className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <Metric icon={<Users />} label="کل کاربران" value={overview?.users ?? 0} />
+                  <Metric icon={<Building2 />} label="وب‌سایت‌های ثبت‌شده" value={overview?.sites ?? 0} />
+                  <Metric icon={<LifeBuoy />} label="تیکت‌های پشتیبانی" value={overview?.tickets ?? 0} />
+                  <Metric icon={<Clock />} label="تیکت‌های باز" value={overview?.openTickets ?? 0} />
+                  <Metric icon={<Activity />} label="درخواست‌های ۲۴ ساعت" value={overview?.requests24h ?? 0} />
+                  <Metric icon={<CheckCircle2 />} label="تأییدشده در ۲۴ ساعت" value={overview?.passed24h ?? 0} />
+                  <Metric icon={<AlertCircle />} label="مسدودشده در ۲۴ ساعت" value={overview?.blocked24h ?? 0} />
+                  <Metric icon={<CheckCircle2 />} label="نرخ عبور ۲۴ ساعت" value={overview?.passRate24h ?? 0} suffix="%" />
+                </div>
+                <div className="grid gap-4 xl:grid-cols-3">{sections.filter(item => item.id !== 'overview').map(item => <button key={item.id} onClick={() => setSection(item.id)} className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 text-right hover:border-emerald-500/40 hover:bg-slate-900">{item.icon}<span className="font-medium">{item.label}</span><span className="mr-auto text-slate-500">←</span></button>)}</div>
+              </div>}
+              {section === 'users' && <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="border-b border-slate-800 p-4"><h3 className="font-semibold">فهرست کاربران</h3><p className="mt-1 text-xs text-slate-400">نمایش حداکثر ۵۰۰ حساب اخیر؛ بدون شناسه ورود یا اطلاعات محرمانه</p></div><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">نام</th><th className="p-3">ایمیل</th><th className="p-3">نقش</th><th className="p-3">تاریخ ایجاد</th></tr></thead><tbody>{users.map(user => <tr key={user.id} className="border-t border-slate-800"><td className="p-3">{user.name || '—'}</td><td className="p-3" dir="ltr">{user.email}</td><td className="p-3"><span className={user.role === 'ADMIN' ? 'text-emerald-300' : 'text-slate-300'}>{user.role}</span></td><td className="p-3 text-xs text-slate-400">{dateText(user.createdAt)}</td></tr>)}</tbody></table>{users.length === 0 && <p className="p-6 text-sm text-slate-400">کاربری یافت نشد.</p>}</div></div>}
+              {section === 'sites' && <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="border-b border-slate-800 p-4"><h3 className="font-semibold">وب‌سایت‌ها و تنظیمات کپچا</h3><p className="mt-1 text-xs text-slate-400">کلید محرمانه و هش آن عمداً نمایش داده نمی‌شوند.</p></div><div className="grid gap-3 p-4 md:grid-cols-2">{sites.map(site => <article key={site.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><h4 className="font-semibold">{site.name}</h4><span className="rounded-md bg-slate-800 px-2 py-1 text-[10px]">{site.challengeDifficulty}</span></div><p className="mt-2 text-xs text-slate-400">مالک: <span dir="ltr">{site.ownerEmail}</span></p><p className="mt-3 break-all font-mono text-xs text-emerald-300">{site.siteKey}</p><p className="mt-2 text-xs text-slate-300">دامنه‌ها: {site.domains?.join(', ') || 'ثبت نشده'}</p><div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="rounded-md bg-slate-800 px-2 py-1">محدودیت: {site.rateLimitPerMinute}/دقیقه</span><span className="rounded-md bg-slate-800 px-2 py-1">بررسی نامرئی: {site.invisibleEnabled ? 'فعال' : 'غیرفعال'}</span></div><p className="mt-3 text-[10px] text-slate-500">ایجاد: {dateText(site.createdAt)}</p></article>)}</div>{sites.length === 0 && <p className="p-6 text-sm text-slate-400">وب‌سایتی ثبت نشده است.</p>}</div>}
+              {section === 'tickets' && <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]">
+                <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="flex items-center justify-between border-b border-slate-800 p-4"><h3 className="font-semibold">صندوق پشتیبانی</h3><span className="text-xs text-slate-400">{tickets.length} تیکت</span></div><div className="max-h-[70vh] overflow-y-auto">{tickets.length === 0 ? <p className="p-6 text-sm text-slate-400">هنوز تیکتی ثبت نشده است.</p> : tickets.map(ticket => <button key={ticket.id} onClick={() => { setSelectedId(ticket.id); setStatus(ticket.status); }} className={`block w-full border-b border-slate-800/80 p-4 text-right hover:bg-slate-800/70 ${selectedId === ticket.id ? 'bg-emerald-500/10' : ''}`}><div className="flex items-start justify-between gap-3"><span className="font-medium">{ticket.subject}</span><span className="shrink-0 rounded-md bg-slate-800 px-2 py-1 text-[10px]">{ticket.status}</span></div><p className="mt-2 text-xs text-slate-400">کاربر: {ticket.userId} · {ticket.category} · اولویت {ticket.priority}</p><p className="mt-1 text-[10px] text-slate-500">{dateText(ticket.updatedAt)}</p></button>)}</div></section>
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/50">{!selected ? <div className="p-8 text-center text-sm text-slate-400">برای مشاهده گفتگو، یک تیکت انتخاب کنید.</div> : <><div className="border-b border-slate-800 p-4"><h3 className="font-semibold">{selected.subject}</h3><p className="mt-1 text-xs text-slate-400">شناسه: {selected.id} · {dateText(selected.createdAt)}</p></div><div className="max-h-[42vh] space-y-3 overflow-y-auto p-4">{(selected.messages || []).map(message => <div key={message.id} className={`rounded-xl border p-3 ${message.authorRole === 'ADMIN' ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-slate-700 bg-slate-950/70'}`}><div className="mb-2 flex justify-between gap-3 text-[11px] text-slate-400"><span>{message.authorRole === 'ADMIN' ? 'مدیریت' : 'کاربر'}</span><span>{dateText(message.createdAt)}</span></div><p className="whitespace-pre-wrap break-words text-sm">{message.body}</p></div>)}</div><div className="space-y-3 border-t border-slate-800 p-4"><label className="block text-xs text-slate-400">وضعیت تیکت<select value={status} onChange={event => setStatus(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white">{statuses.map(value => <option key={value} value={value}>{value}</option>)}</select></label><textarea value={reply} onChange={event => setReply(event.target.value)} rows={4} maxLength={5000} placeholder="پاسخ مدیر به کاربر..." className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-emerald-500" /><button disabled={busy || reply.trim().length < 2} onClick={() => void sendReply()} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />{busy ? 'در حال ارسال...' : 'ارسال پاسخ و ذخیره وضعیت'}</button></div></>}</section>
+              </div>}
+              {section === 'activity' && <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="border-b border-slate-800 p-4"><h3 className="font-semibold">آخرین رویدادهای امنیتی</h3><p className="mt-1 text-xs text-slate-400">آخرین رویدادهای ثبت‌شده در API؛ حداکثر ۵۰ مورد</p></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">نتیجه</th><th className="p-3">دامنه</th><th className="p-3">کلید سایت</th><th className="p-3">امتیاز</th><th className="p-3">خطاها</th><th className="p-3">زمان</th></tr></thead><tbody>{events.map(event => <tr key={event.id} className="border-t border-slate-800"><td className="p-3"><span className={event.success ? 'text-emerald-300' : 'text-rose-300'}>{event.success ? 'تأیید' : 'مسدود'}</span></td><td className="p-3">{event.hostname || '—'}</td><td className="max-w-48 truncate p-3 font-mono text-xs">{event.siteKey}</td><td className="p-3">{event.score}</td><td className="p-3 text-xs text-slate-400">{event.errorCodes?.join(', ') || '—'}</td><td className="p-3 text-xs text-slate-400">{dateText(event.createdAt)}</td></tr>)}</tbody></table>{events.length === 0 && <p className="p-6 text-sm text-slate-400">رویداد امنیتی ثبت نشده است.</p>}</div></div>}
+            </>}
           </section>
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/50">{!selected ? <div className="p-8 text-center text-sm text-slate-400">برای مشاهده گفتگو، یک تیکت انتخاب کنید.</div> : <>
-            <div className="border-b border-slate-800 p-4"><h2 className="font-semibold">{selected.subject}</h2><p className="mt-1 text-xs text-slate-400">شناسه: {selected.id} · {new Date(selected.createdAt).toLocaleString('fa-IR')}</p></div>
-            <div className="max-h-[42vh] space-y-3 overflow-y-auto p-4">{(selected.messages || []).map(message => <div key={message.id} className={`rounded-xl border p-3 ${message.authorRole === 'ADMIN' ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-slate-700 bg-slate-950/70'}`}><div className="mb-2 flex justify-between gap-3 text-[11px] text-slate-400"><span>{message.authorRole === 'ADMIN' ? 'پشتیبانی' : 'کاربر'}</span><span>{new Date(message.createdAt).toLocaleString('fa-IR')}</span></div><p className="whitespace-pre-wrap break-words text-sm">{message.body}</p></div>)}</div>
-            <div className="space-y-3 border-t border-slate-800 p-4"><label className="block text-xs text-slate-400">وضعیت تیکت<select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white">{statuses.map(s => <option key={s} value={s}>{s}</option>)}</select></label><textarea value={reply} onChange={e => setReply(e.target.value)} rows={4} maxLength={5000} placeholder="پاسخ مدیر به کاربر..." className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-emerald-500" /><button disabled={busy || reply.trim().length < 2} onClick={() => void sendReply()} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />{busy ? 'در حال ارسال...' : 'ارسال پاسخ و ذخیره وضعیت'}</button></div>
-          </>}</section>
-        </div>}
+        </div>
       </>}
-      <p className="text-center text-xs text-slate-600">این پنل فقط داده‌های برگشتی از API را نمایش می‌دهد و آمار ساختگی تولید نمی‌کند.</p>
     </main>
   </div>;
 }
-function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"><div className="mb-3 flex items-center justify-between text-slate-400"><span className="text-xs">{label}</span><span className="text-emerald-400">{icon}</span></div><strong className="text-2xl">{value}</strong></div>;
+function Metric({ icon, label, value, suffix = '' }: { icon: React.ReactNode; label: string; value: number; suffix?: string }) {
+  return <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"><div className="mb-3 flex items-center justify-between text-slate-400"><span className="text-xs">{label}</span><span className="text-emerald-400">{icon}</span></div><strong className="text-2xl">{value}{suffix}</strong></div>;
 }
