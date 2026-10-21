@@ -169,3 +169,20 @@ export async function getOrCreateUser(decoded: DecodedAuthToken): Promise<User> 
 
   return user;
 }
+
+
+/** Creates an account only after the server has validated the emailed one-time code. */
+export async function createVerifiedFirebaseUser(email: string, password: string, name?: string): Promise<{ customToken: string; email: string }> {
+  if (!isFirebaseAdminInitialized || !firebaseAuth) {
+    throw new Error('Firebase Admin is not configured.');
+  }
+  const user = await firebaseAuth.createUser({
+    email,
+    password,
+    displayName: name || email.split('@')[0],
+    emailVerified: true,
+    disabled: false,
+  });
+  const customToken = await firebaseAuth.createCustomToken(user.uid, { emailVerified: true });
+  return { customToken, email: user.email || email };
+}
