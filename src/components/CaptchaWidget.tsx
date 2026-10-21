@@ -23,6 +23,7 @@ interface ChallengeData {
   siteKey: string;
   prompt: string;
   challengeType?: string;
+  maxAttempts?: number;
   options: ChallengeOption[];
   token: string;
   expiresInSeconds: number;
@@ -163,7 +164,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         if (primaryError === 'challenge-expired' || primaryError === 'timeout-or-duplicate') {
           setStatus('expired');
           setErrorMessage(t('widgetExpiredDesc'));
-        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
+        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= (challenge.maxAttempts || 4)) {
           // The server consumes the challenge at the attempt limit. Fetch a fresh
           // challenge immediately so the widget never remains stuck on a dead token.
           onError?.(primaryError);
@@ -306,7 +307,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             {errorMessage && (
               <div className="mb-3 p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errorMessage} ({attempts} / 4)</span>
+                <span>{errorMessage} ({attempts} / {challenge.maxAttempts || 4})</span>
               </div>
             )}
 
