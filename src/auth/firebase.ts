@@ -183,6 +183,6 @@ export async function createVerifiedFirebaseUser(email: string, password: string
     emailVerified: true,
     disabled: false,
   });
-  const customToken = await firebaseAuth.createCustomToken(user.uid, { emailVerified: true });
+  const customToken = await firebaseAuth.createCustomToken(user.uid);
   return { customToken, email: user.email || email };
 }
