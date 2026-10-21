@@ -37,33 +37,118 @@ export async function checkSiteRegistrationQuota(userId: string): Promise<{ allo
   return { allowed: used < limit, used, limit, plan: isPaid ? String(subscription.rows[0].plan_id) : 'free' };
 }
 
-export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
-  // Local file-storage development has no billing database; keep its existing test flow.
-  if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
-  const db = getPool();
-  const owner = await db.query(
+let freeTrialTableReady: Promise<void> | null = null;
+
+async function ensureFreeTrialTable(): Promise<void> {
+  if (!freeTrialTableReady) {
+    freeTrialTableReady = getPool().query(`
+      CREATE TABLE IF NOT EXISTS captcha_free_trial_usage (
+        user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        used_count integer NOT NULL DEFAULT 0 CHECK (used_count >= 0 AND used_count <= 10),
+        updated_at timestamptz NOT NULL DEFAULT NOW()
+      )
+    `).then(() => undefined).catch((error) => {
+      freeTrialTableReady = null;
+      throw error;
+    });
+  }
+  await freeTrialTableReady;
+}
+
+async function getCaptchaAccount(siteKey: string): Promise<{ userId: string; paidQuota: number } | null> {
+  const result = await getPool().query(
     `SELECT s.user_id,
        COALESCE((
-         SELECT SUM(bs.request_limit + $2)::bigint FROM billing_subscriptions bs
+         SELECT SUM(bs.request_limit + CASE bs.plan_id
+           WHEN 'starter' THEN $2
+           WHEN 'pro' THEN $3
+           WHEN 'business' THEN $4
+           ELSE 0
+         END)::bigint
+         FROM billing_subscriptions bs
          WHERE bs.user_id = s.user_id AND bs.status = 'active' AND bs.expires_at > NOW()
-       ), 10000)::bigint AS quota
+       ), 0)::bigint AS paid_quota
      FROM sites s WHERE s.site_key = $1 LIMIT 1`,
     [siteKey, BONUS_REQUESTS_BY_PLAN.starter, BONUS_REQUESTS_BY_PLAN.pro, BONUS_REQUESTS_BY_PLAN.business],
   );
-  if (!owner.rows[0]) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
-  const userId = owner.rows[0].user_id;
-  const quota = Number(owner.rows[0].quota) || 10000;
-  const usage = await db.query(
+  if (!result.rows[0]) return null;
+  return { userId: String(result.rows[0].user_id), paidQuota: Number(result.rows[0].paid_quota) || 0 };
+}
+
+/**
+ * Atomically reserves one of the account's 10 lifetime free test CAPTCHAs.
+ * The counter belongs to the account, not an individual site, so deleting/recreating
+ * a site cannot reset the allowance.
+ */
+export async function reserveFreeCaptchaTrial(siteKey: string): Promise<{
+  isFree: boolean; allowed: boolean; used: number; limit: number; userId?: string;
+}> {
+  if (!process.env.DATABASE_URL) {
+    return { isFree: false, allowed: true, used: 0, limit: 10000 };
+  }
+  const account = await getCaptchaAccount(siteKey);
+  if (!account) return { isFree: false, allowed: true, used: 0, limit: 10000 };
+  if (account.paidQuota > 0) {
+    return { isFree: false, allowed: true, used: 0, limit: account.paidQuota, userId: account.userId };
+  }
+
+  await ensureFreeTrialTable();
+  const reserved = await getPool().query(
+    `INSERT INTO captcha_free_trial_usage (user_id, used_count, updated_at)
+     VALUES ($1, 1, NOW())
+     ON CONFLICT (user_id) DO UPDATE
+       SET used_count = captcha_free_trial_usage.used_count + 1, updated_at = NOW()
+       WHERE captcha_free_trial_usage.used_count < 10
+     RETURNING used_count`,
+    [account.userId],
+  );
+  if (reserved.rows[0]) {
+    return { isFree: true, allowed: true, used: Number(reserved.rows[0].used_count), limit: 10, userId: account.userId };
+  }
+  const current = await getPool().query(
+    'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
+    [account.userId],
+  );
+  return { isFree: true, allowed: false, used: Number(current.rows[0]?.used_count || 10), limit: 10, userId: account.userId };
+}
+
+export async function releaseFreeCaptchaTrial(userId: string): Promise<void> {
+  if (!process.env.DATABASE_URL || !userId) return;
+  await ensureFreeTrialTable();
+  await getPool().query(
+    'UPDATE captcha_free_trial_usage SET used_count = GREATEST(used_count - 1, 0), updated_at = NOW() WHERE user_id = $1',
+    [userId],
+  );
+}
+
+export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+  if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
+  const account = await getCaptchaAccount(siteKey);
+  if (!account) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
+
+  if (account.paidQuota <= 0) {
+    await ensureFreeTrialTable();
+    const result = await getPool().query(
+      'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
+      [account.userId],
+    );
+    const used = Number(result.rows[0]?.used_count || 0);
+    // Verification of a challenge already issued as the 10th free CAPTCHA remains allowed.
+    // New challenges are atomically reserved through reserveFreeCaptchaTrial().
+    return { allowed: reserveRequests <= 1 || used + reserveRequests <= 10, used, limit: 10, plan: 'free-trial' };
+  }
+
+  const usage = await getPool().query(
     `SELECT (
        (SELECT COUNT(*) FROM captcha_challenges c JOIN sites s ON s.site_key = c.site_key
         WHERE s.user_id = $1 AND c.created_at >= NOW() - INTERVAL '30 days') +
        (SELECT COUNT(*) FROM verification_events v JOIN sites s ON s.site_key = v.site_key
         WHERE s.user_id = $1 AND v.created_at >= NOW() - INTERVAL '30 days')
      )::int AS used`,
-    [userId],
+    [account.userId],
   );
   const used = Number(usage.rows[0]?.used || 0);
-  return { allowed: used + reserveRequests <= quota, used, limit: quota, plan: quota === 10000 ? 'free' : 'paid' };
+  return { allowed: used + reserveRequests <= account.paidQuota, used, limit: account.paidQuota, plan: 'paid' };
 }
 
 function configReady() {
