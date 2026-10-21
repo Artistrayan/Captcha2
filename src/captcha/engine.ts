@@ -197,7 +197,8 @@ export async function issueCaptchaChallenge(
       const j = crypto.randomInt(0, i + 1);
       [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
     }
-    const rotationAngles = [45, 90, 135, 180, 225, 270, 315];
+    const rotationScale = Math.max(0.2, Math.min(60, Number(settings.rotation) || 22)) / 22;
+    const rotationAngles = [45, 90, 135, 180, 225, 270, 315].map(angle => Math.min(359, Math.round(angle * rotationScale)));
     for (let i = rotationAngles.length - 1; i > 0; i--) {
       const j = crypto.randomInt(0, i + 1);
       [rotationAngles[i], rotationAngles[j]] = [rotationAngles[j], rotationAngles[i]];
