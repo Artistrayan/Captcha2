@@ -4,18 +4,12 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser, isEmailRegistered } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
-import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage } from './billing.ts';
+import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
-// In-memory sliding window rate limiter
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-const rateLimits = new Map<string, RateLimitEntry>();
-
+// Shared fixed-window rate limiting uses PostgreSQL in production and an in-memory fallback in local development.
 function configuredRateLimit(name: string, fallback: number): number {
   const configured = Number(process.env[name]);
   return Number.isSafeInteger(configured) && configured >= 1 && configured <= 10000
@@ -24,40 +18,30 @@ function configuredRateLimit(name: string, fallback: number): number {
 }
 
 export function rateLimiter(limit: number, windowMs: number) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `${req.path}:${ip}`;
-    const now = Date.now();
-
-    // Periodically discard expired keys so attacker-controlled IP diversity cannot grow this map forever.
-    if (rateLimits.size > 5000) {
-      for (const [storedKey, storedEntry] of rateLimits) {
-        if (storedEntry.resetAt <= now) rateLimits.delete(storedKey);
+    const key = `api:${req.method}:${req.path}:${ip}`;
+    try {
+      const result = await consumeApiRateLimit(key, limit, windowMs);
+      if (!result.allowed) {
+        const retryAfterMs = Math.max(0, result.resetAt - Date.now());
+        res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
+        res.status(429).json({
+          error: 'Too Many Requests',
+          message: 'Rate limit exceeded. Please try again later.',
+          retryAfterMs,
+        });
+        return;
       }
+      next();
+    } catch (error: any) {
+      console.error('[RateLimit] Shared rate limiter unavailable:', error?.message || error);
+      if (IS_PRODUCTION) {
+        res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Please retry shortly.' });
+        return;
+      }
+      next();
     }
-
-    if (rateLimits.size >= 10000 && !rateLimits.has(key)) {
-      res.status(429).json({ error: 'Too Many Requests', message: 'Rate limiter capacity reached; retry shortly.', retryAfterMs: windowMs });
-      return;
-    }
-
-    const entry = rateLimits.get(key);
-    if (!entry || entry.resetAt < now) {
-      rateLimits.set(key, { count: 1, resetAt: now + windowMs });
-      return next();
-    }
-
-    if (entry.count >= limit) {
-      res.status(429).json({
-        error: 'Too Many Requests',
-        message: 'Rate limit exceeded. Please try again later.',
-        retryAfterMs: entry.resetAt - now,
-      });
-      return;
-    }
-
-    entry.count++;
-    next();
   };
 }
 

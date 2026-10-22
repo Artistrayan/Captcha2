@@ -42,6 +42,71 @@ export async function checkSiteRegistrationQuota(userId: string): Promise<{ allo
   return { allowed: used < limit, used, limit, plan: isPaid ? String(subscription.rows[0].plan_id) : 'free' };
 }
 
+let sharedRateLimitTableReady: Promise<void> | null = null;
+let rateLimitCleanupCounter = 0;
+const localRateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+
+async function ensureSharedRateLimitTable(): Promise<void> {
+  if (!sharedRateLimitTableReady) {
+    sharedRateLimitTableReady = getPool().query(`
+      CREATE TABLE IF NOT EXISTS api_rate_limit_buckets (
+        bucket_hash text NOT NULL,
+        window_start_ms bigint NOT NULL,
+        hit_count integer NOT NULL CHECK (hit_count >= 1),
+        PRIMARY KEY (bucket_hash, window_start_ms)
+      )
+    `).then(() => getPool().query(
+      'CREATE INDEX IF NOT EXISTS api_rate_limit_buckets_window_idx ON api_rate_limit_buckets(window_start_ms)',
+    )).then(() => undefined).catch((error) => {
+      sharedRateLimitTableReady = null;
+      throw error;
+    });
+  }
+  await sharedRateLimitTableReady;
+}
+
+/** Shared fixed-window rate limit. Production counters live in PostgreSQL across restarts/instances. */
+export async function consumeApiRateLimit(key: string, limit: number, windowMs: number): Promise<{ allowed: boolean; count: number; resetAt: number }> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(windowMs) || windowMs < 1) {
+    throw new Error('Invalid rate-limit configuration');
+  }
+  const now = Date.now();
+  const windowStart = Math.floor(now / windowMs) * windowMs;
+  const bucketHash = crypto.createHash('sha256').update(key).digest('hex');
+
+  if (!process.env.DATABASE_URL) {
+    const localKey = `${bucketHash}:${windowStart}`;
+    if (localRateLimitBuckets.size > 5000) {
+      for (const [storedKey, value] of localRateLimitBuckets) if (value.resetAt <= now) localRateLimitBuckets.delete(storedKey);
+    }
+    const entry = localRateLimitBuckets.get(localKey);
+    if (!entry) {
+      localRateLimitBuckets.set(localKey, { count: 1, resetAt: windowStart + windowMs });
+      return { allowed: true, count: 1, resetAt: windowStart + windowMs };
+    }
+    entry.count += 1;
+    return { allowed: entry.count <= limit, count: entry.count, resetAt: entry.resetAt };
+  }
+
+  await ensureSharedRateLimitTable();
+  const result = await getPool().query(
+    `INSERT INTO api_rate_limit_buckets (bucket_hash, window_start_ms, hit_count)
+     VALUES ($1, $2, 1)
+     ON CONFLICT (bucket_hash, window_start_ms)
+     DO UPDATE SET hit_count = api_rate_limit_buckets.hit_count + 1
+     RETURNING hit_count`,
+    [bucketHash, windowStart],
+  );
+  const count = Number(result.rows[0]?.hit_count || 1);
+  if (++rateLimitCleanupCounter % 500 === 0) {
+    void getPool().query(
+      'DELETE FROM api_rate_limit_buckets WHERE window_start_ms < $1',
+      [now - 48 * 60 * 60 * 1000],
+    ).catch(() => undefined);
+  }
+  return { allowed: count <= limit, count, resetAt: windowStart + windowMs };
+}
+
 let freeTrialTableReady: Promise<void> | null = null;
 let billingUsageTableReady: Promise<void> | null = null;
 
@@ -245,27 +310,25 @@ async function requireBillingAuth(req: Request, res: Response, next: NextFunctio
 }
 billingRouter.use(requireBillingAuth);
 
-const billingRateLimits = new Map<string, { count: number; resetAt: number }>();
-billingRouter.use((req, res, next) => {
+billingRouter.use(async (req, res, next) => {
   const userId = (req as any).billingUser?.id || 'unknown';
   const category = req.path.includes('/verify') ? 'verify' : req.path === '/invoices' ? 'invoices' : req.path;
-  const key = `${userId}:${req.method}:${category}`;
-  const now = Date.now();
-  if (billingRateLimits.size > 3000) {
-    for (const [storedKey, value] of billingRateLimits) if (value.resetAt <= now) billingRateLimits.delete(storedKey);
-  }
-  const entry = billingRateLimits.get(key);
-  if (!entry || entry.resetAt <= now) {
-    billingRateLimits.set(key, { count: 1, resetAt: now + 60_000 });
+  try {
+    const result = await consumeApiRateLimit(`billing:${userId}:${req.method}:${category}`, 15, 60_000);
+    if (!result.allowed) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))));
+      res.status(429).json({ error: 'Billing rate limit exceeded. Please retry in a minute.' });
+      return;
+    }
     next();
-    return;
+  } catch (error: any) {
+    console.error('[Billing] Shared rate limiter unavailable:', error?.message || error);
+    if (IS_PRODUCTION) {
+      res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Please retry shortly.' });
+      return;
+    }
+    next();
   }
-  if (entry.count >= 15) {
-    res.status(429).json({ error: 'Billing rate limit exceeded. Please retry in a minute.' });
-    return;
-  }
-  entry.count += 1;
-  next();
 });
 billingRouter.get('/config', (_req, res) => {
   res.json({
