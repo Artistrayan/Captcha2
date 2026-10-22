@@ -489,10 +489,12 @@ billingRouter.post('/invoices/:id/verify', async (req, res) => {
     if (reused.rows.length) { await client.query('ROLLBACK'); res.status(409).json({ error: 'This transaction has already been used.' }); return; }
     const apiKey = process.env.TRON_PRO_API_KEY!;
     const headers = { 'TRON-PRO-API-KEY': apiKey, 'Content-Type': 'application/json' };
+    // Bound provider latency so an untrusted transaction ID cannot hold a DB connection indefinitely.
+    const providerSignal = AbortSignal.timeout(10_000);
     const [eventsResponse, infoResponse, blockResponse] = await Promise.all([
-      fetch(`https://api.trongrid.io/v1/transactions/${txid}/events?only_confirmed=true&limit=200`, { headers }),
-      fetch('https://api.trongrid.io/wallet/gettransactioninfobyid', { method: 'POST', headers, body: JSON.stringify({ value: txid }) }),
-      fetch('https://api.trongrid.io/wallet/getnowblock', { method: 'POST', headers, body: '{}' }),
+      fetch(`https://api.trongrid.io/v1/transactions/${txid}/events?only_confirmed=true&limit=200`, { headers, signal: providerSignal }),
+      fetch('https://api.trongrid.io/wallet/gettransactioninfobyid', { method: 'POST', headers, body: JSON.stringify({ value: txid }), signal: providerSignal }),
+      fetch('https://api.trongrid.io/wallet/getnowblock', { method: 'POST', headers, body: '{}', signal: providerSignal }),
     ]);
     if (!eventsResponse.ok || !infoResponse.ok || !blockResponse.ok) throw new Error('TRON provider request failed');
     const [eventsJson, info, block] = await Promise.all([eventsResponse.json(), infoResponse.json(), blockResponse.json()]);
