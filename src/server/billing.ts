@@ -393,6 +393,11 @@ billingRouter.get('/admin/export.csv', async (req, res) => {
     return;
   }
 
+  if ((req.query.from !== undefined && typeof req.query.from !== 'string') ||
+      (req.query.to !== undefined && typeof req.query.to !== 'string')) {
+    res.status(400).json({ error: 'Provide only one from and one to date.' });
+    return;
+  }
   const from = typeof req.query.from === 'string' ? req.query.from : '';
   const to = typeof req.query.to === 'string' ? req.query.to : '';
   const isDate = (value: string) => {
