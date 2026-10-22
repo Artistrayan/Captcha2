@@ -82,6 +82,44 @@ async function ensureBillingUsageTable(): Promise<void> {
   await billingUsageTableReady;
 }
 
+export async function reserveFreeCaptchaTrial(siteKey: string): Promise<{
+  isFree: boolean; allowed: boolean; used: number; limit: number; userId?: string;
+}> {
+  if (!process.env.DATABASE_URL) {
+    return { isFree: false, allowed: true, used: 0, limit: 10000 };
+  }
+  const account = await getCaptchaAccount(siteKey);
+  if (!account) return { isFree: false, allowed: true, used: 0, limit: 10000 };
+  if (account.paidQuota > 0) {
+    return { isFree: false, allowed: true, used: 0, limit: account.paidQuota, userId: account.userId };
+  }
+
+  await ensureFreeTrialTable();
+  const reserved = await getPool().query(
+    `INSERT INTO captcha_free_trial_usage (user_id, used_count, updated_at)
+     VALUES ($1, 1, NOW())
+     ON CONFLICT (user_id) DO UPDATE
+       SET used_count = captcha_free_trial_usage.used_count + 1, updated_at = NOW()
+       WHERE captcha_free_trial_usage.used_count < ${FREE_TRIAL_CAPTCHA_LIMIT}
+     RETURNING used_count`,
+    [account.userId],
+  );
+  if (reserved.rows[0]) {
+    return { isFree: true, allowed: true, used: Number(reserved.rows[0].used_count), limit: FREE_TRIAL_CAPTCHA_LIMIT, userId: account.userId };
+  }
+  const current = await getPool().query(
+    'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
+    [account.userId],
+  );
+  return {
+    isFree: true,
+    allowed: false,
+    used: Number(current.rows[0]?.used_count ?? FREE_TRIAL_CAPTCHA_LIMIT),
+    limit: FREE_TRIAL_CAPTCHA_LIMIT,
+    userId: account.userId,
+  };
+}
+
 export async function reservePaidCaptchaUsage(siteKey: string): Promise<{
   isPaid: boolean; allowed: boolean; used: number; limit: number; userId?: string; reservationId?: string;
 }> {
