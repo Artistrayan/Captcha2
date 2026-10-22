@@ -65,7 +65,7 @@ const extraFa: Record<string, string> = {
   'ShieldCaptcha Admin Center': 'مرکز مدیریت ShieldCaptcha',
   'Manage users, websites, security activity, and support': 'کنترل کاربران، وب‌سایت‌ها، فعالیت امنیتی و پشتیبانی',
   'Main application': 'صفحه اصلی برنامه',
-  'Refresh': 'تازه‌سازی',
+  
   'Sign out': 'خروج',
   'Sign in to the administrator account first': 'ابتدا وارد حساب مدیر شوید',
   'Sign in on the main page with the admin account ': 'از صفحه اصلی با حساب مدیریتی ',
