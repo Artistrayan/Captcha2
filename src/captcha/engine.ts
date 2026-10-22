@@ -517,7 +517,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     }
   }
 
-  if (risk.action === 'block') {
+  if (IS_PRODUCTION && risk.action === 'block') {
     await dbRepository.consumeChallengeToken(input.token);
     await dbRepository.recordVerificationEvent({
       siteKey: challenge.siteKey, token: input.token, success: false, score: risk.score,
