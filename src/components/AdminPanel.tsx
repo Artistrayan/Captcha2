@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { translateAdminText } from '../i18n/AutoTranslate.tsx';
 import { Activity, AlertCircle, Building2, CheckCircle2, Clock, DollarSign, LayoutDashboard, LifeBuoy, LogOut, Receipt, RefreshCw, Send, ShieldCheck, Users, Wallet } from 'lucide-react';
 
 type TicketMessage = { id: string; authorId: string; authorRole: string; body: string; createdAt: string };
@@ -197,5 +198,7 @@ export default function AdminPanel() {
   </div>;
 }
 function Metric({ icon, label, value, suffix = '' }: { icon: React.ReactNode; label: string; value: number; suffix?: string }) {
-  return <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"><div className="mb-3 flex items-center justify-between text-slate-400"><span className="text-xs">{label}</span><span className="text-emerald-400">{icon}</span></div><strong className="text-2xl">{value}{suffix}</strong></div>;
+  const language = sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en';
+  const displayLabel = translateAdminText(label, language);
+  return <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"><div className="mb-3 flex items-center justify-between text-slate-400"><span className="text-xs">{displayLabel}</span><span className="text-emerald-400">{icon}</span></div><strong className="text-2xl">{value}{suffix}</strong></div>;
 }

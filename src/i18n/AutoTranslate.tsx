@@ -195,5 +195,10 @@ function translateNode(node: React.ReactNode, lang: LanguageCode): React.ReactNo
   return walk(node);
 }
 
+export function translateAdminText(text: string, lang: LanguageCode): string {
+  const translated = translateNode(text, lang);
+  return typeof translated === 'string' ? translated : text;
+}
+
 export const AutoTranslate: React.FC<{ lang: LanguageCode; children: React.ReactNode }> = ({ lang, children }) =>
   <>{translateNode(children, lang)}</>;
