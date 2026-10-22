@@ -12,6 +12,7 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
 - Shared PostgreSQL-backed API and billing rate limits that persist across server restarts and instances.
 - USDT TRC20 verification checks the exact token contract and destination address; duplicate transaction submissions are serialized and rejected.
 - The standalone admin console defaults to English and includes an EN/FA language toggle.
+- The language toggle updates the admin dashboard labels, direction, and date formatting as well as the login screen.
 - Hostname allow-list validation when issuing challenges.
 - Three SVG challenge patterns: category selection, odd-one-out, and upright/rotation matching, with randomized opaque option IDs.
 - Four incorrect answers allowed per challenge; a fifth request is rejected.
