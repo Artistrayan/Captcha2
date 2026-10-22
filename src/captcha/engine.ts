@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { dbRepository } from '../db/index.ts';
 import { assessCaptchaRisk } from './risk-engine.ts';
+import { predictCaptchaMLShadow } from './ml-risk-engine.ts';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || (IS_PRODUCTION ? '' : 'shield_captcha_internal_salt_dev_98741');
@@ -45,6 +46,41 @@ const SVG_ICONS: Record<string, string> = {
 };
 
 const CATEGORIES = Object.keys(SVG_ICONS);
+
+function createPrismFlowSvg(angles: number[]): string {
+  const arrow = (x: number, angle: number) =>
+    `<g transform="rotate(${angle} ${x} 12)" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M ${x} 15 L ${x} 9 M ${x-2.2} 11.3 L ${x} 9 L ${x+2.2} 11.3"/></g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">${angles.map((angle, index) => arrow(4 + index * 8, angle)).join('')}</svg>`;
+}
+
+function buildPrismFlowItems(optionCount: number): Array<{ category: string; correct: boolean; rotationAngle?: number; svgOverride?: string }> {
+  const start = crypto.randomInt(0, 4) * 90;
+  const direction = crypto.randomInt(0, 2) === 0 ? 1 : -1;
+  const normalize = (angle: number) => (angle + 360) % 360;
+  const correctAngles = [0, 1, 2].map(index => normalize(start + direction * 90 * index));
+  const sequences: Array<{ angles: number[]; correct: boolean }> = [{ angles: correctAngles, correct: true }];
+  const key = (angles: number[]) => angles.join(',');
+  const seen = new Set([key(correctAngles)]);
+  while (sequences.length < optionCount) {
+    const angles = [0, 1, 2].map(() => crypto.randomInt(0, 4) * 90);
+    const d1 = normalize(angles[1] - angles[0]);
+    const d2 = normalize(angles[2] - angles[1]);
+    const isConsistentQuarterTurn = (d1 === 90 && d2 === 90) || (d1 === 270 && d2 === 270);
+    const signature = key(angles);
+    if (isConsistentQuarterTurn || seen.has(signature)) continue;
+    seen.add(signature);
+    sequences.push({ angles, correct: false });
+  }
+  for (let i = sequences.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [sequences[i], sequences[j]] = [sequences[j], sequences[i]];
+  }
+  return sequences.map(sequence => ({
+    category: 'key',
+    correct: sequence.correct,
+    svgOverride: createPrismFlowSvg(sequence.angles),
+  }));
+}
 
 const CATEGORY_NAMES_FA: Record<string, string> = {
   shield: 'سپر امنیت (Shield)',
@@ -154,9 +190,9 @@ export async function issueCaptchaChallenge(
   }
 
   // Pick one of three visual challenge modes using a cryptographically secure RNG.
-  const challengeMode = (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH'] as const)[crypto.randomInt(0, 3)];
+  const challengeMode = (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH', 'PRISM_FLOW'] as const)[crypto.randomInt(0, 4)];
   const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
-  const targetPool = challengeMode === 'ROTATION_MATCH' ? rotationCategories : CATEGORIES;
+  const targetPool = challengeMode === 'ROTATION_MATCH' || challengeMode === 'PRISM_FLOW' ? rotationCategories : CATEGORIES;
   const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
 
   // Difficulty controls the number of visually plausible distractors.
@@ -174,8 +210,10 @@ export async function issueCaptchaChallenge(
   }
 
   // Each mode has exactly one server-verified correct option.
-  const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number }> =
-    challengeMode === 'ROTATION_MATCH'
+  const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number; svgOverride?: string }> =
+    challengeMode === 'PRISM_FLOW'
+      ? buildPrismFlowItems(optionCount)
+      : challengeMode === 'ROTATION_MATCH'
       ? [
           { category: targetCategory, correct: true, rotationAngle: 0 },
           ...rotationAngles.slice(0, optionCount - 1).map(rotationAngle => ({
@@ -210,7 +248,7 @@ export async function issueCaptchaChallenge(
   for (const item of challengeItems) {
     const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
     if (item.correct) correctOptionId = optId;
-    let optionSvg = SVG_ICONS[item.category];
+    let optionSvg = item.svgOverride || SVG_ICONS[item.category];
     if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
       optionSvg = optionSvg
         .replace(/(<svg\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`)
@@ -230,7 +268,20 @@ export async function issueCaptchaChallenge(
     .update(`${challengeId}:${correctOptionId}`)
     .digest('hex');
 
-  const prompt = challengeMode === 'ODD_ONE_OUT'
+  const prompt = challengeMode === 'PRISM_FLOW'
+    ? ({
+        fa: 'توالی‌ای را انتخاب کنید که جهت هر پیکان در آن ۹۰ درجه و در یک جهت می‌چرخد.',
+        en: 'Select the sequence where each arrow turns 90 degrees in the same direction.',
+        es: 'Seleccione la secuencia en la que cada flecha gira 90 grados en la misma dirección.',
+        zh: '请选择每个箭头都沿同一方向旋转 90 度的序列。',
+        ar: 'اختر التسلسل الذي يدور فيه كل سهم 90 درجة في الاتجاه نفسه.',
+        fr: 'Sélectionnez la séquence où chaque flèche tourne de 90 degrés dans le même sens.',
+        de: 'Wählen Sie die Folge, in der sich jeder Pfeil in dieselbe Richtung um 90 Grad dreht.',
+        ru: 'Выберите последовательность, в которой каждая стрелка поворачивается на 90 градусов в одном направлении.',
+        pt: 'Selecione a sequência em que cada seta gira 90 graus na mesma direção.',
+        ja: '各矢印が同じ方向に90度回転する並びを選択してください。',
+      } as Record<string, string>)[lang] || 'Select the sequence where each arrow turns 90 degrees in the same direction.'
+    : challengeMode === 'ODD_ONE_OUT'
     ? ({
         fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.',
         en: 'Select the image that is different from the others.',
@@ -491,6 +542,16 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     acceptLanguage: input.acceptLanguage,
     recentEvents: recentEvents.filter(event => event.token !== input.token),
   });
+  const mlShadow = predictCaptchaMLShadow({
+    elapsedMs: Date.now() - new Date(challenge.createdAt).getTime(),
+    attemptsCount: challenge.attemptsCount,
+    userAgent: input.userAgent,
+    acceptLanguage: input.acceptLanguage,
+    sameIpRecentCount: recentEvents.filter(event => event.clientIp === input.remoteIp).length,
+    sameIpRecentFailureCount: recentEvents.filter(event => event.clientIp === input.remoteIp && !event.success).length,
+  });
+  const mlAuditCodes = mlShadow.available ? [`ml-shadow-score:${mlShadow.humanScore}`, `ml-shadow-model:${mlShadow.modelVersion}`] : [];
+
   // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
     const candidateHash = crypto
@@ -571,7 +632,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     hostname,
     action: input.action,
     clientIp: input.remoteIp,
-    errorCodes: risk.signals.length ? risk.signals.map(signal => `risk:${signal}`) : [],
+    errorCodes: [...(risk.signals.length ? risk.signals.map(signal => `risk:${signal}`) : []), ...mlAuditCodes],
   });
 
   return {
