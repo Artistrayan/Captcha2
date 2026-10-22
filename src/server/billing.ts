@@ -25,6 +25,13 @@ export function matchesTronUsdtTransferEvent(
     BigInt(value) === expectedUnits;
 }
 
+export function csvEscapeCell(value: unknown): string {
+  let cell = String(value ?? '');
+  // Spreadsheet formulas must not execute when administrators open an exported CSV.
+  if (/^[\u0000-\u0020]*[=+\-@]/.test(cell)) cell = `'${cell}`;
+  return `"${cell.replace(/"/g, '""')}"`;
+}
+
 export function quotaAllows(used: number, limit: number, requested = 1): boolean {
   return Number.isSafeInteger(used) && Number.isSafeInteger(limit) && Number.isSafeInteger(requested) && used >= 0 && limit >= 0 && requested > 0 && used + requested <= limit;
 }
@@ -376,6 +383,85 @@ billingRouter.get('/config', (_req, res) => {
     message: configReady() ? undefined : 'Payments are not enabled until USDT_TRC20_RECEIVE_ADDRESS and TRON_PRO_API_KEY are configured in the server environment.',
   });
 });
+
+// Full accounting export; access is restricted to the configured administrator account.
+billingRouter.get('/admin/export.csv', async (req, res) => {
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const userEmail = String((req as any).billingUser?.email || '').trim().toLowerCase();
+  if (!adminEmail || userEmail !== adminEmail) {
+    res.status(403).json({ error: 'Administrator access required.' });
+    return;
+  }
+
+  if ((req.query.from !== undefined && typeof req.query.from !== 'string') ||
+      (req.query.to !== undefined && typeof req.query.to !== 'string')) {
+    res.status(400).json({ error: 'Provide only one from and one to date.' });
+    return;
+  }
+  const from = typeof req.query.from === 'string' ? req.query.from : '';
+  const to = typeof req.query.to === 'string' ? req.query.to : '';
+  const isDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  };
+  if ((from && !isDate(from)) || (to && !isDate(to))) {
+    res.status(400).json({ error: 'Date filters must use valid YYYY-MM-DD dates.' });
+    return;
+  }
+  if (from && to && from > to) {
+    res.status(400).json({ error: 'The start date must not be later than the end date.' });
+    return;
+  }
+
+  try {
+    const db = getPool();
+    await db.query("UPDATE billing_invoices SET status='expired' WHERE status='pending' AND expires_at <= NOW()");
+    const result = await db.query(
+      `SELECT i.id AS invoice_id, COALESCE(u.email, '') AS email, i.plan_id,
+          i.amount_usdt::text AS amount_usdt, i.status, COALESCE(i.txid, '') AS txid,
+          i.payment_address, i.created_at, i.expires_at AS invoice_expires_at, i.paid_at,
+          COALESCE(s.status, 'none') AS subscription_status, s.request_limit,
+          s.started_at AS subscription_started_at, s.expires_at AS subscription_expires_at
+       FROM billing_invoices i
+       LEFT JOIN users u ON u.id = i.user_id
+       LEFT JOIN billing_subscriptions s ON s.invoice_id = i.id
+       WHERE ($1::date IS NULL OR i.created_at >= $1::date)
+         AND ($2::date IS NULL OR i.created_at < ($2::date + INTERVAL '1 day'))
+       ORDER BY i.created_at DESC
+       LIMIT 50001`,
+      [from || null, to || null],
+    );
+    if (result.rows.length > 50000) {
+      res.status(413).json({
+        error: 'This export contains more than 50,000 invoices. Add a narrower from/to date range and retry.',
+        maxRows: 50000,
+      });
+      return;
+    }
+
+    const columns = [
+      'invoice_id', 'email', 'plan_id', 'amount_usdt', 'invoice_status', 'txid',
+      'payment_address', 'invoice_created_at', 'invoice_expires_at', 'paid_at',
+      'subscription_status', 'request_limit', 'subscription_started_at', 'subscription_expires_at',
+    ];
+    const rows = result.rows.map((row: Record<string, unknown>) => [
+      row.invoice_id, row.email, row.plan_id, row.amount_usdt, row.status, row.txid,
+      row.payment_address, row.created_at, row.invoice_expires_at, row.paid_at,
+      row.subscription_status, row.request_limit, row.subscription_started_at, row.subscription_expires_at,
+    ]);
+    const csv = '\uFEFF' + [columns, ...rows].map(row => row.map(csvEscapeCell).join(',')).join('\r\n') + '\r\n';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="shieldcaptcha-accounting.csv"');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(csv);
+  } catch (error: any) {
+    console.error('[Billing] accounting CSV export failed:', error?.message || error);
+    res.status(503).json({ error: 'Could not export accounting data. Check PostgreSQL availability.' });
+  }
+});
+
 // Administrator-only accounting summary. Revenue counts only invoices verified on-chain as paid.
 billingRouter.get('/admin/summary', async (req, res) => {
   const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();

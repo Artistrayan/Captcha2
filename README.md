@@ -140,7 +140,8 @@ The deployed endpoint URL should be taken from the active deployment configurati
 - `GET /api/v1/sites`, `POST /api/v1/sites`, `DELETE /api/v1/sites/:id` — authenticated site management.
 - `POST /api/v1/captcha/challenge` — issue a challenge.
 - `POST /api/v1/captcha/verify` — public solve or private server-side receipt verification, selected by whether `secretKey` is supplied.
-- `GET /api/v1/analytics/usage` — authenticated 24-hour aggregate analytics for the current user's sites.
+- `GET /api/v1/analytics/usage` — authenticated 24-hour verification-attempt aggregates for the current user's sites (not a count of every HTTP endpoint).
+- `GET /api/v1/billing/admin/export.csv` — admin-only accounting CSV for invoices and subscriptions; optional `from=YYYY-MM-DD` and `to=YYYY-MM-DD` filters; maximum 50,000 rows per export.
 
 ## Deployment
 
@@ -165,7 +166,7 @@ After adding the variables, deploy the service and confirm the database migratio
 
 ### Important billing scope
 
-Invoices and 30-day subscription records are persisted. Accounts without an active paid plan receive 20 free challenge issuances total across all registered sites; refreshing the page or adding another site does not reset this allowance. Paid plans use a rolling 30-day challenge-issuance quota based on the purchased plan allowance plus its configured bonus. Verification retries for a single issued challenge do not consume extra quota. The current implementation does not meter every HTTP endpoint uniformly and does not yet provide refunds, automatic renewals, accounting exports, or a payment-provider webhook. Expired pending invoices are marked expired when billing history or the administrator accounting summary is read. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
+Invoices and 30-day subscription records are persisted. Accounts without an active paid plan receive 20 free challenge issuances total across all registered sites; refreshing the page or adding another site does not reset this allowance. Paid plans use a rolling 30-day challenge-issuance quota based on the purchased plan allowance plus its configured bonus. Verification retries for a single issued challenge do not consume extra quota. The current implementation does not meter every HTTP endpoint uniformly and does not provide automatic refunds, automatic renewals, or a payment-provider webhook. The admin-only accounting CSV export includes invoice and subscription fields, supports optional `from`/`to` date filters, and caps each file at 50,000 rows to avoid oversized exports. Expired pending invoices are marked expired when billing history, the accounting summary, or the export is requested. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
 
 
 ## Adaptive anti-bot risk engine

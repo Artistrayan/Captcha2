@@ -5,6 +5,7 @@ import {
   matchesTronUsdtTransferEvent,
   quotaAllows,
   consumeApiRateLimit,
+  csvEscapeCell,
 } from '../src/server/billing.ts';
 
 describe('billing and usage guardrails', () => {
@@ -38,6 +39,13 @@ describe('billing and usage guardrails', () => {
     } finally {
       if (previousDatabaseUrl !== undefined) process.env.DATABASE_URL = previousDatabaseUrl;
     }
+  });
+
+  it('escapes CSV cells and neutralizes spreadsheet formula injection', () => {
+    expect(csvEscapeCell('customer,one@example.com')).toBe('"customer,one@example.com"');
+    expect(csvEscapeCell('A "quoted" value')).toBe('"A ""quoted"" value"');
+    expect(csvEscapeCell('=HYPERLINK("https://example.invalid")')).toBe('"\'=HYPERLINK(""https://example.invalid"")"');
+    expect(csvEscapeCell(null)).toBe('""');
   });
 
   it('accepts only an exact USDT TRC20 transfer event for the requested invoice', () => {
