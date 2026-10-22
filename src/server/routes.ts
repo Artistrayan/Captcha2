@@ -5,6 +5,7 @@ import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser, isEmailRegistered } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
 import { calculatePassRatePercent } from '../utils/analytics.ts';
+import { assessCaptchaRisk } from '../captcha/risk-engine.ts';
 import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
 
 export const apiRouter = Router();
@@ -561,10 +562,18 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
       paidUsageReservationId = quota.reservationId;
     }
 
+    const recentEvents = await dbRepository.getRecentEvents(parsed.data.siteKey);
+    const issueRisk = assessCaptchaRisk({
+      remoteIp: req.ip || req.socket.remoteAddress || 'unknown',
+      userAgent: req.get('user-agent') || '',
+      acceptLanguage: req.get('accept-language') || '',
+      recentEvents,
+    });
     const challenge = await issueCaptchaChallenge(
       parsed.data.siteKey,
       requestDomain,
-      parsed.data.lang
+      parsed.data.lang,
+      IS_PRODUCTION && issueRisk.action !== 'allow'
     );
     if (paidUsageReservationId) {
       await completePaidCaptchaUsage(paidUsageReservationId, challenge.token);
@@ -661,6 +670,8 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
         remoteIp: clientIp,
         hostname: verifyHostname,
         action: parsed.data.action,
+        userAgent: req.get('user-agent') || '',
+        acceptLanguage: req.get('accept-language') || '',
       });
 
   res.json(result);

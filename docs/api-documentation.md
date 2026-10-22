@@ -63,8 +63,8 @@ Generates a randomized visual challenge for the specified Site Key and domain.
     { "id": "opt_m3n4o5p6", "svg": "data:image/svg+xml;utf8,..." }
   ],
   "token": "sct_XYZ1234567890abcdef...",
-  "expiresInSeconds": 120,
-  "expiresAt": "2026-10-19T10:22:00.000Z"
+  "expiresInSeconds": 20,
+  "expiresAt": "2026-10-19T10:20:20.000Z"
 }
 ```
 
@@ -93,12 +93,14 @@ Called by your backend server to verify the user-submitted CAPTCHA token.
 ```json
 {
   "success": true,
-  "score": 95,
+  "score": 96,
   "hostname": "example.com",
   "challenge_ts": "2026-10-19T10:21:15.000Z",
   "action": "login",
   "development_mode": true,
-  "error_codes": []
+  "error_codes": [],
+  "risk_action": "allow",
+  "risk_signals": ["quick-solve"]
 }
 ```
 
@@ -119,8 +121,18 @@ Called by your backend server to verify the user-submitted CAPTCHA token.
 - `missing-input-response`: The `token` parameter was missing.
 - `invalid-input-response`: The `token` parameter is malformed or invalid.
 - `timeout-or-duplicate`: The token was already consumed or has timed out (Replay Protection).
-- `challenge-expired`: The challenge TTL (120s) has expired.
+- `challenge-expired`: The challenge TTL (20s) has expired.
 - `max-attempts-exceeded`: Too many incorrect solution attempts were submitted.
 - `incorrect-captcha-sol`: The visual item selected does not match the prompt.
 - `invalid-secret-key`: The provided Secret Key does not match the site.
 - `domain-mismatch`: The origin or domain is not authorized in site settings.
+
+
+## Adaptive anti-bot risk fields
+
+Every verification response includes a server-computed `score` from 0 (highest risk) to 100 (lowest observed risk). It is based on solve duration, incorrect attempts, automation-like user-agent indicators, request headers, and recent verification volume/failures from the same IP. The response can also include:
+
+- `risk_action`: `allow`, `challenge`, or `block`.
+- `risk_signals`: short reason codes explaining which signals affected the score.
+
+The score is a deterministic rules-based risk estimate, not a trained machine-learning probability. Do not trust a score supplied by the browser. For ordinary sensitive actions, apply a server-side policy such as requiring `success === true` and `score >= 70`; consider a higher threshold and additional controls for payments, account recovery, and administrator actions. Tune thresholds against your own false-positive and abuse data.

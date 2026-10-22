@@ -166,3 +166,10 @@ After adding the variables, deploy the service and confirm the database migratio
 ### Important billing scope
 
 Invoices and 30-day subscription records are persisted, and the server applies a rolling 30-day challenge/verification usage quota (10,000 requests for accounts without a paid active plan). The current implementation does not yet meter every HTTP endpoint uniformly or provide refunds, automatic renewals, accounting exports, or a payment-provider webhook. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
+
+
+## Adaptive anti-bot risk engine
+
+The API uses an explainable server-side rules engine to score challenge attempts using solve duration, incorrect attempts, browser automation indicators, language-header consistency, and recent verification volume/failures per IP. Suspicious traffic receives a harder challenge; only extreme combined risk is blocked. Risk scores and reason codes are returned with verification results and recorded with verification events. The score is computed only on the server and is never accepted from client input.
+
+This is a deterministic risk engine, **not a trained machine-learning model**. A genuine ML model requires a versioned model, representative labelled bot/human traffic, evaluation for false positives, and a safe rollout process; it must not be advertised as deployed until those exist.

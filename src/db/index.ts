@@ -823,6 +823,18 @@ export const dbRepository = {
     return ticket;
   },
 
+  async getVerificationEventByToken(token: string): Promise<schema.VerificationEvent | null> {
+    if (isPgConnected && drizzleDb) {
+      const rows = await drizzleDb.select().from(schema.verificationEvents)
+        .where(eq(schema.verificationEvents.token, token))
+        .orderBy(desc(schema.verificationEvents.createdAt))
+        .limit(1);
+      return rows[0] || null;
+    }
+    const state = loadState();
+    return (state.verificationEvents.find(event => event.token === token) as schema.VerificationEvent) || null;
+  },
+
   async getRecentEvents(siteKey?: string): Promise<schema.VerificationEvent[]> {
     if (isPgConnected && drizzleDb) {
       if (siteKey) {
