@@ -1188,7 +1188,7 @@ export default function App() {
                 {/* Embedded Widget */}
                 {selectedSiteKey ? (
                   <CaptchaWidget
-                  usageType="test"
+                    usageType="test"
                     key={selectedSiteKey}
                     siteKey={selectedSiteKey}
                     lang={meta.code as any}
