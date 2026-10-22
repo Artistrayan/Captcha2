@@ -22,16 +22,22 @@ describe('billing and usage guardrails', () => {
     expect(quotaAllows(19, 20, 1.5)).toBe(false);
   });
 
-  it('enforces a shared fixed-window rate limit for repeated keys', async () => {
-    const key = `test-rate-limit:${crypto.randomUUID()}`;
-    const first = await consumeApiRateLimit(key, 1, 60_000);
-    const second = await consumeApiRateLimit(key, 1, 60_000);
+  it('enforces a fixed-window rate limit in isolated local-test mode', async () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      const key = `test-rate-limit:${crypto.randomUUID()}`;
+      const first = await consumeApiRateLimit(key, 1, 60_000);
+      const second = await consumeApiRateLimit(key, 1, 60_000);
 
-    expect(first.allowed).toBe(true);
-    expect(first.count).toBe(1);
-    expect(second.allowed).toBe(false);
-    expect(second.count).toBe(2);
-    expect(second.resetAt).toBe(first.resetAt);
+      expect(first.allowed).toBe(true);
+      expect(first.count).toBe(1);
+      expect(second.allowed).toBe(false);
+      expect(second.count).toBe(2);
+      expect(second.resetAt).toBe(first.resetAt);
+    } finally {
+      if (previousDatabaseUrl !== undefined) process.env.DATABASE_URL = previousDatabaseUrl;
+    }
   });
 
   it('accepts only an exact USDT TRC20 transfer event for the requested invoice', () => {
