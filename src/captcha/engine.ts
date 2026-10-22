@@ -53,6 +53,55 @@ function createPrismFlowSvg(angles: number[]): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">${angles.map((angle, index) => arrow(4 + index * 8, angle)).join('')}</svg>`;
 }
 
+
+function polygonPath(sides: number, cx: number, cy: number, radius: number, rotation = -90): string {
+  const points = Array.from({ length: sides }, (_, i) => {
+    const angle = (rotation + (360 * i) / sides) * Math.PI / 180;
+    return `${(cx + Math.cos(angle) * radius).toFixed(2)},${(cy + Math.sin(angle) * radius).toFixed(2)}`;
+  });
+  return points.join(' ');
+}
+
+function polygonSvg(sides: number, rotation = -90): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="${polygonPath(sides, 50, 50, 34, rotation)}" fill="#0f172a" stroke="#67e8f9" stroke-width="3" stroke-linejoin="round"/><circle cx="50" cy="50" r="3" fill="#f8fafc"/></svg>`;
+}
+
+function buildPolygonSequenceItems(optionCount: number): Array<{ category: string; correct: boolean; svgOverride?: string }> {
+  const correct = [3, 4, 5];
+  const sequences: Array<{ sides: number[]; correct: boolean }> = [{ sides: correct, correct: true }];
+  const seen = new Set([correct.join(',')]);
+  while (sequences.length < optionCount) {
+    const sides = Array.from({ length: 3 }, () => crypto.randomInt(3, 9));
+    const signature = sides.join(',');
+    if (sides[1] === sides[0] + 1 && sides[2] === sides[1] + 1 || seen.has(signature)) continue;
+    seen.add(signature);
+    sequences.push({ sides, correct: false });
+  }
+  for (let i = sequences.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [sequences[i], sequences[j]] = [sequences[j], sequences[i]];
+  }
+  return sequences.map(({ sides, correct: isCorrect }) => ({
+    category: 'key',
+    correct: isCorrect,
+    svgOverride: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 64">${sides.map((n, i) => `<polygon points="${polygonPath(n, 30 + i * 60, 32, 15)}" fill="#0f172a" stroke="#67e8f9" stroke-width="2" stroke-linejoin="round"/>`).join('')}</svg>`,
+  }));
+}
+
+function buildPolygonCountItems(optionCount: number): Array<{ category: string; correct: boolean; svgOverride?: string }> {
+  const distractors = [3, 4, 6, 7, 8];
+  for (let i = distractors.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
+  }
+  const sides = [5, ...distractors.slice(0, optionCount - 1)];
+  for (let i = sides.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [sides[i], sides[j]] = [sides[j], sides[i]];
+  }
+  return sides.map(n => ({ category: 'key', correct: n === 5, svgOverride: polygonSvg(n) }));
+}
+
 function buildPrismFlowItems(optionCount: number): Array<{ category: string; correct: boolean; rotationAngle?: number; svgOverride?: string }> {
   const start = crypto.randomInt(0, 4) * 90;
   const direction = crypto.randomInt(0, 2) === 0 ? 1 : -1;
@@ -190,9 +239,9 @@ export async function issueCaptchaChallenge(
   }
 
   // Pick one of three visual challenge modes using a cryptographically secure RNG.
-  const challengeMode = (['IMAGE_SELECTION', 'ODD_ONE_OUT', 'ROTATION_MATCH', 'PRISM_FLOW'] as const)[crypto.randomInt(0, 4)];
+  const challengeMode = (['PRISM_FLOW', 'POLYGON_SEQUENCE', 'POLYGON_COUNT'] as const)[crypto.randomInt(0, 3)];
   const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
-  const targetPool = challengeMode === 'ROTATION_MATCH' || challengeMode === 'PRISM_FLOW' ? rotationCategories : CATEGORIES;
+  const targetPool = rotationCategories;
   const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
 
   // Difficulty controls the number of visually plausible distractors.
@@ -213,30 +262,9 @@ export async function issueCaptchaChallenge(
   const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number; svgOverride?: string }> =
     challengeMode === 'PRISM_FLOW'
       ? buildPrismFlowItems(optionCount)
-      : challengeMode === 'ROTATION_MATCH'
-      ? [
-          { category: targetCategory, correct: true, rotationAngle: 0 },
-          ...rotationAngles.slice(0, optionCount - 1).map(rotationAngle => ({
-            category: targetCategory,
-            correct: false,
-            rotationAngle,
-          })),
-        ]
-      : challengeMode === 'ODD_ONE_OUT'
-        ? [
-            { category: targetCategory, correct: true },
-            ...Array.from({ length: optionCount - 1 }, () => ({
-              category: otherCategories[0],
-              correct: false,
-            })),
-          ]
-        : [
-            { category: targetCategory, correct: true },
-            ...otherCategories.slice(0, optionCount - 1).map(category => ({
-              category,
-              correct: false,
-            })),
-          ];
+      : challengeMode === 'POLYGON_SEQUENCE'
+        ? buildPolygonSequenceItems(optionCount)
+        : buildPolygonCountItems(optionCount);
 
   for (let i = challengeItems.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
@@ -249,11 +277,7 @@ export async function issueCaptchaChallenge(
     const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
     if (item.correct) correctOptionId = optId;
     let optionSvg = item.svgOverride || SVG_ICONS[item.category];
-    if (challengeMode === 'ROTATION_MATCH' && item.rotationAngle) {
-      optionSvg = optionSvg
-        .replace(/(<svg\b[^>]*>)/, `$1<g transform="rotate(${item.rotationAngle} 12 12)">`)
-        .replace(/<\/svg>\s*$/, '</g></svg>');
-    }
+
     const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}`;
     options.push({ id: optId, svg: encodedSvg });
   }
@@ -268,46 +292,44 @@ export async function issueCaptchaChallenge(
     .update(`${challengeId}:${correctOptionId}`)
     .digest('hex');
 
-  const prompt = challengeMode === 'PRISM_FLOW'
-    ? ({
-        fa: 'توالی‌ای را انتخاب کنید که جهت هر پیکان در آن ۹۰ درجه و در یک جهت می‌چرخد.',
-        en: 'Select the sequence where each arrow turns 90 degrees in the same direction.',
-        es: 'Seleccione la secuencia en la que cada flecha gira 90 grados en la misma dirección.',
-        zh: '请选择每个箭头都沿同一方向旋转 90 度的序列。',
-        ar: 'اختر التسلسل الذي يدور فيه كل سهم 90 درجة في الاتجاه نفسه.',
-        fr: 'Sélectionnez la séquence où chaque flèche tourne de 90 degrés dans le même sens.',
-        de: 'Wählen Sie die Folge, in der sich jeder Pfeil in dieselbe Richtung um 90 Grad dreht.',
-        ru: 'Выберите последовательность, в которой каждая стрелка поворачивается на 90 градусов в одном направлении.',
-        pt: 'Selecione a sequência em que cada seta gira 90 graus na mesma direção.',
-        ja: '各矢印が同じ方向に90度回転する並びを選択してください。',
-      } as Record<string, string>)[lang] || 'Select the sequence where each arrow turns 90 degrees in the same direction.'
-    : challengeMode === 'ODD_ONE_OUT'
-    ? ({
-        fa: 'تصویری را انتخاب کنید که با بقیه متفاوت است.',
-        en: 'Select the image that is different from the others.',
-        es: 'Seleccione la imagen diferente de las demás.',
-        zh: '请选择与其他图标不同的图片。',
-        ar: 'اختر الصورة المختلفة عن البقية.',
-        fr: 'Sélectionnez l’image différente des autres.',
-        de: 'Wählen Sie das Bild, das sich von den anderen unterscheidet.',
-        ru: 'Выберите изображение, которое отличается от остальных.',
-        pt: 'Selecione a imagem diferente das outras.',
-        ja: 'ほかと異なる画像を選択してください。',
-      } as Record<string, string>)[lang] || 'Select the image that is different from the others.'
-    : challengeMode === 'ROTATION_MATCH'
-      ? ({
-          fa: 'تصویری را انتخاب کنید که در جهت درست قرار دارد.',
-          en: 'Select the image that is upright.',
-          es: 'Seleccione la imagen que está en la orientación correcta.',
-          zh: '请选择方向正确的图片。',
-          ar: 'اختر الصورة ذات الاتجاه الصحيح.',
-          fr: 'Sélectionnez l’image dans le bon sens.',
-          de: 'Wählen Sie das richtig ausgerichtete Bild.',
-          ru: 'Выберите изображение в правильной ориентации.',
-          pt: 'Selecione a imagem na orientação correta.',
-          ja: '正しい向きの画像を選択してください。',
-        } as Record<string, string>)[lang] || 'Select the image that is upright.'
-      : generatePromptForLanguage(targetCategory, lang);
+  const prompt = ({
+    PRISM_FLOW: {
+      fa: 'توالی‌ای را انتخاب کنید که جهت هر پیکان در آن ۹۰ درجه و در یک جهت می‌چرخد.',
+      en: 'Select the sequence where each arrow turns 90 degrees in the same direction.',
+      es: 'Seleccione la secuencia en la que cada flecha gira 90 grados en la misma dirección.',
+      zh: '请选择每个箭头都沿同一方向旋转 90 度的序列。',
+      ar: 'اختر التسلسل الذي يدور فيه كل سهم 90 درجة في الاتجاه نفسه.',
+      fr: 'Sélectionnez la séquence où chaque flèche tourne de 90 degrés dans le même sens.',
+      de: 'Wählen Sie die Folge, in der sich jeder Pfeil in dieselbe Richtung um 90 Grad dreht.',
+      ru: 'Выберите последовательность, в которой каждая стрелка поворачивается на 90 градусов в одном направлении.',
+      pt: 'Selecione a sequência em que cada seta gira 90 graus na mesma direção.',
+      ja: '各矢印が同じ方向に90度回転する並びを選択してください。',
+    },
+    POLYGON_SEQUENCE: {
+      fa: 'توالی چندضلعی‌هایی را انتخاب کنید که تعداد ضلع‌ها در هر مرحله یکی بیشتر می‌شود.',
+      en: 'Select the polygon sequence that adds exactly one side at each step.',
+      es: 'Seleccione la secuencia de polígonos que añade exactamente un lado en cada paso.',
+      zh: '请选择每一步都恰好增加一条边的多边形序列。',
+      ar: 'اختر تسلسل المضلعات الذي يضيف ضلعًا واحدًا بالضبط في كل خطوة.',
+      fr: 'Sélectionnez la suite de polygones qui ajoute exactement un côté à chaque étape.',
+      de: 'Wählen Sie die Polygonfolge, die bei jedem Schritt genau eine Seite hinzufügt.',
+      ru: 'Выберите последовательность многоугольников, в которой на каждом шаге добавляется ровно одна сторона.',
+      pt: 'Selecione a sequência de polígonos que adiciona exatamente um lado em cada etapa.',
+      ja: '各段階で辺がちょうど1本ずつ増える多角形の並びを選択してください。',
+    },
+    POLYGON_COUNT: {
+      fa: 'پنج‌ضلعی را انتخاب کنید؛ شکلی که دقیقاً پنج ضلع دارد.',
+      en: 'Select the pentagon: the polygon with exactly five sides.',
+      es: 'Seleccione el pentágono: el polígono que tiene exactamente cinco lados.',
+      zh: '请选择五边形，即恰好有五条边的多边形。',
+      ar: 'اختر الشكل الخماسي الذي يحتوي على خمسة أضلاع بالضبط.',
+      fr: 'Sélectionnez le pentagone, le polygone qui possède exactement cinq côtés.',
+      de: 'Wählen Sie das Fünfeck mit genau fünf Seiten.',
+      ru: 'Выберите пятиугольник — фигуру ровно с пятью сторонами.',
+      pt: 'Selecione o pentágono, o polígono com exatamente cinco lados.',
+      ja: '辺がちょうど5本ある五角形を選択してください。',
+    },
+  } as Record<string, Record<string, string>>)[challengeMode]?.[lang] || 'Select the correct geometric pattern.';
 
   // Persist challenge in database
   await dbRepository.createChallenge({
