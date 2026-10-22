@@ -14,8 +14,8 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
 - The standalone admin console defaults to English and includes an EN/FA language toggle.
 - The language toggle updates the admin dashboard labels, direction, and date formatting as well as the login screen.
 - Hostname allow-list validation when issuing challenges.
-- Three SVG challenge patterns: category selection, odd-one-out, and upright/rotation matching, with randomized opaque option IDs.
-- Four incorrect answers allowed per challenge; a fifth request is rejected.
+- Three randomized geometric SVG challenge patterns: PrismFlow arrow sequences, polygon side-count sequences, and pentagon identification.
+- Two incorrect answers are allowed per challenge; the second consumes the challenge and a third attempt is rejected.
 - 20-second solve deadline.
 - Server-only HMAC answer validation, atomic challenge consumption, and replay protection.
 - Separate one-time server-to-server receipt verification using the site's secret key.
@@ -146,7 +146,7 @@ The deployed endpoint URL should be taken from the active deployment configurati
 
 The repository includes `render.yaml` for a Render web service and PostgreSQL database. Before production deployment, configure the Render environment variables for the Firebase Web API key, Firebase project ID, valid Firebase service-account JSON, and the generated server secrets. Then verify `GET /api/v1/health` reports `healthy` and test the complete browser-solve plus server-receipt flow against the deployed service.
 
-A green CI run verifies type-checking, automated tests, PostgreSQL migrations, and the production build; it does not by itself prove that production environment variables or a live deployment are configured correctly.
+A green CI run verifies type-checking, automated tests, PostgreSQL migrations, the standalone admin console build, and the production build; it does not by itself prove that production environment variables or a live deployment are configured correctly. `/api/v1/health` reports the active geometric and rule-based engines and explicitly reports supervised ML as shadow-only, including whether a trained model artifact is available.
 
 
 ## Crypto subscriptions (USDT TRC20)
@@ -165,7 +165,7 @@ After adding the variables, deploy the service and confirm the database migratio
 
 ### Important billing scope
 
-Invoices and 30-day subscription records are persisted, and the server applies a rolling 30-day challenge/verification usage quota (10,000 requests for accounts without a paid active plan). The current implementation does not yet meter every HTTP endpoint uniformly or provide refunds, automatic renewals, accounting exports, or a payment-provider webhook. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
+Invoices and 30-day subscription records are persisted. Accounts without an active paid plan receive 20 free challenge issuances total across all registered sites; refreshing the page or adding another site does not reset this allowance. Paid plans use a rolling 30-day challenge-issuance quota based on the purchased plan allowance plus its configured bonus. Verification retries for a single issued challenge do not consume extra quota. The current implementation does not meter every HTTP endpoint uniformly and does not yet provide refunds, automatic renewals, accounting exports, or a payment-provider webhook. Expired pending invoices are marked expired when billing history or the administrator accounting summary is read. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
 
 
 ## Adaptive anti-bot risk engine
