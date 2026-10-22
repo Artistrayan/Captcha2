@@ -184,7 +184,8 @@ export async function issueCaptchaChallenge(
   for (const item of challengeItems) {
     const optId = `opt_${crypto.randomBytes(6).toString('hex')}`;
     if (item.correct) correctOptionId = optId;
-    let optionSvg = item.svgOverride || SVG_ICONS[item.category];
+    const optionSvg = item.svgOverride;
+    if (!optionSvg) throw new Error('CAPTCHA_GEOMETRY_RENDER_FAILED');
 
     const encodedSvg = `data:image/svg+xml;utf8,${encodeURIComponent(optionSvg)}`;
     options.push({ id: optId, svg: encodedSvg });
