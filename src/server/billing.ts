@@ -386,6 +386,8 @@ billingRouter.get('/admin/summary', async (req, res) => {
   }
   try {
     const db = getPool();
+    // Expire stale pending invoices before calculating financial and plan-status aggregates.
+    await db.query("UPDATE billing_invoices SET status='expired' WHERE status='pending' AND expires_at <= NOW()");
     const [totals, statuses, plans, recent, subscriptions] = await Promise.all([
       db.query(`
         SELECT COUNT(*)::int AS total_invoices,
@@ -428,7 +430,10 @@ billingRouter.get('/admin/summary', async (req, res) => {
 billingRouter.get('/invoices', async (req, res) => {
   try {
     const user = (req as any).billingUser;
-    const result = await getPool().query(
+    const db = getPool();
+    // Keep invoice history aligned with the 30-minute payment deadline.
+    await db.query("UPDATE billing_invoices SET status='expired' WHERE status='pending' AND expires_at <= NOW()");
+    const result = await db.query(
       'SELECT id, plan_id, amount_usdt, status, txid, expires_at, created_at, paid_at FROM billing_invoices WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20',
       [user.id],
     );
