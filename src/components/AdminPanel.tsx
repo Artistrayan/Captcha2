@@ -16,6 +16,7 @@ const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'activity', label: 'رویدادهای امنیتی', icon: <Activity className="h-4 w-4" /> },
 ];
 const statuses = ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'];
+const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 const dateText = (value: string) => value ? new Date(value).toLocaleString('fa-IR') : '—';
 
 export default function AdminPanel() {
@@ -37,7 +38,7 @@ export default function AdminPanel() {
   const selected = tickets.find(ticket => ticket.id === selectedId);
 
   const api = useCallback(async (path: string) => {
-    const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await fetch(`${apiBase}${path}`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await response.json();
     if (response.status === 401) throw new Error('نشست ورود معتبر نیست. از صفحه اصلی دوباره وارد شوید.');
     if (response.status === 403) throw new Error('این حساب مجوز مدیریت سامانه را ندارد.');
@@ -77,7 +78,7 @@ export default function AdminPanel() {
     if (!selected || reply.trim().length < 2) return;
     setBusy(true); setError('');
     try {
-      const response = await fetch(`/api/v1/support/tickets/${encodeURIComponent(selected.id)}/replies`, {
+      const response = await fetch(`${apiBase}/api/v1/support/tickets/${encodeURIComponent(selected.id)}/replies`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ body: reply.trim(), status }),
       });
@@ -92,7 +93,7 @@ export default function AdminPanel() {
   const signOut = () => {
     sessionStorage.removeItem('shieldcaptcha_id_token');
     sessionStorage.removeItem('shieldcaptcha_user_email');
-    setToken(''); setIsAdmin(false); window.location.href = '/';
+    setToken(''); setIsAdmin(false); window.location.href = import.meta.env.VITE_MAIN_APP_URL || '/';
   };
 
   const pageTitle = sections.find(item => item.id === section)?.label || 'پنل مدیریت';
