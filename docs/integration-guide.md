@@ -11,7 +11,7 @@ This guide walks you through integrating the ShieldCaptcha widget into your web 
 3. **Frontend**: Receives a single-use `token` upon successful puzzle resolution.
 4. **Form Submission**: Submits the `token` along with login/checkout form data to your server.
 5. **Backend**: Calls `POST /api/v1/captcha/verify` using your private `secretKey` and the client's `token`.
-6. **Decision**: If `success: true`, proceed with processing the user request.
+6. **Decision**: Require `success: true` and apply your server-side risk threshold before processing sensitive requests.
 
 ---
 
@@ -95,7 +95,7 @@ app.post('/api/checkout', async (req, res) => {
 
   const verification = await verifyResponse.json();
 
-  if (!verification.success) {
+  // CAPTCHA validity and bot-risk policy are separate checks. Tune the threshold for your use case.\n  if (!verification.success || verification.score < 70 || verification.risk_action === 'block') {
     return res.status(403).json({
       error: 'Bot verification failed',
       details: verification.error_codes,
@@ -114,4 +114,11 @@ app.post('/api/checkout', async (req, res) => {
 
 1. **Keep Secret Keys Private**: Never place your `secretKey` in frontend code, client bundles, or mobile applications.
 2. **Always Verify Server-Side**: Client-side verification alone cannot protect against bots and automated scripts.
-3. **Handle Replays Gracefully**: Each token is single-use and valid for 120 seconds. If a user submits a form multiple times, require a new challenge.
+3. **Handle Replays Gracefully**: Each token is single-use and valid for 20 seconds. If a user submits a form multiple times, require a new challenge.
+
+
+## Adaptive risk policy
+
+The verification API computes risk on the server and may return `risk_action` (`allow`, `challenge`, or `block`) and `risk_signals`. A valid visual answer does not mean every action is safe: check the returned score server-side. A starting threshold of 70 is reasonable for ordinary form submissions; use stronger checks for payments, sign-in abuse, password reset, and privileged operations. Do not use the score as the only security control.
+
+The current engine is an explainable rules-based detector, not a trained ML model. A trained model must only be enabled after collecting appropriately protected, labelled traffic and validating false-positive rates.
