@@ -173,31 +173,33 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect(validVerify.body.success).toBe(true);
   });
 
-  it('6. Allows four incorrect attempts and locks out the fifth attempt', async () => {
+  it('allows two incorrect answers and consumes the challenge on the second', async () => {
     const chRes = await request(app)
       .post('/api/v1/captcha/challenge')
-      .send({ siteKey: testSiteKey });
+      .send({ siteKey: testSiteKey, domain: 'localhost' });
 
+    expect(chRes.status).toBe(200);
     const { token } = chRes.body;
+    const storedChallenge = await dbRepository.getChallengeByToken(token);
+    expect(storedChallenge?.maxAttempts).toBe(2);
 
-    // Four incorrect answers are allowed; the challenge is consumed after the fourth.
-    let fourthAttempt: any;
-    for (let i = 0; i < 4; i++) {
-      const attemptRes = await request(app)
-        .post('/api/v1/captcha/verify')
-        .send({ token, selectedOptionId: 'opt_wrong_attempt' });
-      if (i === 3) fourthAttempt = attemptRes;
-    }
-    expect(fourthAttempt.body.success).toBe(false);
-    expect(fourthAttempt.body.error_codes).toContain('incorrect-captcha-sol');
-
-    // Fifth attempt must be rejected because the fourth incorrect answer consumed the challenge.
-    const fifthRes = await request(app)
+    const firstAttempt = await request(app)
       .post('/api/v1/captcha/verify')
       .send({ token, selectedOptionId: 'opt_wrong_attempt' });
+    expect(firstAttempt.body.success).toBe(false);
+    expect(firstAttempt.body.error_codes).toContain('incorrect-captcha-sol');
 
-    expect(fifthRes.body.success).toBe(false);
-    expect(['timeout-or-duplicate', 'max-attempts-exceeded']).toContain(fifthRes.body.error_codes[0]);
+    const secondAttempt = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: 'opt_wrong_attempt' });
+    expect(secondAttempt.body.success).toBe(false);
+    expect(secondAttempt.body.error_codes).toContain('incorrect-captcha-sol');
+
+    const thirdAttempt = await request(app)
+      .post('/api/v1/captcha/verify')
+      .send({ token, selectedOptionId: 'opt_wrong_attempt' });
+    expect(thirdAttempt.body.success).toBe(false);
+    expect(['timeout-or-duplicate', 'max-attempts-exceeded']).toContain(thirdAttempt.body.error_codes[0]);
   });
 
   it('7. Replay Attack Prevention: Token is single-use and cannot be verified twice', async () => {
