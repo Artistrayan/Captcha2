@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser, isEmailRegistered } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
+import { calculatePassRatePercent } from '../utils/analytics.ts';
 import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
 
 export const apiRouter = Router();
@@ -111,7 +112,7 @@ apiRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request
       requests24h: analytics.totalRequests,
       passed24h: analytics.passedRequests,
       blocked24h: analytics.blockedRequests,
-      passRate24h: analytics.totalRequests ? Math.round((analytics.passedRequests / analytics.totalRequests) * 100) : 0,
+      passRate24h: calculatePassRatePercent(analytics.totalRequests, analytics.passedRequests),
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -678,9 +679,7 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
       totalRequests: summary.totalRequests,
       passedRequests: summary.passedRequests,
       blockedRequests: summary.blockedRequests,
-      passRatePercent: summary.totalRequests > 0
-        ? Math.round((summary.passedRequests / summary.totalRequests) * 100)
-        : 0,
+      passRatePercent: calculatePassRatePercent(summary.totalRequests, summary.passedRequests),
     },
     recentEvents: summary.recentEvents.slice(0, 50),
     hourlyTraffic: summary.hourlyTraffic,

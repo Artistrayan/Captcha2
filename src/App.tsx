@@ -1,3 +1,4 @@
+import { calculatePassRatePercent } from './utils/analytics.ts';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Shield, Key, Globe, Plus, Trash2, Copy, Check, RefreshCw, Wallet,
@@ -529,11 +530,15 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok && data.summary) {
+        const totalRequests = Number(data.summary.totalRequests) || 0;
+        const passedRequests = Number(data.summary.passedRequests) || 0;
+        const blockedRequests = Number(data.summary.blockedRequests) || 0;
         setAnalyticsSummary({
-          totalRequests: Number(data.summary.totalRequests) || 0,
-          passedRequests: Number(data.summary.passedRequests) || 0,
-          blockedRequests: Number(data.summary.blockedRequests) || 0,
-          passRatePercent: Number(data.summary.passRatePercent) || 0,
+          totalRequests,
+          passedRequests,
+          blockedRequests,
+          // Derive the percentage from the displayed counts to prevent stale/inconsistent rates.
+          passRatePercent: calculatePassRatePercent(totalRequests, passedRequests),
         });
       }
       if (res.ok && data.recentEvents) {

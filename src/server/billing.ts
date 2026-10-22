@@ -308,6 +308,27 @@ async function requireBillingAuth(req: Request, res: Response, next: NextFunctio
     res.status(401).json({ error: 'Unauthorized', message: 'Please sign in again.' });
   }
 }
+// Apply a per-IP guard before Firebase token verification to limit unauthenticated abuse.
+billingRouter.use(async (req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  try {
+    const result = await consumeApiRateLimit(`billing-ip:${ip}:${req.method}:${req.path}`, 30, 60_000);
+    if (!result.allowed) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))));
+      res.status(429).json({ error: 'Too many billing requests from this network. Please retry shortly.' });
+      return;
+    }
+    next();
+  } catch (error: any) {
+    console.error('[Billing] IP rate limiter unavailable:', error?.message || error);
+    if (IS_PRODUCTION) {
+      res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Please retry shortly.' });
+      return;
+    }
+    next();
+  }
+});
+
 billingRouter.use(requireBillingAuth);
 
 billingRouter.use(async (req, res, next) => {
