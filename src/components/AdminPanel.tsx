@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { translateAdminText } from '../i18n/AutoTranslate.tsx';
+import { AutoTranslate, translateAdminText } from '../i18n/AutoTranslate.tsx';
 import { Activity, AlertCircle, Building2, CheckCircle2, Clock, DollarSign, LayoutDashboard, LifeBuoy, LogOut, Receipt, RefreshCw, Send, ShieldCheck, Users, Wallet } from 'lucide-react';
 
 type TicketMessage = { id: string; authorId: string; authorRole: string; body: string; createdAt: string };
@@ -122,7 +122,7 @@ export default function AdminPanel() {
   };
 
   const pageTitle = sections.find(item => item.id === section)?.label || 'پنل مدیریت';
-  return <div dir={sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-950 text-slate-100">
+  return <AutoTranslate lang={sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en'}><div dir={sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-950 text-slate-100">
     <header className="border-b border-slate-800 bg-slate-900/90">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400"><ShieldCheck className="h-6 w-6" /></div><div><h1 className="text-xl font-bold">مرکز مدیریت ShieldCaptcha</h1><p className="mt-1 text-xs text-slate-400">کنترل کاربران، وب‌سایت‌ها، فعالیت امنیتی و پشتیبانی</p></div></div>
@@ -196,7 +196,7 @@ export default function AdminPanel() {
         </div>
       </>}
     </main>
-  </div>;
+  </div></AutoTranslate>;
 }
 function Metric({ icon, label, value, suffix = '' }: { icon: React.ReactNode; label: string; value: number; suffix?: string }) {
   const language = sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en';
