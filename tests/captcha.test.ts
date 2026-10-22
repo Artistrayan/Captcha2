@@ -43,6 +43,9 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect(res.body.status).toBe('healthy');
     expect(res.body.database).toBeDefined();
     expect(res.body.firebaseAuth).toBeDefined();
+    expect(res.body.captchaEngines.geometricChallenges).toBe('active');
+    expect(res.body.captchaEngines.ruleBasedRiskScoring).toBe('active');
+    expect(res.body.captchaEngines.supervisedMl.mode).toBe('shadow-only');
   });
 
   it('2. POST /api/v1/captcha/challenge should issue randomized challenge without revealing the answer', async () => {
