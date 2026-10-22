@@ -447,7 +447,7 @@ export const dbRepository = {
       token: data.token,
       expiresAt: data.expiresAt,
       attemptsCount: 0,
-      maxAttempts: data.maxAttempts || 4,
+      maxAttempts: data.maxAttempts ?? 2,
       isConsumed: false,
       solvedAt: null,
       serverVerifiedAt: null,
