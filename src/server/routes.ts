@@ -549,7 +549,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
         totalLimit: FREE_TRIAL_TOTAL_LIMIT,
         usageType: parsed.data.usageType,
         message: parsed.data.lang.toLowerCase().startsWith('fa')
-          ? (trial.totalUsed >= FREE_TRIAL_TOTAL_LIMIT ? 'اعتبار رایگان ۲۰ کپچا (۱۰ تست و ۱۰ استفاده واقعی) تمام شده است. برای ادامه اشتراک تهیه کنید.' : parsed.data.usageType === 'test' ? 'سهمیه ۱۰ کپچای آزمایشی تمام شده است؛ برای استفاده واقعی از سهمیه جداگانه استفاده کنید.' : 'سهمیه ۱۰ کپچای استفاده واقعی تمام شده است؛ برای تست از سهمیه آزمایشی استفاده کنید.')
+          ? ((trial.totalUsed ?? 0) >= FREE_TRIAL_TOTAL_LIMIT ? 'اعتبار رایگان ۲۰ کپچا (۱۰ تست و ۱۰ استفاده واقعی) تمام شده است. برای ادامه اشتراک تهیه کنید.' : parsed.data.usageType === 'test' ? 'سهمیه ۱۰ کپچای آزمایشی تمام شده است؛ برای استفاده واقعی از سهمیه جداگانه استفاده کنید.' : 'سهمیه ۱۰ کپچای استفاده واقعی تمام شده است؛ برای تست از سهمیه آزمایشی استفاده کنید.')
           : (trial.totalUsed >= FREE_TRIAL_TOTAL_LIMIT ? 'Your 20 free challenges (10 test and 10 production) are exhausted. Upgrade to continue.' : parsed.data.usageType === 'test' ? 'Your 10 test challenges are exhausted. Production usage has a separate allowance.' : 'Your 10 production challenges are exhausted. Test usage has a separate allowance.'),
       });
       return;
