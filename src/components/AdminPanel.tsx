@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Activity, AlertCircle, Building2, CheckCircle2, Clock, LayoutDashboard, LifeBuoy, LogOut, RefreshCw, Send, ShieldCheck, Users } from 'lucide-react';
+import { Activity, AlertCircle, Building2, CheckCircle2, Clock, DollarSign, LayoutDashboard, LifeBuoy, LogOut, Receipt, RefreshCw, Send, ShieldCheck, Users, Wallet } from 'lucide-react';
 
 type TicketMessage = { id: string; authorId: string; authorRole: string; body: string; createdAt: string };
 type Ticket = { id: string; userId: string; subject: string; category: string; priority: string; status: string; messages: TicketMessage[]; createdAt: string; updatedAt: string };
@@ -7,13 +7,13 @@ type Overview = { users: number; sites: number; tickets: number; openTickets: nu
 type AdminUser = { id: string; email: string; name: string; role: string; createdAt: string };
 type AdminSite = { id: string; name: string; siteKey: string; ownerEmail: string; domains: string[]; challengeDifficulty: string; invisibleEnabled: boolean; rateLimitPerMinute: number; createdAt: string };
 type AdminEvent = { id: string; siteKey: string; success: boolean; score: number; hostname: string; action: string; errorCodes: string[]; createdAt: string };
-type Section = 'overview' | 'users' | 'sites' | 'tickets' | 'activity';
+type FinanceSummary = { generatedAt: string; totals: { total_invoices: number; paid_invoices: number; pending_invoices: number; expired_invoices: number; revenue_all: string | number; revenue_month: string | number; paid_this_month: number; invoices_30d: number }; plans: { plan_id: string; paid_count: number; revenue: string | number }[]; recentInvoices: { id: string; plan_id: string; amount_usdt: string | number; status: string; txid: string | null; created_at: string; paid_at: string | null; email: string }[]; subscriptions: { active: number; inactive: number }; accountingNote: string };\ntype Section = 'overview' | 'users' | 'sites' | 'tickets' | 'activity' | 'finance';
 const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'نمای کلی سامانه', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'users', label: 'مدیریت کاربران', icon: <Users className="h-4 w-4" /> },
   { id: 'sites', label: 'وب‌سایت‌ها و کلیدها', icon: <Building2 className="h-4 w-4" /> },
   { id: 'tickets', label: 'تیکت‌های پشتیبانی', icon: <LifeBuoy className="h-4 w-4" /> },
-  { id: 'activity', label: 'رویدادهای امنیتی', icon: <Activity className="h-4 w-4" /> },
+  { id: 'activity', label: 'رویدادهای امنیتی', icon: <Activity className="h-4 w-4" /> },\n  { id: 'finance', label: 'حسابداری و اشتراک‌ها', icon: <Wallet className="h-4 w-4" /> },
 ];
 const statuses = ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'];
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
@@ -27,7 +27,7 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [sites, setSites] = useState<AdminSite[]>([]);
   const [events, setEvents] = useState<AdminEvent[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);\n  const [finance, setFinance] = useState<FinanceSummary | null>(null);\n  const [financeError, setFinanceError] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [reply, setReply] = useState('');
   const [status, setStatus] = useState('open');
@@ -65,7 +65,7 @@ export default function AdminPanel() {
       const nextTickets: Ticket[] = ticketData.tickets || [];
       setTickets(nextTickets);
       setSelectedId(current => nextTickets.some(ticket => ticket.id === current) ? current : (nextTickets[0]?.id || ''));
-      setIsAdmin(true);
+      setIsAdmin(true);\n      setFinanceError('');\n      void api('/api/v1/billing/admin/summary').then((data: FinanceSummary) => { setFinance(data); setFinanceError(''); }).catch((err: unknown) => { setFinance(null); setFinanceError(err instanceof Error ? err.message : 'دریافت اطلاعات حسابداری ناموفق بود.'); });
     } catch (err) {
       setIsAdmin(false);
       setError(err instanceof Error ? err.message : 'خطای ناشناخته هنگام دریافت اطلاعات');
@@ -134,6 +134,31 @@ export default function AdminPanel() {
               {section === 'tickets' && <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]">
                 <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="flex items-center justify-between border-b border-slate-800 p-4"><h3 className="font-semibold">صندوق پشتیبانی</h3><span className="text-xs text-slate-400">{tickets.length} تیکت</span></div><div className="max-h-[70vh] overflow-y-auto">{tickets.length === 0 ? <p className="p-6 text-sm text-slate-400">هنوز تیکتی ثبت نشده است.</p> : tickets.map(ticket => <button key={ticket.id} onClick={() => { setSelectedId(ticket.id); setStatus(ticket.status); }} className={`block w-full border-b border-slate-800/80 p-4 text-right hover:bg-slate-800/70 ${selectedId === ticket.id ? 'bg-emerald-500/10' : ''}`}><div className="flex items-start justify-between gap-3"><span className="font-medium">{ticket.subject}</span><span className="shrink-0 rounded-md bg-slate-800 px-2 py-1 text-[10px]">{ticket.status}</span></div><p className="mt-2 text-xs text-slate-400">کاربر: {ticket.userId} · {ticket.category} · اولویت {ticket.priority}</p><p className="mt-1 text-[10px] text-slate-500">{dateText(ticket.updatedAt)}</p></button>)}</div></section>
                 <section className="rounded-2xl border border-slate-800 bg-slate-900/50">{!selected ? <div className="p-8 text-center text-sm text-slate-400">برای مشاهده گفتگو، یک تیکت انتخاب کنید.</div> : <><div className="border-b border-slate-800 p-4"><h3 className="font-semibold">{selected.subject}</h3><p className="mt-1 text-xs text-slate-400">شناسه: {selected.id} · {dateText(selected.createdAt)}</p></div><div className="max-h-[42vh] space-y-3 overflow-y-auto p-4">{(selected.messages || []).map(message => <div key={message.id} className={`rounded-xl border p-3 ${message.authorRole === 'ADMIN' ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-slate-700 bg-slate-950/70'}`}><div className="mb-2 flex justify-between gap-3 text-[11px] text-slate-400"><span>{message.authorRole === 'ADMIN' ? 'مدیریت' : 'کاربر'}</span><span>{dateText(message.createdAt)}</span></div><p className="whitespace-pre-wrap break-words text-sm">{message.body}</p></div>)}</div><div className="space-y-3 border-t border-slate-800 p-4"><label className="block text-xs text-slate-400">وضعیت تیکت<select value={status} onChange={event => setStatus(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white">{statuses.map(value => <option key={value} value={value}>{value}</option>)}</select></label><textarea value={reply} onChange={event => setReply(event.target.value)} rows={4} maxLength={5000} placeholder="پاسخ مدیر به کاربر..." className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-emerald-500" /><button disabled={busy || reply.trim().length < 2} onClick={() => void sendReply()} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"><Send className="h-4 w-4" />{busy ? 'در حال ارسال...' : 'ارسال پاسخ و ذخیره وضعیت'}</button></div></>}</section>
+              </div>}
+              {section === 'finance' && <div className="space-y-5">
+                {financeError && <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-100">اطلاعات حسابداری بارگذاری نشد: {financeError}</div>}
+                {!finance && !financeError && <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-400">در حال دریافت گزارش مالی...</div>}
+                {finance && <>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Metric icon={<DollarSign />} label="کل درآمد تأییدشده (USDT)" value={Number(finance.totals.revenue_all || 0)} />
+                    <Metric icon={<Wallet />} label="درآمد ماه جاری (USDT)" value={Number(finance.totals.revenue_month || 0)} />
+                    <Metric icon={<CheckCircle2 />} label="پرداخت‌های موفق" value={Number(finance.totals.paid_invoices || 0)} />
+                    <Metric icon={<Clock />} label="فاکتورهای در انتظار" value={Number(finance.totals.pending_invoices || 0)} />
+                    <Metric icon={<Receipt />} label="فاکتورهای منقضی" value={Number(finance.totals.expired_invoices || 0)} />
+                    <Metric icon={<Users />} label="اشتراک‌های فعال" value={Number(finance.subscriptions?.active || 0)} />
+                    <Metric icon={<Activity />} label="پرداخت موفق در ماه جاری" value={Number(finance.totals.paid_this_month || 0)} />
+                    <Metric icon={<Receipt />} label="فاکتورهای ۳۰ روز اخیر" value={Number(finance.totals.invoices_30d || 0)} />
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+                    <div className="border-b border-slate-800 p-4"><h3 className="font-semibold">درآمد بر اساس پلن</h3><p className="mt-1 text-xs text-slate-400">فقط فاکتورهای پرداخت‌شده و تأییدشده در شبکه</p></div>
+                    <div className="overflow-x-auto"><table className="w-full text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">پلن</th><th className="p-3">خرید موفق</th><th className="p-3">درآمد (USDT)</th></tr></thead><tbody>{finance.plans.map(plan => <tr key={plan.plan_id} className="border-t border-slate-800"><td className="p-3 font-medium">{plan.plan_id}</td><td className="p-3">{plan.paid_count}</td><td className="p-3" dir="ltr">{Number(plan.revenue || 0).toFixed(2)}</td></tr>)}</tbody></table>{finance.plans.length === 0 && <p className="p-5 text-sm text-slate-400">هنوز خریدی ثبت نشده است.</p>}</div>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+                    <div className="border-b border-slate-800 p-4"><h3 className="font-semibold">دفتر فاکتورها و خرید اشتراک</h3><p className="mt-1 text-xs text-slate-400">حداکثر ۱۰۰ فاکتور اخیر، همراه با وضعیت پرداخت</p></div>
+                    <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">کاربر</th><th className="p-3">پلن</th><th className="p-3">مبلغ USDT</th><th className="p-3">وضعیت</th><th className="p-3">شناسه تراکنش</th><th className="p-3">تاریخ ایجاد</th><th className="p-3">تاریخ پرداخت</th></tr></thead><tbody>{finance.recentInvoices.map(invoice => <tr key={invoice.id} className="border-t border-slate-800"><td className="p-3" dir="ltr">{invoice.email}</td><td className="p-3">{invoice.plan_id}</td><td className="p-3" dir="ltr">{Number(invoice.amount_usdt || 0).toFixed(2)}</td><td className="p-3"><span className={invoice.status === 'paid' ? 'text-emerald-300' : invoice.status === 'pending' ? 'text-amber-300' : 'text-slate-400'}>{invoice.status}</span></td><td className="max-w-48 truncate p-3 font-mono text-xs" dir="ltr">{invoice.txid || '—'}</td><td className="p-3 text-xs text-slate-400">{dateText(invoice.created_at)}</td><td className="p-3 text-xs text-slate-400">{dateText(invoice.paid_at || '')}</td></tr>)}</tbody></table>{finance.recentInvoices.length === 0 && <p className="p-5 text-sm text-slate-400">فاکتوری ثبت نشده است.</p>}</div>
+                  </div>
+                  <p className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-xs leading-6 text-slate-400">{finance.accountingNote} آخرین به‌روزرسانی: {dateText(finance.generatedAt)}. این گزارش فعلاً درآمد ناخالص را نشان می‌دهد و کارمزد شبکه، بازپرداخت و هزینه عملیاتی را از آن کم نمی‌کند.</p>
+                </>}
               </div>}
               {section === 'activity' && <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50"><div className="border-b border-slate-800 p-4"><h3 className="font-semibold">آخرین رویدادهای امنیتی</h3><p className="mt-1 text-xs text-slate-400">آخرین رویدادهای ثبت‌شده در API؛ حداکثر ۵۰ مورد</p></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">نتیجه</th><th className="p-3">دامنه</th><th className="p-3">کلید سایت</th><th className="p-3">امتیاز</th><th className="p-3">خطاها</th><th className="p-3">زمان</th></tr></thead><tbody>{events.map(event => <tr key={event.id} className="border-t border-slate-800"><td className="p-3"><span className={event.success ? 'text-emerald-300' : 'text-rose-300'}>{event.success ? 'تأیید' : 'مسدود'}</span></td><td className="p-3">{event.hostname || '—'}</td><td className="max-w-48 truncate p-3 font-mono text-xs">{event.siteKey}</td><td className="p-3">{event.score}</td><td className="p-3 text-xs text-slate-400">{event.errorCodes?.join(', ') || '—'}</td><td className="p-3 text-xs text-slate-400">{dateText(event.createdAt)}</td></tr>)}</tbody></table>{events.length === 0 && <p className="p-6 text-sm text-slate-400">رویداد امنیتی ثبت نشده است.</p>}</div></div>}
             </>}
