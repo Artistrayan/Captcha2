@@ -7,6 +7,9 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
 ## Current capabilities
 
 - Website/site-key management with a one-time display of the secret key.
+- 20 free CAPTCHA challenges per account across all registered websites; the account-level allowance cannot be reset by refreshing or recreating a site.
+- Paid usage is reserved once per issued challenge; verification retries do not double-count a single CAPTCHA.
+- Shared PostgreSQL-backed API and billing rate limits that persist across server restarts and instances.
 - Hostname allow-list validation when issuing challenges.
 - Three SVG challenge patterns: category selection, odd-one-out, and upright/rotation matching, with randomized opaque option IDs.
 - Four incorrect answers allowed per challenge; a fifth request is rejected.
@@ -64,6 +67,8 @@ The local file store is written to `.data/shieldcaptcha_db.json` and must not be
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | JSON service-account credential; required for production Firebase Admin verification on Render. Keep it server-side only. |
 | `VITE_FIREBASE_API_KEY` | Public Firebase Web API key used by the browser sign-in form. This is not a service-account credential. |
 | `APP_URL` | Optional canonical app URL for self-testing/domain configuration. |
+| `ADMIN_APP_URL` | Exact origin of the separately deployed admin console. |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated exact origins allowed to call dashboard, billing, and admin APIs; CAPTCHA embed endpoints remain cross-origin and enforce site-domain binding on the server. |
 | `RATE_LIMIT_CHALLENGES_PER_MIN` | Challenge issuance limit per client IP; default 20. |
 | `RATE_LIMIT_VERIFY_PER_MIN` | Verification endpoint limit per client IP; default 30. |
 

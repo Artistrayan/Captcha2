@@ -60,9 +60,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Initial admin access is determined only from a server-side allowlist and a verified token email.
     const configuredAdminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
     const verifiedEmail = (decoded.email || '').trim().toLowerCase();
-    (req as any).user = configuredAdminEmail && verifiedEmail === configuredAdminEmail
-      ? { ...user, role: 'ADMIN' }
-      : user;
+    // The server-side allow-list is the sole authority for admin access. Never trust a
+    // persisted role alone, so a stale or accidentally elevated DB role cannot grant admin.
+    const isConfiguredAdmin = Boolean(configuredAdminEmail && verifiedEmail === configuredAdminEmail);
+    (req as any).user = { ...user, role: isConfiguredAdmin ? 'ADMIN' : 'USER' };
     next();
   } catch (err: any) {
     res.status(401).json({ error: 'Unauthorized', message: err.message || 'Invalid authentication token' });
