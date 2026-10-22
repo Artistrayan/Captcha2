@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import crypto from 'node:crypto';
 import {
   FREE_TRIAL_CAPTCHA_LIMIT,
   matchesTronUsdtTransferEvent,
   quotaAllows,
+  consumeApiRateLimit,
 } from '../src/server/billing.ts';
 
 describe('billing and usage guardrails', () => {
@@ -18,6 +20,18 @@ describe('billing and usage guardrails', () => {
     expect(quotaAllows(0, -1)).toBe(false);
     expect(quotaAllows(19, 20, 2)).toBe(false);
     expect(quotaAllows(19, 20, 1.5)).toBe(false);
+  });
+
+  it('enforces a shared fixed-window rate limit for repeated keys', async () => {
+    const key = `test-rate-limit:${crypto.randomUUID()}`;
+    const first = await consumeApiRateLimit(key, 1, 60_000);
+    const second = await consumeApiRateLimit(key, 1, 60_000);
+
+    expect(first.allowed).toBe(true);
+    expect(first.count).toBe(1);
+    expect(second.allowed).toBe(false);
+    expect(second.count).toBe(2);
+    expect(second.resetAt).toBe(first.resetAt);
   });
 
   it('accepts only an exact USDT TRC20 transfer event for the requested invoice', () => {
