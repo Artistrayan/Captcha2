@@ -45,6 +45,26 @@ export async function checkSiteRegistrationQuota(userId: string): Promise<{ allo
 let freeTrialTableReady: Promise<void> | null = null;
 let billingUsageTableReady: Promise<void> | null = null;
 
+async function getCaptchaAccount(siteKey: string): Promise<{ userId: string; paidQuota: number } | null> {
+  const result = await getPool().query(
+    `SELECT s.user_id,
+       COALESCE((
+         SELECT SUM(bs.request_limit + CASE bs.plan_id
+           WHEN 'starter' THEN $2
+           WHEN 'pro' THEN $3
+           WHEN 'business' THEN $4
+           ELSE 0
+         END)::bigint
+         FROM billing_subscriptions bs
+         WHERE bs.user_id = s.user_id AND bs.status = 'active' AND bs.expires_at > NOW()
+       ), 0)::bigint AS paid_quota
+     FROM sites s WHERE s.site_key = $1 LIMIT 1`,
+    [siteKey, BONUS_REQUESTS_BY_PLAN.starter, BONUS_REQUESTS_BY_PLAN.pro, BONUS_REQUESTS_BY_PLAN.business],
+  );
+  if (!result.rows[0]) return null;
+  return { userId: String(result.rows[0].user_id), paidQuota: Number(result.rows[0].paid_quota) || 0 };
+}
+
 async function ensureFreeTrialTable(): Promise<void> {
   if (!freeTrialTableReady) {
     freeTrialTableReady = getPool().query(`
