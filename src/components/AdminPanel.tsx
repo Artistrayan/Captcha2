@@ -34,6 +34,9 @@ export default function AdminPanel() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [finance, setFinance] = useState<FinanceSummary | null>(null);
   const [financeError, setFinanceError] = useState('');
+  const [financeExporting, setFinanceExporting] = useState(false);
+  const [financeExportFrom, setFinanceExportFrom] = useState('');
+  const [financeExportTo, setFinanceExportTo] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [reply, setReply] = useState('');
   const [status, setStatus] = useState('open');
@@ -98,21 +101,36 @@ export default function AdminPanel() {
     finally { setBusy(false); }
   };
 
-  const exportFinanceCsv = () => {
-    if (!finance) return;
-    const rows = [
-      ['email', 'plan_id', 'amount_usdt', 'status', 'txid', 'created_at', 'paid_at'],
-      ...finance.recentInvoices.map(invoice => [invoice.email, invoice.plan_id, String(invoice.amount_usdt), invoice.status, invoice.txid || '', invoice.created_at, invoice.paid_at || '']),
-    ];
-    const csv = '\uFEFF' + rows.map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'shieldcaptcha-accounting-recent-invoices.csv';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+  const exportFinanceCsv = async () => {
+    if (!token || financeExporting) return;
+    setFinanceExporting(true);
+    setFinanceError('');
+    try {
+      const query = new URLSearchParams();
+      if (financeExportFrom) query.set('from', financeExportFrom);
+      if (financeExportTo) query.set('to', financeExportTo);
+      const suffix = query.toString() ? `?${query.toString()}` : '';
+      const response = await fetch(`${apiBase}/api/v1/billing/admin/export.csv${suffix}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || data?.message || 'خروجی حسابداری دریافت نشد.');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shieldcaptcha-accounting-${financeExportFrom || 'all'}-${financeExportTo || new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setFinanceError(err instanceof Error ? err.message : 'خروجی حسابداری دریافت نشد.');
+    } finally {
+      setFinanceExporting(false);
+    }
   };
 
   const signOut = () => {
@@ -147,7 +165,7 @@ export default function AdminPanel() {
                   <Metric icon={<Building2 />} label="وب‌سایت‌های ثبت‌شده" value={overview?.sites ?? 0} />
                   <Metric icon={<LifeBuoy />} label="تیکت‌های پشتیبانی" value={overview?.tickets ?? 0} />
                   <Metric icon={<Clock />} label="تیکت‌های باز" value={overview?.openTickets ?? 0} />
-                  <Metric icon={<Activity />} label="درخواست‌های ۲۴ ساعت" value={overview?.requests24h ?? 0} />
+                  <Metric icon={<Activity />} label="تلاش‌های تأیید کپچا در ۲۴ ساعت" value={overview?.requests24h ?? 0} />
                   <Metric icon={<CheckCircle2 />} label="تأییدشده در ۲۴ ساعت" value={overview?.passed24h ?? 0} />
                   <Metric icon={<AlertCircle />} label="مسدودشده در ۲۴ ساعت" value={overview?.blocked24h ?? 0} />
                   <Metric icon={<CheckCircle2 />} label="نرخ عبور ۲۴ ساعت" value={overview?.passRate24h ?? 0} suffix="%" />
@@ -184,7 +202,7 @@ export default function AdminPanel() {
                     <div className="overflow-x-auto"><table className="w-full text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">وضعیت</th><th className="p-3">تعداد</th></tr></thead><tbody>{finance.statuses.map(item => <tr key={item.status} className="border-t border-slate-800"><td className="p-3">{item.status}</td><td className="p-3">{item.count}</td></tr>)}</tbody></table>{finance.statuses.length === 0 && <p className="p-5 text-sm text-slate-400">فاکتوری ثبت نشده است.</p>}</div>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 p-4"><div><h3 className="font-semibold">دفتر فاکتورها و خرید اشتراک</h3><p className="mt-1 text-xs text-slate-400">حداکثر ۱۰۰ فاکتور اخیر، همراه با وضعیت پرداخت</p></div><button onClick={exportFinanceCsv} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10">خروجی CSV فاکتورها</button></div>
+                    <div className="flex flex-col gap-3 border-b border-slate-800 p-4"><div><h3 className="font-semibold">دفتر فاکتورها و خرید اشتراک</h3><p className="mt-1 text-xs text-slate-400">گزارش کامل فاکتورها و وضعیت اشتراک‌ها؛ برای خروجی‌های بزرگ بازه تاریخ انتخاب کنید.</p></div><div className="flex flex-wrap items-end gap-2"><label className="text-xs text-slate-400">از تاریخ<input type="date" value={financeExportFrom} max={financeExportTo || undefined} onChange={event => setFinanceExportFrom(event.target.value)} className="mt-1 block rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white" /></label><label className="text-xs text-slate-400">تا تاریخ<input type="date" value={financeExportTo} min={financeExportFrom || undefined} onChange={event => setFinanceExportTo(event.target.value)} className="mt-1 block rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white" /></label><button onClick={() => void exportFinanceCsv()} disabled={financeExporting} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50">{financeExporting ? 'در حال ساخت خروجی...' : 'خروجی CSV کامل'}</button></div></div>
                     <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">کاربر</th><th className="p-3">پلن</th><th className="p-3">مبلغ USDT</th><th className="p-3">وضعیت</th><th className="p-3">شناسه تراکنش</th><th className="p-3">تاریخ ایجاد</th><th className="p-3">تاریخ پرداخت</th></tr></thead><tbody>{finance.recentInvoices.map(invoice => <tr key={invoice.id} className="border-t border-slate-800"><td className="p-3" dir="ltr">{invoice.email}</td><td className="p-3">{invoice.plan_id}</td><td className="p-3" dir="ltr">{Number(invoice.amount_usdt || 0).toFixed(2)}</td><td className="p-3"><span className={invoice.status === 'paid' ? 'text-emerald-300' : invoice.status === 'pending' ? 'text-amber-300' : 'text-slate-400'}>{invoice.status}</span></td><td className="max-w-48 truncate p-3 font-mono text-xs" dir="ltr">{invoice.txid || '—'}</td><td className="p-3 text-xs text-slate-400">{dateText(invoice.created_at)}</td><td className="p-3 text-xs text-slate-400">{dateText(invoice.paid_at || '')}</td></tr>)}</tbody></table>{finance.recentInvoices.length === 0 && <p className="p-5 text-sm text-slate-400">فاکتوری ثبت نشده است.</p>}</div>
                   </div>
                   <p className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-xs leading-6 text-slate-400">{finance.accountingNote} آخرین به‌روزرسانی: {dateText(finance.generatedAt)}. این گزارش فعلاً درآمد ناخالص را نشان می‌دهد و کارمزد شبکه، بازپرداخت و هزینه عملیاتی را از آن کم نمی‌کند.</p>
