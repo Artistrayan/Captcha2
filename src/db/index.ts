@@ -131,17 +131,8 @@ function loadState(): PersistentState {
     ],
     captchaChallenges: [],
     verificationEvents: [],
-    usageRecords: [
-      {
-        id: 'usage_default',
-        siteId: defaultSiteId,
-        date: new Date().toISOString().slice(0, 10),
-        requestsCount: 142,
-        passedCount: 138,
-        failedCount: 4,
-        challengesIssued: 28,
-      },
-    ],
+    // Start with no analytics records; dashboards must never display fabricated usage.
+    usageRecords: [],
     auditLogs: [],
     supportTickets: [],
     emailVerificationCodes: [],
