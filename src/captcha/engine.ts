@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { dbRepository } from '../db/index.ts';
 import { assessCaptchaRisk } from './risk-engine.ts';
 import { predictCaptchaMLShadow } from './ml-risk-engine.ts';
+import { predictCaptchaMLShadow } from './ml-risk-engine.ts';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || (IS_PRODUCTION ? '' : 'shield_captcha_internal_salt_dev_98741');
@@ -542,6 +543,16 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     acceptLanguage: input.acceptLanguage,
     recentEvents: recentEvents.filter(event => event.token !== input.token),
   });
+  const mlShadow = predictCaptchaMLShadow({
+    elapsedMs: Date.now() - new Date(challenge.createdAt).getTime(),
+    attemptsCount: challenge.attemptsCount,
+    userAgent: input.userAgent,
+    acceptLanguage: input.acceptLanguage,
+    sameIpRecentCount: recentEvents.filter(event => event.clientIp === input.remoteIp).length,
+    sameIpRecentFailureCount: recentEvents.filter(event => event.clientIp === input.remoteIp && !event.success).length,
+  });
+  const mlAuditCodes = mlShadow.available ? [`ml-shadow-score:${mlShadow.humanScore}`, `ml-shadow-model:${mlShadow.modelVersion}`] : [];
+
   // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
     const candidateHash = crypto
