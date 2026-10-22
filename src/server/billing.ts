@@ -200,6 +200,55 @@ billingRouter.get('/config', (_req, res) => {
     message: configReady() ? undefined : 'Payments are not enabled until USDT_TRC20_RECEIVE_ADDRESS and TRON_PRO_API_KEY are configured in the server environment.',
   });
 });
+// Administrator-only accounting summary. Revenue counts only invoices verified on-chain as paid.
+billingRouter.get('/admin/summary', async (req, res) => {
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const userEmail = String((req as any).billingUser?.email || '').trim().toLowerCase();
+  if (!adminEmail || userEmail !== adminEmail) {
+    res.status(403).json({ error: 'Administrator access required.' });
+    return;
+  }
+  try {
+    const db = getPool();
+    const [totals, statuses, plans, recent, subscriptions] = await Promise.all([
+      db.query(`
+        SELECT COUNT(*)::int AS total_invoices,
+          COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_invoices,
+          COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_invoices,
+          COUNT(*) FILTER (WHERE status = 'expired')::int AS expired_invoices,
+          COALESCE(SUM(amount_usdt) FILTER (WHERE status = 'paid'), 0)::numeric(14,2) AS revenue_all,
+          COALESCE(SUM(amount_usdt) FILTER (WHERE status = 'paid' AND paid_at >= date_trunc('month', NOW())), 0)::numeric(14,2) AS revenue_month,
+          COUNT(*) FILTER (WHERE status = 'paid' AND paid_at >= date_trunc('month', NOW()))::int AS paid_this_month,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS invoices_30d
+        FROM billing_invoices
+      `),
+      db.query(`SELECT status, COUNT(*)::int AS count FROM billing_invoices GROUP BY status ORDER BY status`),
+      db.query(`SELECT plan_id, COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_count,
+          COALESCE(SUM(amount_usdt) FILTER (WHERE status = 'paid'),0)::numeric(14,2) AS revenue
+        FROM billing_invoices GROUP BY plan_id ORDER BY plan_id`),
+      db.query(`SELECT i.id, i.plan_id, i.amount_usdt, i.status, i.txid, i.created_at, i.paid_at,
+          COALESCE(u.email, 'unknown') AS email
+        FROM billing_invoices i LEFT JOIN users u ON u.id = i.user_id
+        ORDER BY i.created_at DESC LIMIT 100`),
+      db.query(`SELECT COUNT(*) FILTER (WHERE status = 'active' AND expires_at > NOW())::int AS active,
+          COUNT(*) FILTER (WHERE status <> 'active' OR expires_at <= NOW())::int AS inactive
+        FROM billing_subscriptions`)
+    ]);
+    res.json({
+      generatedAt: new Date().toISOString(),
+      totals: totals.rows[0],
+      statuses: statuses.rows,
+      plans: plans.rows,
+      recentInvoices: recent.rows,
+      subscriptions: subscriptions.rows[0],
+      accountingNote: 'Revenue includes only invoices confirmed as paid by on-chain verification; pending, expired, and unmatched payments are excluded.'
+    });
+  } catch (error: any) {
+    console.error('[Billing] Admin accounting summary failed:', error?.message);
+    res.status(503).json({ error: 'Accounting data is unavailable. Check database migrations and billing tables.' });
+  }
+});
+
 billingRouter.get('/invoices', async (req, res) => {
   try {
     const user = (req as any).billingUser;
