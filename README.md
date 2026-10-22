@@ -10,6 +10,7 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
 - 20 free CAPTCHA challenges per account across all registered websites; the account-level allowance cannot be reset by refreshing or recreating a site.
 - Paid usage is reserved once per issued challenge; verification retries do not double-count a single CAPTCHA.
 - Shared PostgreSQL-backed API and billing rate limits that persist across server restarts and instances.
+- USDT TRC20 verification checks the exact token contract and destination address; duplicate transaction submissions are serialized and rejected.
 - Hostname allow-list validation when issuing challenges.
 - Three SVG challenge patterns: category selection, odd-one-out, and upright/rotation matching, with randomized opaque option IDs.
 - Four incorrect answers allowed per challenge; a fifth request is rejected.
