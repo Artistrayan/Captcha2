@@ -330,7 +330,22 @@ export async function verifyCaptchaReceipt(input: { token: string; secretKey: st
   if (!claimed) {
     return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
   }
-  return { success: true, score: 95, hostname, challenge_ts: timestamp, action: input.action || 'server-verify', development_mode: !IS_PRODUCTION, error_codes: [] };
+  const riskEvent = await dbRepository.getVerificationEventByToken(input.token);
+  const riskScore = typeof riskEvent?.score === 'number' ? Math.max(0, Math.min(100, riskEvent.score)) : 95;
+  const riskSignals = (riskEvent?.errorCodes || [])
+    .filter(code => code.startsWith('risk:'))
+    .map(code => code.slice(5));
+  return {
+    success: true,
+    score: riskScore,
+    hostname,
+    challenge_ts: timestamp,
+    action: input.action || 'server-verify',
+    development_mode: !IS_PRODUCTION,
+    error_codes: [],
+    risk_action: riskScore < 25 ? 'block' : riskScore < 80 ? 'challenge' : 'allow',
+    risk_signals: riskSignals,
+  };
 }
 
 /**
