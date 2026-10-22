@@ -53,6 +53,8 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
    bun run build
    ```
 
+Automated regression tests cover account-level free quotas, rate-limit windows, analytics pass-rate consistency, and exact USDT TRC20 transfer matching.
+
 The local file store is written to `.data/shieldcaptcha_db.json` and must not be committed. Production explicitly refuses this fallback.
 
 ## Environment variables
