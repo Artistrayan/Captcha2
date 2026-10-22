@@ -25,28 +25,6 @@ export interface GeneratedChallenge {
   expiresInSeconds: number;
 }
 
-// Crisp, self-contained SVG icon templates for categories
-// Completely local - no external images or network dependencies!
-const SVG_ICONS: Record<string, string> = {
-  star: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2z"/></svg>`,
-  heart: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8z"/></svg>`,
-  book: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
-  house: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9M9 21v-7h6v7"/></svg>`,
-  leaf: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round"><path d="M20 4c-8 0-14 3-14 10a6 6 0 0 0 6 6c7 0 8-8 8-16z"/><path d="M3 21c3-6 7-9 13-12"/></svg>`,
-  music: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
-  shield: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
-  lock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-  key: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>`,
-  bicycle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`,
-  car: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>`,
-  clock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  bell: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
-  camera: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
-  cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
-};
-
-const CATEGORIES = Object.keys(SVG_ICONS);
-
 function createPrismFlowSvg(angles: number[]): string {
   const arrow = (x: number, angle: number) =>
     `<g transform="rotate(${angle} ${x} 12)" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M ${x} 15 L ${x} 9 M ${x-2.2} 11.3 L ${x} 9 L ${x+2.2} 11.3"/></g>`;
@@ -131,62 +109,6 @@ function buildPrismFlowItems(optionCount: number): Array<{ category: string; cor
   }));
 }
 
-const CATEGORY_NAMES_FA: Record<string, string> = {
-  shield: 'سپر امنیت (Shield)',
-  lock: 'قفل (Lock)',
-  key: 'کلید (Key)',
-  bicycle: 'دوچرخه (Bicycle)',
-  car: 'اتومبیل (Car)',
-  clock: 'ساعت (Clock)',
-  bell: 'زنگوله (Bell)',
-  camera: 'دوربین (Camera)',
-  cloud: 'ابر (Cloud)',
-};
-
-const CATEGORY_NAMES_EN: Record<string, string> = {
-  shield: 'Shield',
-  lock: 'Lock',
-  key: 'Key',
-  bicycle: 'Bicycle',
-  car: 'Car',
-  clock: 'Clock',
-  bell: 'Bell',
-  camera: 'Camera',
-  cloud: 'Cloud',
-};
-
-import { CATEGORY_NAMES_I18N, LanguageCode } from '../i18n/translations.ts';
-
-export function generatePromptForLanguage(category: string, lang = 'en'): string {
-  const catNames = CATEGORY_NAMES_I18N[category] || { en: category } as any;
-  const langKey = (lang || 'en') as LanguageCode;
-  const name = catNames[langKey] || catNames.en || category;
-
-  switch (langKey) {
-    case 'fa':
-      return `تصویر «${name}» را انتخاب کنید.`;
-    case 'es':
-      return `Seleccione la imagen «${name}».`;
-    case 'zh':
-      return `请选择「${name}」图标。`;
-    case 'ar':
-      return `اختر صورة «${name}».`;
-    case 'fr':
-      return `Sélectionnez l'image «${name}».`;
-    case 'de':
-      return `Wählen Sie das Bild «${name}».`;
-    case 'ru':
-      return `Выберите изображение «${name}».`;
-    case 'pt':
-      return `Selecione a imagem «${name}».`;
-    case 'ja':
-      return `「${name}」の画像を選択してください。`;
-    case 'en':
-    default:
-      return `Select the «${name}» image.`;
-  }
-}
-
 /**
  * Creates a visual image challenge with CSPRNG randomization.
  * Correct answer is hashed and kept strictly on the server.
@@ -240,24 +162,10 @@ export async function issueCaptchaChallenge(
 
   // Pick one of three visual challenge modes using a cryptographically secure RNG.
   const challengeMode = (['PRISM_FLOW', 'POLYGON_SEQUENCE', 'POLYGON_COUNT'] as const)[crypto.randomInt(0, 3)];
-  const rotationCategories = ['key', 'bicycle', 'car', 'house', 'leaf', 'music', 'book', 'bell', 'camera'];
-  const targetPool = rotationCategories;
-  const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
+  const targetCategory = 'geometric-pattern';
 
   // Difficulty controls the number of visually plausible distractors.
   const optionCount = forceHighDifficulty || site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
-  const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
-  for (let i = otherCategories.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [otherCategories[i], otherCategories[j]] = [otherCategories[j], otherCategories[i]];
-  }
-
-  const rotationAngles = [45, 90, 135, 180, 225, 270, 315];
-  for (let i = rotationAngles.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [rotationAngles[i], rotationAngles[j]] = [rotationAngles[j], rotationAngles[i]];
-  }
-
   // Each mode has exactly one server-verified correct option.
   const challengeItems: Array<{ category: string; correct: boolean; rotationAngle?: number; svgOverride?: string }> =
     challengeMode === 'PRISM_FLOW'
