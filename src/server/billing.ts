@@ -21,7 +21,7 @@ export function matchesTronUsdtTransferEvent(
     String(event?.contract_address || '') === TRON_USDT_CONTRACT &&
     event?.event_name === 'Transfer' &&
     String(event?.result?.to || '') === expectedAddress &&
-    /^\\d+$/.test(value) &&
+    /^\d+$/.test(value) &&
     BigInt(value) === expectedUnits;
 }
 
