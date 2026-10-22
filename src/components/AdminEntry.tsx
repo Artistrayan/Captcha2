@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
 import { LockKeyhole, ShieldCheck, AlertCircle, LoaderCircle, ArrowRight } from 'lucide-react';
 import AdminPanel from './AdminPanel.tsx';
+import { AutoTranslate } from '../i18n/AutoTranslate.tsx';
 
 export default function AdminEntry() {
-  const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || '/';
+  const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || 'https://shieldcaptcha-web.onrender.com';
+  const [language, setLanguage] = useState<'en' | 'fa'>(() => sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en');
+  const toggleLanguage = () => {
+    const next = language === 'en' ? 'fa' : 'en';
+    sessionStorage.setItem('shieldcaptcha_admin_language', next);
+    setLanguage(next);
+  };
   const [hasSession, setHasSession] = useState(() => Boolean(sessionStorage.getItem('shieldcaptcha_id_token')));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  if (hasSession) return <AdminPanel />;
+  if (hasSession) return <><AutoTranslate lang={language}><AdminPanel /></AutoTranslate><button type="button" onClick={toggleLanguage} className="fixed bottom-4 right-4 z-[100] rounded-full border border-slate-600 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xl">{language === 'en' ? 'FA' : 'EN'}</button></>;
 
   const signIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -46,7 +53,7 @@ export default function AdminEntry() {
     }
   };
 
-  return <main dir="rtl" className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10 text-slate-100">
+  return <><AutoTranslate lang={language}><main dir={language === 'fa' ? 'rtl' : 'ltr'} className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10 text-slate-100">
     <section className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl">
       <div className="border-b border-slate-800 bg-slate-900/80 p-7 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300"><ShieldCheck className="h-7 w-7" /></div>
@@ -70,5 +77,5 @@ export default function AdminEntry() {
       </form>
       <div className="border-t border-slate-800 p-4"><a href={mainAppUrl} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowRight className="h-4 w-4" />بازگشت به برنامه</a></div>
     </section>
-  </main>;
+  </main></AutoTranslate><button type="button" onClick={toggleLanguage} className="fixed bottom-4 right-4 z-[100] rounded-full border border-slate-600 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xl">{language === 'en' ? 'FA' : 'EN'}</button></>;
 }

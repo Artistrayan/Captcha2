@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { AutoTranslate, translateAdminText } from '../i18n/AutoTranslate.tsx';
 import { Activity, AlertCircle, Building2, CheckCircle2, Clock, DollarSign, LayoutDashboard, LifeBuoy, LogOut, Receipt, RefreshCw, Send, ShieldCheck, Users, Wallet } from 'lucide-react';
 
 type TicketMessage = { id: string; authorId: string; authorRole: string; body: string; createdAt: string };
@@ -19,7 +20,8 @@ const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
 ];
 const statuses = ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'];
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-const dateText = (value: string) => value ? new Date(value).toLocaleString('fa-IR') : '—';
+const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || 'https://shieldcaptcha-web.onrender.com';
+const dateText = (value: string) => value ? new Date(value).toLocaleString(sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa-IR' : 'en-US') : '—';
 
 export default function AdminPanel() {
   const [token, setToken] = useState(() => sessionStorage.getItem('shieldcaptcha_id_token') || '');
@@ -116,19 +118,19 @@ export default function AdminPanel() {
   const signOut = () => {
     sessionStorage.removeItem('shieldcaptcha_id_token');
     sessionStorage.removeItem('shieldcaptcha_user_email');
-    setToken(''); setIsAdmin(false); window.location.href = import.meta.env.VITE_MAIN_APP_URL || '/';
+    setToken(''); setIsAdmin(false); window.location.href = mainAppUrl;
   };
 
   const pageTitle = sections.find(item => item.id === section)?.label || 'پنل مدیریت';
-  return <div dir="rtl" className="min-h-screen bg-slate-950 text-slate-100">
+  return <AutoTranslate lang={sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en'}><div dir={sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-950 text-slate-100">
     <header className="border-b border-slate-800 bg-slate-900/90">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400"><ShieldCheck className="h-6 w-6" /></div><div><h1 className="text-xl font-bold">مرکز مدیریت ShieldCaptcha</h1><p className="mt-1 text-xs text-slate-400">کنترل کاربران، وب‌سایت‌ها، فعالیت امنیتی و پشتیبانی</p></div></div>
-        <div className="flex items-center gap-2"><a href="/" className="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">صفحه اصلی برنامه</a><button onClick={() => void loadAll()} disabled={loading || !token} className="rounded-lg border border-slate-700 p-2 hover:bg-slate-800 disabled:opacity-50" title="تازه‌سازی"><RefreshCw className="h-4 w-4" /></button>{token && <button onClick={signOut} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800"><LogOut className="h-4 w-4" />خروج</button>}</div>
+        <div className="flex items-center gap-2"><a href={mainAppUrl} className="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">صفحه اصلی برنامه</a><button onClick={() => void loadAll()} disabled={loading || !token} className="rounded-lg border border-slate-700 p-2 hover:bg-slate-800 disabled:opacity-50" title="بارگذاری مجدد"><RefreshCw className="h-4 w-4" /></button>{token && <button onClick={signOut} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800"><LogOut className="h-4 w-4" />خروج</button>}</div>
       </div>
     </header>
     <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
-      {!token ? <section className="mx-auto max-w-xl rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6"><AlertCircle className="mb-3 h-6 w-6 text-amber-400" /><h2 className="font-semibold">ابتدا وارد حساب مدیر شوید</h2><p className="my-3 text-sm text-slate-300">از صفحه اصلی با حساب مدیریتی {email || 'خود'} وارد شوید و سپس این صفحه را باز کنید.</p><a href="/" className="inline-flex rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">رفتن به صفحه ورود</a></section> : <>
+      {!token ? <section className="mx-auto max-w-xl rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6"><AlertCircle className="mb-3 h-6 w-6 text-amber-400" /><h2 className="font-semibold">ابتدا وارد حساب مدیر شوید</h2><p className="my-3 text-sm text-slate-300">از صفحه اصلی با حساب مدیریتی {email || 'خود'} وارد شوید و سپس این صفحه را باز کنید.</p><a href={mainAppUrl} className="inline-flex rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">رفتن به صفحه ورود</a></section> : <>
         {error && <div role="alert" className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>}
         <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
           <aside className="h-fit rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
@@ -194,8 +196,10 @@ export default function AdminPanel() {
         </div>
       </>}
     </main>
-  </div>;
+  </div></AutoTranslate>;
 }
 function Metric({ icon, label, value, suffix = '' }: { icon: React.ReactNode; label: string; value: number; suffix?: string }) {
-  return <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"><div className="mb-3 flex items-center justify-between text-slate-400"><span className="text-xs">{label}</span><span className="text-emerald-400">{icon}</span></div><strong className="text-2xl">{value}{suffix}</strong></div>;
+  const language = sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en';
+  const displayLabel = translateAdminText(label, language);
+  return <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"><div className="mb-3 flex items-center justify-between text-slate-400"><span className="text-xs">{displayLabel}</span><span className="text-emerald-400">{icon}</span></div><strong className="text-2xl">{value}{suffix}</strong></div>;
 }

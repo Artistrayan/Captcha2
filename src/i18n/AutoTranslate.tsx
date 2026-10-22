@@ -38,18 +38,148 @@ const extraFa: Record<string, string> = {
   'Server-side Firebase Admin is not ready; check the Firebase configuration.': 'Firebase Admin سمت سرور آماده نیست؛ تنظیمات Firebase را بررسی کنید.',
   'Server-side Firebase Admin is not ready; check FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_KEY settings.': 'Firebase Admin سمت سرور آماده نیست؛ تنظیمات FIREBASE_PROJECT_ID و FIREBASE_SERVICE_ACCOUNT_KEY را بررسی کنید.',
   'India': 'هند', 'China': 'چین', 'United States': 'ایالات متحده', 'Indonesia': 'اندونزی',
-  'Pakistan': 'پاکستان', 'Nigeria': 'نیجریه', 'Brazil': 'برزیل', 'Bangladesh': 'بنگلادش', 'Russia': 'روسیه', 'Ethiopia': 'اتیوپی'
+  'Pakistan': 'پاکستان', 'Nigeria': 'نیجریه', 'Brazil': 'برزیل', 'Bangladesh': 'بنگلادش', 'Russia': 'روسیه', 'Ethiopia': 'اتیوپی',
+  'Secure admin sign-in': 'ورود امن به پنل مدیریت',
+  'This page is separate from the user dashboard. Admin access is checked by the server after sign-in.': 'این صفحه از داشبورد کاربران جداست. دسترسی مدیر پس از ورود، توسط سرور بررسی می‌شود.',
+  'Admin email': 'ایمیل مدیر',
+  'Password': 'گذرواژه',
+  'Checking...': 'در حال بررسی...',
+  'Sign in to admin console': 'ورود به پنل مدیریت',
+  'This email is not registered in Firebase.': 'این ایمیل در Firebase ثبت نشده است.',
+  'Incorrect password.': 'گذرواژه نادرست است.',
+  'Incorrect email or password.': 'ایمیل یا گذرواژه نادرست است.',
+  'This account has been disabled.': 'این حساب غیرفعال شده است.',
+  'Too many attempts; try again later.': 'تلاش‌های زیادی انجام شده؛ کمی بعد دوباره امتحان کنید.',
+  'Sign-in failed. Check Firebase settings.': 'ورود انجام نشد. تنظیمات Firebase را بررسی کنید.',
+  'Firebase public API key is not configured in the app build settings.': 'کلید عمومی Firebase در تنظیمات Build برنامه تنظیم نشده است.',
+  'Sign-in failed.': 'ورود انجام نشد.',
+  'If sign-in succeeds but admin access is denied, ADMIN_EMAIL in the Render service environment must match this account email.': 'اگر ورود موفق بود اما پیام نداشتن دسترسی مدیر دیدید، مقدار ADMIN_EMAIL در Environment Variables سرویس Render باید با ایمیل همین حساب یکسان باشد.',
+  'Back to app': 'بازگشت به برنامه',
+  'System overview': 'نمای کلی سامانه',
+  'User management': 'مدیریت کاربران',
+  'Websites & keys': 'وب‌سایت‌ها و کلیدها',
+  'Support tickets': 'تیکت‌های پشتیبانی',
+  'Security events': 'رویدادهای امنیتی',
+  'Accounting & subscriptions': 'حسابداری و اشتراک‌ها',
+  'Admin console': 'پنل مدیریت',
+  'ShieldCaptcha Admin Center': 'مرکز مدیریت ShieldCaptcha',
+  'Manage users, websites, security activity, and support': 'کنترل کاربران، وب‌سایت‌ها، فعالیت امنیتی و پشتیبانی',
+  'Main application': 'صفحه اصلی برنامه',
+  
+  'Sign out': 'خروج',
+  'Sign in to the administrator account first': 'ابتدا وارد حساب مدیر شوید',
+  'Sign in on the main page with the admin account ': 'از صفحه اصلی با حساب مدیریتی ',
+  ' and then open this page.': ' وارد شوید و سپس این صفحه را باز کنید.',
+  'Go to sign-in': 'رفتن به صفحه ورود',
+  'Admin menu': 'منوی مدیریت',
+  'This menu is independent from the user dashboard. Operations and metrics come only from the real server API.': 'این منو مستقل از داشبورد کاربران است. عملیات و آمار فقط از API واقعی سرور دریافت می‌شوند.',
+  'Last updated: ': 'آخرین به‌روزرسانی: ',
+  'Loading admin data from server...': 'در حال دریافت اطلاعات مدیریتی از سرور...',
+  'Admin access was not confirmed. This page is protected by the server.': 'دسترسی مدیر تأیید نشد. دسترسی این صفحه توسط سرور کنترل می‌شود.',
+  'Total users': 'کل کاربران',
+  'Registered websites': 'وب‌سایت‌های ثبت‌شده',
+  'Open tickets': 'تیکت‌های باز',
+  'Requests in 24 hours': 'درخواست‌های ۲۴ ساعت',
+  'Passed in 24 hours': 'تأییدشده در ۲۴ ساعت',
+  'Blocked in 24 hours': 'مسدودشده در ۲۴ ساعت',
+  'Pass rate (24 hours)': 'نرخ عبور ۲۴ ساعت',
+  'User list': 'فهرست کاربران',
+  'Showing up to 500 recent accounts; no login identifiers or secret data': 'نمایش حداکثر ۵۰۰ حساب اخیر؛ بدون شناسه ورود یا اطلاعات محرمانه',
+  'Name': 'نام',
+  'Email': 'ایمیل',
+  'Role': 'نقش',
+  'Created date': 'تاریخ ایجاد',
+  'No users found.': 'کاربری یافت نشد.',
+  'Websites & CAPTCHA settings': 'وب‌سایت‌ها و تنظیمات کپچا',
+  'Secret keys and hashes are intentionally hidden.': 'کلید محرمانه و هش آن عمداً نمایش داده نمی‌شوند.',
+  'Owner: ': 'مالک: ',
+  'Domains: ': 'دامنه‌ها: ',
+  'Not registered': 'ثبت نشده',
+  'Limit: ': 'محدودیت: ',
+  '/minute': '/دقیقه',
+  'Invisible check: ': 'بررسی نامرئی: ',
+  'Enabled': 'فعال',
+  'Disabled': 'غیرفعال',
+  'Created: ': 'ایجاد: ',
+  'No websites registered.': 'وب‌سایتی ثبت نشده است.',
+  'Support inbox': 'صندوق پشتیبانی',
+  ' tickets': ' تیکت',
+  'No tickets have been submitted yet.': 'هنوز تیکتی ثبت نشده است.',
+  'User: ': 'کاربر: ',
+  'Priority ': 'اولویت ',
+  'Select a ticket to view the conversation.': 'برای مشاهده گفتگو، یک تیکت انتخاب کنید.',
+  'ID: ': 'شناسه: ',
+  'Admin': 'مدیریت',
+  'Ticket status': 'وضعیت تیکت',
+  'Reply to user...': 'پاسخ مدیر به کاربر...',
+  'Sending...': 'در حال ارسال...',
+  'Send reply and save status': 'ارسال پاسخ و ذخیره وضعیت',
+  'Accounting data failed to load: ': 'اطلاعات حسابداری بارگذاری نشد: ',
+  'Loading financial report...': 'در حال دریافت گزارش مالی...',
+  'Total confirmed revenue (USDT)': 'کل درآمد تأییدشده (USDT)',
+  'Current month revenue (USDT)': 'درآمد ماه جاری (USDT)',
+  'Successful payments': 'پرداخت‌های موفق',
+  'Pending invoices': 'فاکتورهای در انتظار',
+  'Expired invoices': 'فاکتورهای منقضی',
+  'Active subscriptions': 'اشتراک‌های فعال',
+  'Inactive or expired subscriptions': 'اشتراک‌های غیرفعال یا منقضی',
+  'Successful payments this month': 'پرداخت موفق در ماه جاری',
+  'Invoices in the last 30 days': 'فاکتورهای ۳۰ روز اخیر',
+  'Revenue by plan': 'درآمد بر اساس پلن',
+  'Only invoices paid and confirmed on-chain': 'فقط فاکتورهای پرداخت‌شده و تأییدشده در شبکه',
+  'Plan': 'پلن',
+  'Successful purchases': 'خرید موفق',
+  'Revenue (USDT)': 'درآمد (USDT)',
+  'No purchases yet.': 'هنوز خریدی ثبت نشده است.',
+  'Invoice status distribution': 'توزیع وضعیت فاکتورها',
+  'All statuses recorded in the database': 'همه وضعیت‌هایی که در پایگاه داده ثبت شده‌اند',
+  'Status': 'وضعیت',
+  'Count': 'تعداد',
+  'No invoices recorded.': 'فاکتوری ثبت نشده است.',
+  'Invoice ledger and subscription purchases': 'دفتر فاکتورها و خرید اشتراک',
+  'Up to 100 recent invoices with payment status': 'حداکثر ۱۰۰ فاکتور اخیر، همراه با وضعیت پرداخت',
+  'Export invoices CSV': 'خروجی CSV فاکتورها',
+  'User': 'کاربر',
+  'Amount USDT': 'مبلغ USDT',
+  'Transaction ID': 'شناسه تراکنش',
+  'Payment date': 'تاریخ پرداخت',
+  'Latest update: ': 'آخرین به‌روزرسانی: ',
+  'This report currently shows gross revenue and does not subtract network fees, refunds, or operating costs.': 'این گزارش فعلاً درآمد ناخالص را نشان می‌دهد و کارمزد شبکه، بازپرداخت و هزینه عملیاتی را از آن کم نمی‌کند.',
+  'Latest security events': 'آخرین رویدادهای امنیتی',
+  'Last recorded API events; up to 50 items': 'آخرین رویدادهای ثبت‌شده در API؛ حداکثر ۵۰ مورد',
+  'Result': 'نتیجه',
+  'Domain': 'دامنه',
+  'Site key': 'کلید سایت',
+  'Score': 'امتیاز',
+  'Errors': 'خطاها',
+  'Time': 'زمان',
+  'No security events recorded.': 'رویداد امنیتی ثبت نشده است.',
+  'Session is invalid. Sign in again from the main page.': 'نشست ورود معتبر نیست. از صفحه اصلی دوباره وارد شوید.',
+  'This account is not authorized to manage the system.': 'این حساب مجوز مدیریت سامانه را ندارد.',
+  'Could not retrieve data.': 'دریافت اطلاعات ناموفق بود.',
+  'Could not retrieve accounting data.': 'دریافت اطلاعات حسابداری ناموفق بود.',
+  'Unknown error while loading data': 'خطای ناشناخته هنگام دریافت اطلاعات',
+  'Failed to send reply.': 'ارسال پاسخ ناموفق بود.',
+  'Verified': 'تأیید',
+  'Blocked': 'مسدود',
+  'Ticket ID: ': 'شناسه: '
 };
 
 function translateNode(node: React.ReactNode, lang: LanguageCode): React.ReactNode {
-  if (lang !== 'fa') return node;
+  if (lang !== 'fa' && lang !== 'en') return node;
   const lookup = new Map<string, string>();
   Object.keys(translations.en).forEach(key => {
-    const source = translations.en[key];
-    const target = translations.fa[key];
-    if (source && target) lookup.set(source, target);
+    const english = translations.en[key];
+    const persian = translations.fa[key];
+    if (english && persian) {
+      if (lang === 'fa') lookup.set(english, persian);
+      else lookup.set(persian, english);
+    }
   });
-  Object.entries(extraFa).forEach(([source, target]) => lookup.set(source, target));
+  Object.entries(extraFa).forEach(([english, persian]) => {
+    if (lang === 'fa') lookup.set(english, persian);
+    else lookup.set(persian, english);
+  });
   const walk = (child: React.ReactNode): React.ReactNode => {
     if (typeof child === 'string') return lookup.get(child) || child;
     if (Array.isArray(child)) return child.map(walk);
@@ -66,6 +196,11 @@ function translateNode(node: React.ReactNode, lang: LanguageCode): React.ReactNo
     return React.cloneElement(child as React.ReactElement<any>, nextProps);
   };
   return walk(node);
+}
+
+export function translateAdminText(text: string, lang: LanguageCode): string {
+  const translated = translateNode(text, lang);
+  return typeof translated === 'string' ? translated : text;
 }
 
 export const AutoTranslate: React.FC<{ lang: LanguageCode; children: React.ReactNode }> = ({ lang, children }) =>
