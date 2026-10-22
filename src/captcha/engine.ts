@@ -476,20 +476,6 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     acceptLanguage: input.acceptLanguage,
     recentEvents: recentEvents.filter(event => event.token !== input.token),
   });
-  if (risk.action === 'block') {
-    await dbRepository.consumeChallengeToken(input.token);
-    await dbRepository.recordVerificationEvent({
-      siteKey: challenge.siteKey, token: input.token, success: false, score: risk.score,
-      hostname, action: input.action, clientIp: input.remoteIp,
-      errorCodes: ['high-risk-traffic', ...risk.signals.map(signal => `risk:${signal}`)],
-    });
-    return {
-      success: false, score: risk.score, hostname, challenge_ts: challengeTs,
-      action: input.action || 'verify', development_mode: !IS_PRODUCTION,
-      error_codes: ['high-risk-traffic'], risk_action: risk.action, risk_signals: risk.signals,
-    };
-  }
-
   // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
     const candidateHash = crypto
@@ -529,6 +515,20 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
         error_codes: errorCodes,
       };
     }
+  }
+
+  if (risk.action === 'block') {
+    await dbRepository.consumeChallengeToken(input.token);
+    await dbRepository.recordVerificationEvent({
+      siteKey: challenge.siteKey, token: input.token, success: false, score: risk.score,
+      hostname, action: input.action, clientIp: input.remoteIp,
+      errorCodes: ['high-risk-traffic', ...risk.signals.map(signal => `risk:${signal}`)],
+    });
+    return {
+      success: false, score: risk.score, hostname, challenge_ts: challengeTs,
+      action: input.action || 'verify', development_mode: !IS_PRODUCTION,
+      error_codes: ['high-risk-traffic'], risk_action: risk.action, risk_signals: risk.signals,
+    };
   }
 
   // 6. ATOMIC CONSUMPTION: consume token immediately upon successful verification!
