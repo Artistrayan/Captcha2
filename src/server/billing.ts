@@ -10,6 +10,21 @@ const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const BONUS_REQUESTS_BY_PLAN = { starter: 50, pro: 500, business: 2500 } as const;
 export const FREE_TRIAL_CAPTCHA_LIMIT = 20;
 
+export function matchesTronUsdtTransferEvent(
+  event: any,
+  txid: string,
+  expectedAddress: string,
+  expectedUnits: bigint,
+): boolean {
+  const value = String(event?.result?.value || '');
+  return String(event?.transaction_id || '').toLowerCase() === txid.toLowerCase() &&
+    String(event?.contract_address || '') === TRON_USDT_CONTRACT &&
+    event?.event_name === 'Transfer' &&
+    String(event?.result?.to || '') === expectedAddress &&
+    /^\\d+$/.test(value) &&
+    BigInt(value) === expectedUnits;
+}
+
 export function quotaAllows(used: number, limit: number, requested = 1): boolean {
   return Number.isSafeInteger(used) && Number.isSafeInteger(limit) && Number.isSafeInteger(requested) && used >= 0 && limit >= 0 && requested > 0 && used + requested <= limit;
 }
@@ -492,12 +507,7 @@ billingRouter.post('/invoices/:id/verify', async (req, res) => {
     const events = Array.isArray((eventsJson as any)?.data) ? (eventsJson as any).data : [];
     const expectedUnits = BigInt(Math.round(Number(invoice.amount_usdt) * 1_000_000));
     const payment = events.find((event: any) =>
-      String(event?.transaction_id || '').toLowerCase() === txid.toLowerCase() &&
-      String(event?.contract_address || '') === TRON_USDT_CONTRACT &&
-      event?.event_name === 'Transfer' &&
-      String(event?.result?.to || '') === String(invoice.payment_address) &&
-      /^\d+$/.test(String(event?.result?.value || '')) &&
-      BigInt(String(event.result.value)) === expectedUnits
+      matchesTronUsdtTransferEvent(event, txid, String(invoice.payment_address), expectedUnits)
     );
     if (!payment) {
       await client.query('ROLLBACK');
