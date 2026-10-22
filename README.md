@@ -2,7 +2,7 @@
 
 Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Express, PostgreSQL, Drizzle ORM, and Firebase Admin Authentication.
 
-> **MVP limitation:** the current challenge engine uses locally generated SVG visual puzzles. It is not an advanced ML-based bot-detection or behavioral-risk engine and must not be marketed as guaranteeing bot prevention.
+> **MVP limitation:** the challenge engine uses locally generated geometric SVG puzzles and an explainable rule-based risk scorer. A trained supervised ML model is not active; this service must not be marketed as guaranteeing bot prevention.
 
 ## Current capabilities
 
