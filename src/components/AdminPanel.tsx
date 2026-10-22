@@ -7,7 +7,7 @@ type Overview = { users: number; sites: number; tickets: number; openTickets: nu
 type AdminUser = { id: string; email: string; name: string; role: string; createdAt: string };
 type AdminSite = { id: string; name: string; siteKey: string; ownerEmail: string; domains: string[]; challengeDifficulty: string; invisibleEnabled: boolean; rateLimitPerMinute: number; createdAt: string };
 type AdminEvent = { id: string; siteKey: string; success: boolean; score: number; hostname: string; action: string; errorCodes: string[]; createdAt: string };
-type FinanceSummary = { generatedAt: string; totals: { total_invoices: number; paid_invoices: number; pending_invoices: number; expired_invoices: number; revenue_all: string | number; revenue_month: string | number; paid_this_month: number; invoices_30d: number }; plans: { plan_id: string; paid_count: number; revenue: string | number }[]; recentInvoices: { id: string; plan_id: string; amount_usdt: string | number; status: string; txid: string | null; created_at: string; paid_at: string | null; email: string }[]; subscriptions: { active: number; inactive: number }; accountingNote: string };
+type FinanceSummary = { generatedAt: string; totals: { total_invoices: number; paid_invoices: number; pending_invoices: number; expired_invoices: number; revenue_all: string | number; revenue_month: string | number; paid_this_month: number; invoices_30d: number }; plans: { plan_id: string; paid_count: number; revenue: string | number }[]; statuses: { status: string; count: number }[]; recentInvoices: { id: string; plan_id: string; amount_usdt: string | number; status: string; txid: string | null; created_at: string; paid_at: string | null; email: string }[]; subscriptions: { active: number; inactive: number }; accountingNote: string };
 type Section = 'overview' | 'users' | 'sites' | 'tickets' | 'activity' | 'finance';
 const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'نمای کلی سامانه', icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -96,6 +96,23 @@ export default function AdminPanel() {
     finally { setBusy(false); }
   };
 
+  const exportFinanceCsv = () => {
+    if (!finance) return;
+    const rows = [
+      ['email', 'plan_id', 'amount_usdt', 'status', 'txid', 'created_at', 'paid_at'],
+      ...finance.recentInvoices.map(invoice => [invoice.email, invoice.plan_id, String(invoice.amount_usdt), invoice.status, invoice.txid || '', invoice.created_at, invoice.paid_at || '']),
+    ];
+    const csv = '\uFEFF' + rows.map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'shieldcaptcha-accounting-recent-invoices.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const signOut = () => {
     sessionStorage.removeItem('shieldcaptcha_id_token');
     sessionStorage.removeItem('shieldcaptcha_user_email');
@@ -152,6 +169,7 @@ export default function AdminPanel() {
                     <Metric icon={<Clock />} label="فاکتورهای در انتظار" value={Number(finance.totals.pending_invoices || 0)} />
                     <Metric icon={<Receipt />} label="فاکتورهای منقضی" value={Number(finance.totals.expired_invoices || 0)} />
                     <Metric icon={<Users />} label="اشتراک‌های فعال" value={Number(finance.subscriptions?.active || 0)} />
+                    <Metric icon={<Users />} label="اشتراک‌های غیرفعال یا منقضی" value={Number(finance.subscriptions?.inactive || 0)} />
                     <Metric icon={<Activity />} label="پرداخت موفق در ماه جاری" value={Number(finance.totals.paid_this_month || 0)} />
                     <Metric icon={<Receipt />} label="فاکتورهای ۳۰ روز اخیر" value={Number(finance.totals.invoices_30d || 0)} />
                   </div>
@@ -160,7 +178,11 @@ export default function AdminPanel() {
                     <div className="overflow-x-auto"><table className="w-full text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">پلن</th><th className="p-3">خرید موفق</th><th className="p-3">درآمد (USDT)</th></tr></thead><tbody>{finance.plans.map(plan => <tr key={plan.plan_id} className="border-t border-slate-800"><td className="p-3 font-medium">{plan.plan_id}</td><td className="p-3">{plan.paid_count}</td><td className="p-3" dir="ltr">{Number(plan.revenue || 0).toFixed(2)}</td></tr>)}</tbody></table>{finance.plans.length === 0 && <p className="p-5 text-sm text-slate-400">هنوز خریدی ثبت نشده است.</p>}</div>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
-                    <div className="border-b border-slate-800 p-4"><h3 className="font-semibold">دفتر فاکتورها و خرید اشتراک</h3><p className="mt-1 text-xs text-slate-400">حداکثر ۱۰۰ فاکتور اخیر، همراه با وضعیت پرداخت</p></div>
+                    <div className="border-b border-slate-800 p-4"><h3 className="font-semibold">توزیع وضعیت فاکتورها</h3><p className="mt-1 text-xs text-slate-400">همه وضعیت‌هایی که در پایگاه داده ثبت شده‌اند</p></div>
+                    <div className="overflow-x-auto"><table className="w-full text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">وضعیت</th><th className="p-3">تعداد</th></tr></thead><tbody>{finance.statuses.map(item => <tr key={item.status} className="border-t border-slate-800"><td className="p-3">{item.status}</td><td className="p-3">{item.count}</td></tr>)}</tbody></table>{finance.statuses.length === 0 && <p className="p-5 text-sm text-slate-400">فاکتوری ثبت نشده است.</p>}</div>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 p-4"><div><h3 className="font-semibold">دفتر فاکتورها و خرید اشتراک</h3><p className="mt-1 text-xs text-slate-400">حداکثر ۱۰۰ فاکتور اخیر، همراه با وضعیت پرداخت</p></div><button onClick={exportFinanceCsv} className="rounded-lg border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10">خروجی CSV فاکتورها</button></div>
                     <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-right text-sm"><thead className="bg-slate-950/70 text-xs text-slate-400"><tr><th className="p-3">کاربر</th><th className="p-3">پلن</th><th className="p-3">مبلغ USDT</th><th className="p-3">وضعیت</th><th className="p-3">شناسه تراکنش</th><th className="p-3">تاریخ ایجاد</th><th className="p-3">تاریخ پرداخت</th></tr></thead><tbody>{finance.recentInvoices.map(invoice => <tr key={invoice.id} className="border-t border-slate-800"><td className="p-3" dir="ltr">{invoice.email}</td><td className="p-3">{invoice.plan_id}</td><td className="p-3" dir="ltr">{Number(invoice.amount_usdt || 0).toFixed(2)}</td><td className="p-3"><span className={invoice.status === 'paid' ? 'text-emerald-300' : invoice.status === 'pending' ? 'text-amber-300' : 'text-slate-400'}>{invoice.status}</span></td><td className="max-w-48 truncate p-3 font-mono text-xs" dir="ltr">{invoice.txid || '—'}</td><td className="p-3 text-xs text-slate-400">{dateText(invoice.created_at)}</td><td className="p-3 text-xs text-slate-400">{dateText(invoice.paid_at || '')}</td></tr>)}</tbody></table>{finance.recentInvoices.length === 0 && <p className="p-5 text-sm text-slate-400">فاکتوری ثبت نشده است.</p>}</div>
                   </div>
                   <p className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-xs leading-6 text-slate-400">{finance.accountingNote} آخرین به‌روزرسانی: {dateText(finance.generatedAt)}. این گزارش فعلاً درآمد ناخالص را نشان می‌دهد و کارمزد شبکه، بازپرداخت و هزینه عملیاتی را از آن کم نمی‌کند.</p>
