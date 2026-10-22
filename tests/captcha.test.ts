@@ -68,37 +68,17 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     expect((res.body as any).targetCategory).toBeUndefined();
   });
 
-  it('Provides a third rotation-match challenge with one unrotated correct option', async () => {
-    let generated: Awaited<ReturnType<typeof issueCaptchaChallenge>> | undefined;
-    let stored: Awaited<ReturnType<typeof dbRepository.getChallengeByToken>> | null = null;
-
-    // The mode is selected securely at random; try enough times to observe the rotation mode.
-    for (let i = 0; i < 30; i++) {
-      const candidate = await issueCaptchaChallenge(testSiteKey, 'localhost', 'en');
-      const row = await dbRepository.getChallengeByToken(candidate.token);
-      if (row?.challengeType === 'ROTATION_MATCH') {
-        generated = candidate;
-        stored = row;
-        break;
-      }
+  it('Only issues modern geometric CAPTCHA modes, never legacy icon-selection modes', async () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 100 && seen.size < 3; i++) {
+      const challenge = await issueCaptchaChallenge(testSiteKey, 'localhost', 'en');
+      const row = await dbRepository.getChallengeByToken(challenge.token);
+      expect(['PRISM_FLOW', 'POLYGON_SEQUENCE', 'POLYGON_COUNT']).toContain(row?.challengeType);
+      expect(challenge.options).toHaveLength(6);
+      seen.add(row!.challengeType);
+      expect(challenge.options.every(option => option.svg.includes('data:image/svg+xml'))).toBe(true);
     }
-
-    expect(generated).toBeDefined();
-    expect(stored).toBeDefined();
-    const decodedOptions = generated!.options.map(option => ({
-      id: option.id,
-      svg: decodeURIComponent(option.svg.slice(option.svg.indexOf(',') + 1)),
-    }));
-    const upright = decodedOptions.filter(option => !option.svg.includes('transform="rotate('));
-    expect(upright).toHaveLength(1);
-
-    const matching = decodedOptions.filter(option =>
-      crypto.createHmac('sha256', process.env.CAPTCHA_SERVER_SALT || 'shield_captcha_internal_salt_dev_98741')
-        .update(`${stored!.id}:${option.id}`)
-        .digest('hex') === stored!.correctAnswerHash
-    );
-    expect(matching).toHaveLength(1);
-    expect(matching[0].id).toBe(upright[0].id);
+    expect(seen.size).toBe(3);
   });
 
   it('3. Rejects invalid Site Key', async () => {
