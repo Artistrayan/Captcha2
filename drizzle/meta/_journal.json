@@ -71,6 +71,13 @@
       "when": 1792690000006,
       "tag": "0009_billing_export_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792720000000,
+      "tag": "0010_split_free_trial_test_production",
+      "breakpoints": true
     }
   ]
 }
