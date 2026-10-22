@@ -95,7 +95,8 @@ app.post('/api/checkout', async (req, res) => {
 
   const verification = await verifyResponse.json();
 
-  // CAPTCHA validity and bot-risk policy are separate checks. Tune the threshold for your use case.\n  if (!verification.success || verification.score < 70 || verification.risk_action === 'block') {
+  // CAPTCHA validity and bot-risk policy are separate checks. Tune the threshold for your use case.
+  if (!verification.success || verification.score < 70 || verification.risk_action === 'block') {
     return res.status(403).json({
       error: 'Bot verification failed',
       details: verification.error_codes,
