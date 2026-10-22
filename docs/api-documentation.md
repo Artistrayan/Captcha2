@@ -93,13 +93,13 @@ Called by your backend server to verify the user-submitted CAPTCHA token.
 ```json
 {
   "success": true,
-  "score": 82,
+  "score": 96,
   "hostname": "example.com",
   "challenge_ts": "2026-10-19T10:21:15.000Z",
   "action": "login",
   "development_mode": true,
   "error_codes": [],
-  "risk_action": "challenge",
+  "risk_action": "allow",
   "risk_signals": ["quick-solve"]
 }
 ```
