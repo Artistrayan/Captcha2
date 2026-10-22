@@ -89,7 +89,7 @@ function buildPolygonSequenceItems(optionCount: number): Array<{ category: strin
 }
 
 function buildPolygonCountItems(optionCount: number): Array<{ category: string; correct: boolean; svgOverride?: string }> {
-  const distractors = [3, 4, 6, 7, 8];
+  const distractors = [3, 4, 6, 7, 8, 9, 10];
   for (let i = distractors.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
     [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
