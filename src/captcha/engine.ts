@@ -552,11 +552,11 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     siteKey: challenge.siteKey,
     token: input.token,
     success: true,
-    score: 95, // Human verified visual puzzle
+    score: risk.score,
     hostname,
     action: input.action,
     clientIp: input.remoteIp,
-    errorCodes: [],
+    errorCodes: risk.signals.length ? risk.signals.map(signal => `risk:${signal}`) : [],
   });
 
   return {
