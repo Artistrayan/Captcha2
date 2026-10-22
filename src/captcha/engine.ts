@@ -633,7 +633,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     hostname,
     action: input.action,
     clientIp: input.remoteIp,
-    errorCodes: risk.signals.length ? risk.signals.map(signal => `risk:${signal}`) : [],
+    errorCodes: [...(risk.signals.length ? risk.signals.map(signal => `risk:${signal}`) : []), ...mlAuditCodes],
   });
 
   return {
