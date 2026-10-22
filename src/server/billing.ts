@@ -493,9 +493,9 @@ billingRouter.post('/invoices/:id/verify', async (req, res) => {
     const expectedUnits = BigInt(Math.round(Number(invoice.amount_usdt) * 1_000_000));
     const payment = events.find((event: any) =>
       String(event?.transaction_id || '').toLowerCase() === txid.toLowerCase() &&
-      String(event?.contract_address || '').toLowerCase() === TRON_USDT_CONTRACT.toLowerCase() &&
+      String(event?.contract_address || '') === TRON_USDT_CONTRACT &&
       event?.event_name === 'Transfer' &&
-      String(event?.result?.to || '').toLowerCase() === String(invoice.payment_address).toLowerCase() &&
+      String(event?.result?.to || '') === String(invoice.payment_address) &&
       /^\d+$/.test(String(event?.result?.value || '')) &&
       BigInt(String(event.result.value)) === expectedUnits
     );
