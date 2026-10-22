@@ -6,6 +6,7 @@ import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSes
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
 import { calculatePassRatePercent } from '../utils/analytics.ts';
 import { assessCaptchaRisk } from '../captcha/risk-engine.ts';
+import { getCaptchaMLStatus } from '../captcha/ml-risk-engine.ts';
 import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
 
 export const apiRouter = Router();
@@ -93,6 +94,11 @@ apiRouter.get('/health', (req: Request, res: Response) => {
     version: '1.0.0-mvp',
     database: dbStatus,
     firebaseAuth: firebaseStatus,
+    captchaEngines: {
+      geometricChallenges: 'active',
+      ruleBasedRiskScoring: 'active',
+      supervisedMl: getCaptchaMLStatus(),
+    },
     serverMode: process.env.NODE_ENV || 'development',
   });
 });

@@ -108,6 +108,29 @@ function predictTree(tree: PortableTree, row: number[]): number {
   throw new Error('ML tree traversal exceeded node limit');
 }
 
+/** Operational status only; never reports the shadow model as an active enforcement engine. */
+export function getCaptchaMLStatus(): {
+  mode: 'shadow-only';
+  configured: boolean;
+  modelLoaded: boolean;
+  status: 'not-configured' | 'model-unavailable' | 'ready-shadow-only' | 'invalid-model';
+  modelVersion?: string;
+} {
+  const configured = Boolean(process.env.SHIELDCAPTCHA_ML_MODEL_PATH);
+  try {
+    const model = loadModel();
+    return {
+      mode: 'shadow-only',
+      configured,
+      modelLoaded: Boolean(model),
+      status: model ? 'ready-shadow-only' : configured ? 'model-unavailable' : 'not-configured',
+      ...(model ? { modelVersion: model.modelVersion } : {}),
+    };
+  } catch {
+    return { mode: 'shadow-only', configured, modelLoaded: false, status: 'invalid-model' };
+  }
+}
+
 /** Returns a prediction only; callers must keep it shadow-only until separately approved. */
 export function predictCaptchaMLShadow(input: MLFeatureInput): MLShadowPrediction {
   let model: PortableModel | null;

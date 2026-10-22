@@ -250,7 +250,7 @@ export async function issueCaptchaChallenge(
     options: options.map(o => ({ id: o.id, label: '', icon: o.svg })),
     token,
     expiresAt,
-    maxAttempts: 4,
+    maxAttempts: 2,
   });
 
   return {

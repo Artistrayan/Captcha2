@@ -8,4 +8,4 @@ ShieldCaptcha now issues only these visual challenge families:
 
 Legacy icon selection, odd-one-out icon grids, and rotated single-icon challenges are no longer selected or rendered by the challenge engine.
 
-All choices are randomized server-side, and only the HMAC of the correct option identifier is persisted. The browser receives opaque option IDs and SVG data, not the correct answer. Challenges expire after 20 seconds and allow at most four incorrect attempts. These visual models are one layer of defense and are not a claim of complete bot immunity; the supervised ML pipeline remains shadow-only until trained and validated on reviewed labels.
+All choices are randomized server-side, and only the HMAC of the correct option identifier is persisted. The browser receives opaque option IDs and SVG data, not the correct answer. Challenges expire after 20 seconds and allow at most two incorrect attempts. These visual models are one layer of defense and are not a claim of complete bot immunity; the supervised ML pipeline remains shadow-only until trained and validated on reviewed labels.

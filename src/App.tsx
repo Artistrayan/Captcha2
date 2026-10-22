@@ -462,29 +462,32 @@ export default function App() {
       if (!chRes.ok || !challenge.token) throw new Error(challenge.message || challenge.code || 'Challenge issuance failed');
 
       if (scenario === 'wrong_answer') {
-        let fourthAttempt: any;
-        for (let i = 0; i < 4; i++) {
-          const verifyRes = await fetch('/api/v1/captcha/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
-          });
-          const attemptData = await verifyRes.json();
-          if (i === 3) fourthAttempt = attemptData;
-        }
-        const fifthRes = await fetch('/api/v1/captcha/verify', {
+        const firstRes = await fetch('/api/v1/captcha/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
         });
-        const fifthAttempt = await fifthRes.json();
-        const fourthAllowed = fourthAttempt?.error_codes?.includes('incorrect-captcha-sol');
-        const fifthBlocked = fifthAttempt.error_codes?.some((code: string) => ['timeout-or-duplicate', 'max-attempts-exceeded'].includes(code));
+        const firstAttempt = await firstRes.json();
+        const secondRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
+        });
+        const secondAttempt = await secondRes.json();
+        const thirdRes = await fetch('/api/v1/captcha/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: challenge.token, selectedOptionId: 'opt_deliberately_wrong_id_9999' }),
+        });
+        const thirdAttempt = await thirdRes.json();
+        const twoWrongAnswersCounted = firstAttempt?.error_codes?.includes('incorrect-captcha-sol') &&
+          secondAttempt?.error_codes?.includes('incorrect-captcha-sol');
+        const thirdBlocked = thirdAttempt.error_codes?.some((code: string) => ['timeout-or-duplicate', 'max-attempts-exceeded'].includes(code));
         setTestResultLog({
-          title: 'Test four allowed attempts and block the fifth',
-          status: fourthAllowed && fifthBlocked ? 'success' : 'failed',
-          code: fifthAttempt.error_codes?.[0],
-          payload: { fourthIncorrectAttempt: fourthAttempt, fifthBlockedAttempt: fifthAttempt },
+          title: 'Test two incorrect answers allowed and block the third',
+          status: twoWrongAnswersCounted && thirdBlocked ? 'success' : 'failed',
+          code: thirdAttempt.error_codes?.[0],
+          payload: { firstIncorrectAttempt: firstAttempt, secondIncorrectAttempt: secondAttempt, thirdBlockedAttempt: thirdAttempt },
           timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
         });
       } else {
@@ -1241,8 +1244,8 @@ export default function App() {
                     onClick={() => runSecurityTest('wrong_answer')}
                     className="p-3 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-right transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <div className="text-xs font-semibold text-rose-400 mb-1">1. Four attempts allowed</div>
-                    <div className="text-[10px] text-slate-400">Four incorrect answers are allowed; the fifth attempt should be rejected</div>
+                    <div className="text-xs font-semibold text-rose-400 mb-1">1. Two incorrect answers allowed</div>
+                    <div className="text-[10px] text-slate-400">The second incorrect answer consumes the challenge; a third attempt must be rejected</div>
                   </button>
 
                   <button

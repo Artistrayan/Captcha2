@@ -386,6 +386,8 @@ billingRouter.get('/admin/summary', async (req, res) => {
   }
   try {
     const db = getPool();
+    // Expire stale pending invoices before calculating financial and plan-status aggregates.
+    await db.query("UPDATE billing_invoices SET status='expired' WHERE status='pending' AND expires_at <= NOW()");
     const [totals, statuses, plans, recent, subscriptions] = await Promise.all([
       db.query(`
         SELECT COUNT(*)::int AS total_invoices,
@@ -428,7 +430,10 @@ billingRouter.get('/admin/summary', async (req, res) => {
 billingRouter.get('/invoices', async (req, res) => {
   try {
     const user = (req as any).billingUser;
-    const result = await getPool().query(
+    const db = getPool();
+    // Keep invoice history aligned with the 30-minute payment deadline.
+    await db.query("UPDATE billing_invoices SET status='expired' WHERE status='pending' AND expires_at <= NOW()");
+    const result = await db.query(
       'SELECT id, plan_id, amount_usdt, status, txid, expires_at, created_at, paid_at FROM billing_invoices WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20',
       [user.id],
     );
@@ -489,10 +494,12 @@ billingRouter.post('/invoices/:id/verify', async (req, res) => {
     if (reused.rows.length) { await client.query('ROLLBACK'); res.status(409).json({ error: 'This transaction has already been used.' }); return; }
     const apiKey = process.env.TRON_PRO_API_KEY!;
     const headers = { 'TRON-PRO-API-KEY': apiKey, 'Content-Type': 'application/json' };
+    // Bound provider latency so an untrusted transaction ID cannot hold a DB connection indefinitely.
+    const providerSignal = AbortSignal.timeout(10_000);
     const [eventsResponse, infoResponse, blockResponse] = await Promise.all([
-      fetch(`https://api.trongrid.io/v1/transactions/${txid}/events?only_confirmed=true&limit=200`, { headers }),
-      fetch('https://api.trongrid.io/wallet/gettransactioninfobyid', { method: 'POST', headers, body: JSON.stringify({ value: txid }) }),
-      fetch('https://api.trongrid.io/wallet/getnowblock', { method: 'POST', headers, body: '{}' }),
+      fetch(`https://api.trongrid.io/v1/transactions/${txid}/events?only_confirmed=true&limit=200`, { headers, signal: providerSignal }),
+      fetch('https://api.trongrid.io/wallet/gettransactioninfobyid', { method: 'POST', headers, body: JSON.stringify({ value: txid }), signal: providerSignal }),
+      fetch('https://api.trongrid.io/wallet/getnowblock', { method: 'POST', headers, body: '{}', signal: providerSignal }),
     ]);
     if (!eventsResponse.ok || !infoResponse.ok || !blockResponse.ok) throw new Error('TRON provider request failed');
     const [eventsJson, info, block] = await Promise.all([eventsResponse.json(), infoResponse.json(), blockResponse.json()]);
