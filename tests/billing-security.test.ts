@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import crypto from 'node:crypto';
 import {
   FREE_TRIAL_CAPTCHA_LIMIT,
+  FREE_TRIAL_TOTAL_LIMIT,
   matchesTronUsdtTransferEvent,
   quotaAllows,
   consumeApiRateLimit,
@@ -9,8 +10,9 @@ import {
 } from '../src/server/billing.ts';
 
 describe('billing and usage guardrails', () => {
-  it('keeps the free trial cap at twenty challenges per account', () => {
-    expect(FREE_TRIAL_CAPTCHA_LIMIT).toBe(20);
+  it('splits the free allowance into ten test and ten production challenges', () => {
+    expect(FREE_TRIAL_CAPTCHA_LIMIT).toBe(10);
+    expect(FREE_TRIAL_TOTAL_LIMIT).toBe(20);
   });
 
   it('enforces quota boundaries without allowing invalid counters', () => {
