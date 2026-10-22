@@ -8,6 +8,11 @@ export const billingRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const BONUS_REQUESTS_BY_PLAN = { starter: 50, pro: 500, business: 2500 } as const;
+export const FREE_TRIAL_CAPTCHA_LIMIT = 20;
+
+export function quotaAllows(used: number, limit: number, requested = 1): boolean {
+  return Number.isSafeInteger(used) && Number.isSafeInteger(limit) && Number.isSafeInteger(requested) && used >= 0 && limit >= 0 && requested > 0 && used + requested <= limit;
+}
 const PLANS = {
   starter: { name: 'Starter', baseCents: 900, requests: 100000 },
   pro: { name: 'Pro', baseCents: 4900, requests: 1000000 },
@@ -38,13 +43,14 @@ export async function checkSiteRegistrationQuota(userId: string): Promise<{ allo
 }
 
 let freeTrialTableReady: Promise<void> | null = null;
+let billingUsageTableReady: Promise<void> | null = null;
 
 async function ensureFreeTrialTable(): Promise<void> {
   if (!freeTrialTableReady) {
     freeTrialTableReady = getPool().query(`
       CREATE TABLE IF NOT EXISTS captcha_free_trial_usage (
         user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        used_count integer NOT NULL DEFAULT 0 CHECK (used_count >= 0 AND used_count <= 10),
+        used_count integer NOT NULL DEFAULT 0 CHECK (used_count >= 0 AND used_count <= 20),
         updated_at timestamptz NOT NULL DEFAULT NOW()
       )
     `).then(() => undefined).catch((error) => {
@@ -55,61 +61,79 @@ async function ensureFreeTrialTable(): Promise<void> {
   await freeTrialTableReady;
 }
 
-async function getCaptchaAccount(siteKey: string): Promise<{ userId: string; paidQuota: number } | null> {
-  const result = await getPool().query(
-    `SELECT s.user_id,
-       COALESCE((
-         SELECT SUM(bs.request_limit + CASE bs.plan_id
-           WHEN 'starter' THEN $2
-           WHEN 'pro' THEN $3
-           WHEN 'business' THEN $4
-           ELSE 0
-         END)::bigint
-         FROM billing_subscriptions bs
-         WHERE bs.user_id = s.user_id AND bs.status = 'active' AND bs.expires_at > NOW()
-       ), 0)::bigint AS paid_quota
-     FROM sites s WHERE s.site_key = $1 LIMIT 1`,
-    [siteKey, BONUS_REQUESTS_BY_PLAN.starter, BONUS_REQUESTS_BY_PLAN.pro, BONUS_REQUESTS_BY_PLAN.business],
-  );
-  if (!result.rows[0]) return null;
-  return { userId: String(result.rows[0].user_id), paidQuota: Number(result.rows[0].paid_quota) || 0 };
+async function ensureBillingUsageTable(): Promise<void> {
+  if (!billingUsageTableReady) {
+    billingUsageTableReady = (async () => {
+      const db = getPool();
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS captcha_billing_usage (
+          reservation_id text PRIMARY KEY,
+          user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          challenge_token text UNIQUE,
+          created_at timestamptz NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.query('CREATE INDEX IF NOT EXISTS captcha_billing_usage_user_created_idx ON captcha_billing_usage(user_id, created_at DESC)');
+    })().catch((error) => {
+      billingUsageTableReady = null;
+      throw error;
+    });
+  }
+  await billingUsageTableReady;
 }
 
-/**
- * Atomically reserves one of the account's 10 lifetime free test CAPTCHAs.
- * The counter belongs to the account, not an individual site, so deleting/recreating
- * a site cannot reset the allowance.
- */
-export async function reserveFreeCaptchaTrial(siteKey: string): Promise<{
-  isFree: boolean; allowed: boolean; used: number; limit: number; userId?: string;
+export async function reservePaidCaptchaUsage(siteKey: string): Promise<{
+  isPaid: boolean; allowed: boolean; used: number; limit: number; userId?: string; reservationId?: string;
 }> {
-  if (!process.env.DATABASE_URL) {
-    return { isFree: false, allowed: true, used: 0, limit: 10000 };
-  }
+  if (!process.env.DATABASE_URL) return { isPaid: false, allowed: true, used: 0, limit: 10000 };
   const account = await getCaptchaAccount(siteKey);
-  if (!account) return { isFree: false, allowed: true, used: 0, limit: 10000 };
-  if (account.paidQuota > 0) {
-    return { isFree: false, allowed: true, used: 0, limit: account.paidQuota, userId: account.userId };
-  }
+  if (!account) return { isPaid: false, allowed: true, used: 0, limit: 10000 };
+  if (account.paidQuota <= 0) return { isPaid: false, allowed: true, used: 0, limit: FREE_TRIAL_CAPTCHA_LIMIT, userId: account.userId };
 
-  await ensureFreeTrialTable();
-  const reserved = await getPool().query(
-    `INSERT INTO captcha_free_trial_usage (user_id, used_count, updated_at)
-     VALUES ($1, 1, NOW())
-     ON CONFLICT (user_id) DO UPDATE
-       SET used_count = captcha_free_trial_usage.used_count + 1, updated_at = NOW()
-       WHERE captcha_free_trial_usage.used_count < 10
-     RETURNING used_count`,
-    [account.userId],
-  );
-  if (reserved.rows[0]) {
-    return { isFree: true, allowed: true, used: Number(reserved.rows[0].used_count), limit: 10, userId: account.userId };
+  await ensureBillingUsageTable();
+  const client = await getPool().connect();
+  const reservationId = `usage_${crypto.randomBytes(16).toString('hex')}`;
+  try {
+    await client.query('BEGIN');
+    // Serialize quota reservations per account so parallel sites cannot exceed the shared allowance.
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [account.userId]);
+    const usage = await client.query(
+      `SELECT COUNT(*)::int AS used FROM captcha_billing_usage
+       WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
+      [account.userId],
+    );
+    const used = Number(usage.rows[0]?.used || 0);
+    if (!quotaAllows(used, account.paidQuota, 1)) {
+      await client.query('ROLLBACK');
+      return { isPaid: true, allowed: false, used, limit: account.paidQuota, userId: account.userId };
+    }
+    await client.query(
+      'INSERT INTO captcha_billing_usage (reservation_id, user_id) VALUES ($1, $2)',
+      [reservationId, account.userId],
+    );
+    await client.query('COMMIT');
+    return { isPaid: true, allowed: true, used: used + 1, limit: account.paidQuota, userId: account.userId, reservationId };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
   }
-  const current = await getPool().query(
-    'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
-    [account.userId],
+}
+
+export async function completePaidCaptchaUsage(reservationId: string, challengeToken: string): Promise<void> {
+  if (!process.env.DATABASE_URL || !reservationId) return;
+  await ensureBillingUsageTable();
+  await getPool().query(
+    'UPDATE captcha_billing_usage SET challenge_token = $2 WHERE reservation_id = $1',
+    [reservationId, challengeToken],
   );
-  return { isFree: true, allowed: false, used: Number(current.rows[0]?.used_count || 10), limit: 10, userId: account.userId };
+}
+
+export async function releasePaidCaptchaUsage(reservationId: string): Promise<void> {
+  if (!process.env.DATABASE_URL || !reservationId) return;
+  await ensureBillingUsageTable();
+  await getPool().query('DELETE FROM captcha_billing_usage WHERE reservation_id = $1 AND challenge_token IS NULL', [reservationId]);
 }
 
 export async function releaseFreeCaptchaTrial(userId: string): Promise<void> {
@@ -124,7 +148,7 @@ export async function releaseFreeCaptchaTrial(userId: string): Promise<void> {
 export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
   if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
   const account = await getCaptchaAccount(siteKey);
-  if (!account) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
+  if (!account) return { allowed: false, used: 0, limit: 0, plan: 'invalid-site' };
 
   if (account.paidQuota <= 0) {
     await ensureFreeTrialTable();
@@ -133,22 +157,17 @@ export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): P
       [account.userId],
     );
     const used = Number(result.rows[0]?.used_count || 0);
-    // Verification of a challenge already issued as the 10th free CAPTCHA remains allowed.
-    // New challenges are atomically reserved through reserveFreeCaptchaTrial().
-    return { allowed: reserveRequests <= 1 || used + reserveRequests <= 10, used, limit: 10, plan: 'free-trial' };
+    return { allowed: quotaAllows(used, FREE_TRIAL_CAPTCHA_LIMIT, reserveRequests), used, limit: FREE_TRIAL_CAPTCHA_LIMIT, plan: 'free-trial' };
   }
 
+  await ensureBillingUsageTable();
   const usage = await getPool().query(
-    `SELECT (
-       (SELECT COUNT(*) FROM captcha_challenges c JOIN sites s ON s.site_key = c.site_key
-        WHERE s.user_id = $1 AND c.created_at >= NOW() - INTERVAL '30 days') +
-       (SELECT COUNT(*) FROM verification_events v JOIN sites s ON s.site_key = v.site_key
-        WHERE s.user_id = $1 AND v.created_at >= NOW() - INTERVAL '30 days')
-     )::int AS used`,
+    `SELECT COUNT(*)::int AS used FROM captcha_billing_usage
+     WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '30 days'`,
     [account.userId],
   );
   const used = Number(usage.rows[0]?.used || 0);
-  return { allowed: used + reserveRequests <= account.paidQuota, used, limit: account.paidQuota, plan: 'paid' };
+  return { allowed: quotaAllows(used, account.paidQuota, reserveRequests), used, limit: account.paidQuota, plan: 'paid' };
 }
 
 function configReady() {
@@ -303,7 +322,13 @@ billingRouter.post('/invoices/:id/verify', async (req, res) => {
       res.status(410).json({ status: 'expired', error: 'Invoice expired. Create a new invoice.' });
       return;
     }
-    const reused = await client.query('SELECT id FROM billing_invoices WHERE txid=$1 AND status IN (\'paid\',\'verifying\')', [txid]);
+    // Serialize verification attempts for the same transaction across different invoices.
+    // The unique txid constraint remains the final database-level idempotency guard.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [txid.toLowerCase()]);
+    const reused = await client.query(
+      "SELECT id FROM billing_invoices WHERE txid=$1 AND status IN ('paid','verifying')",
+      [txid.toLowerCase()],
+    );
     if (reused.rows.length) { await client.query('ROLLBACK'); res.status(409).json({ error: 'This transaction has already been used.' }); return; }
     const apiKey = process.env.TRON_PRO_API_KEY!;
     const headers = { 'TRON-PRO-API-KEY': apiKey, 'Content-Type': 'application/json' };

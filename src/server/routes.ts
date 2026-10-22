@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser, isEmailRegistered } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
-import { checkCaptchaQuota, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial } from './billing.ts';
+import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -539,9 +539,9 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   }
 
   let freeTrialReservationUserId: string | undefined;
+  let paidUsageReservationId: string | undefined;
   try {
-    // Free accounts receive 10 CAPTCHA challenges total per account. Reservation is atomic
-    // and account-wide, so parallel requests or deleting/recreating a site cannot reset it.
+    // Each account receives 20 free CAPTCHA challenges across all registered websites.
     const trial = await reserveFreeCaptchaTrial(parsed.data.siteKey);
     if (trial.isFree && !trial.allowed) {
       res.status(429).json({
@@ -549,29 +549,30 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
         code: 'free-trial-exhausted',
         plan: 'free',
         used: trial.used,
-        limit: 10,
+        limit: FREE_TRIAL_CAPTCHA_LIMIT,
         message: parsed.data.lang.toLowerCase().startsWith('fa')
-          ? 'اعتبار رایگان آزمایش کپچا تمام شده است. برای ادامه، اشتراک تهیه کنید.'
-          : 'Your 10 free CAPTCHA tests are used up. Upgrade to a paid subscription to continue.',
+          ? 'اعتبار رایگان ۲۰ کپچای این حساب تمام شده است. برای ادامه، اشتراک تهیه کنید.'
+          : 'Your account has used all 20 free CAPTCHA challenges. Upgrade to a paid subscription to continue.',
       });
       return;
     }
     if (trial.isFree && trial.allowed) freeTrialReservationUserId = trial.userId;
 
-    // Paid subscriptions use their rolling 30-day request allowance.
+    // A paid challenge reserves exactly one unit, regardless of verification retries.
     if (!trial.isFree) {
-      const quota = await checkCaptchaQuota(parsed.data.siteKey, 2);
-      if (!quota.allowed) {
+      const quota = await reservePaidCaptchaUsage(parsed.data.siteKey);
+      if (quota.isPaid && !quota.allowed) {
         res.status(429).json({
           error: 'Monthly usage limit reached',
           code: 'usage-limit-exceeded',
-          plan: quota.plan,
+          plan: 'paid',
           used: quota.used,
           limit: quota.limit,
-          message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
+          message: 'The monthly CAPTCHA challenge allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
         });
         return;
       }
+      paidUsageReservationId = quota.reservationId;
     }
 
     const challenge = await issueCaptchaChallenge(
@@ -579,8 +580,12 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
       requestDomain,
       parsed.data.lang
     );
+    if (paidUsageReservationId) {
+      await completePaidCaptchaUsage(paidUsageReservationId, challenge.token);
+      paidUsageReservationId = undefined;
+    }
 
-    // Keep the reservation only when a challenge was successfully created.
+    // Keep the free reservation only when a challenge was successfully created.
     freeTrialReservationUserId = undefined;
     res.json({
       challengeId: challenge.challengeId,
@@ -594,6 +599,9 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   } catch (err: any) {
     if (freeTrialReservationUserId) {
       await releaseFreeCaptchaTrial(freeTrialReservationUserId).catch(() => undefined);
+    }
+    if (paidUsageReservationId) {
+      await releasePaidCaptchaUsage(paidUsageReservationId).catch(() => undefined);
     }
     if (err.message === 'SITE_KEY_NOT_FOUND') {
       res.status(404).json({ error: 'Invalid Site Key', code: 'site-key-not-found' });
@@ -632,36 +640,8 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
     return;
   }
 
-  // Enforce the account's rolling usage quota on verification requests too.
-  // The challenge is looked up server-side; callers cannot choose another site's quota.
-  try {
-    const storedChallenge = await dbRepository.getChallengeByToken(parsed.data.token);
-    if (storedChallenge) {
-      const quota = await checkCaptchaQuota(storedChallenge.siteKey, 1);
-      if (!quota.allowed) {
-        res.status(429).json({
-          success: false,
-          score: 0,
-          error_codes: ['usage-limit-exceeded'],
-          error: 'Monthly usage limit reached',
-          plan: quota.plan,
-          used: quota.used,
-          limit: quota.limit,
-          message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
-        });
-        return;
-      }
-    }
-  } catch (error: any) {
-    console.error('[Quota] Verification quota check failed:', error?.message);
-    res.status(503).json({
-      success: false,
-      score: 0,
-      error_codes: ['quota-check-unavailable'],
-      error: 'Usage quota could not be checked. Please retry shortly.',
-    });
-    return;
-  }
+  // Quota is reserved atomically when a challenge is issued. Verification attempts do not
+  // consume extra units, and a challenge issued within quota remains verifiable until expiry.
 
   // Express resolves req.ip using only the configured trusted proxy chain.
   // Ignore caller-supplied X-Forwarded-For and JSON remoteIp values.

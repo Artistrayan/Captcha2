@@ -36,6 +36,13 @@
       "when": 1792690000000,
       "tag": "0004_persistent_email_verification_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792690000002,
+      "tag": "0005_account_wide_billing_usage",
+      "breakpoints": true
     }
   ]
 }
