@@ -4,31 +4,47 @@ import { apiRouter } from './routes.ts';
 import { billingRouter } from './billing.ts';
 
 export const app = express();
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
-// Render terminates TLS and forwards client IPs through one trusted proxy hop.
-// Do not trust forwarded headers from arbitrary clients in local development.
 app.set('trust proxy', process.env.RENDER ? 1 : false);
 
-// Security Headers (Helmet-equivalent hardening)
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (IS_PRODUCTION) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
 
-// Explicit CORS. CAPTCHA embeds need cross-origin requests; billing remains token-authenticated.
-app.use(cors({
-  origin: (origin, callback) => callback(null, true),
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Site-Key'],
-}));
+const configuredOrigins = [
+  ...(process.env.CORS_ALLOWED_ORIGINS || '').split(','),
+  process.env.APP_URL || '',
+  process.env.ADMIN_APP_URL || '',
+  'https://shieldcaptcha-web.onrender.com',
+  'https://shieldcaptcha-admin.onrender.com',
+].map(value => value.trim().replace(/\/$/, '')).filter(Boolean);
+const allowedDashboardOrigins = new Set(configuredOrigins);
+
+// CAPTCHA endpoints must support customer-site embeds; domain binding is enforced server-side.
+// Dashboard, billing, and admin APIs only expose CORS to configured first-party origins.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const isCaptchaEmbedEndpoint = /^\/api\/v1\/captcha\/(challenge|verify)$/.test(req.path);
+  const origin = req.headers.origin;
+  if (!IS_PRODUCTION || !origin || isCaptchaEmbedEndpoint || allowedDashboardOrigins.has(origin.replace(/\/$/, ''))) {
+    return cors({
+      origin: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Site-Key'],
+      maxAge: 600,
+    })(req, res, next);
+  }
+  return cors({ origin: false })(req, res, next);
+});
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Sanitized structured logger (no secrets, passwords, or tokens in logs)
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on('finish', () => {

@@ -4,18 +4,13 @@ import { z } from 'zod';
 import { dbRepository, getDatabaseStatus } from '../db/index.ts';
 import { getFirebaseStatus, verifyTokenServerSide, getOrCreateUser, createDevSessionToken, createVerifiedFirebaseUser, isEmailRegistered } from '../auth/firebase.ts';
 import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } from '../captcha/engine.ts';
-import { checkCaptchaQuota, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial } from './billing.ts';
+import { calculatePassRatePercent } from '../utils/analytics.ts';
+import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
-// In-memory sliding window rate limiter
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-const rateLimits = new Map<string, RateLimitEntry>();
-
+// Shared fixed-window rate limiting uses PostgreSQL in production and an in-memory fallback in local development.
 function configuredRateLimit(name: string, fallback: number): number {
   const configured = Number(process.env[name]);
   return Number.isSafeInteger(configured) && configured >= 1 && configured <= 10000
@@ -24,40 +19,30 @@ function configuredRateLimit(name: string, fallback: number): number {
 }
 
 export function rateLimiter(limit: number, windowMs: number) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `${req.path}:${ip}`;
-    const now = Date.now();
-
-    // Periodically discard expired keys so attacker-controlled IP diversity cannot grow this map forever.
-    if (rateLimits.size > 5000) {
-      for (const [storedKey, storedEntry] of rateLimits) {
-        if (storedEntry.resetAt <= now) rateLimits.delete(storedKey);
+    const key = `api:${req.method}:${req.path}:${ip}`;
+    try {
+      const result = await consumeApiRateLimit(key, limit, windowMs);
+      if (!result.allowed) {
+        const retryAfterMs = Math.max(0, result.resetAt - Date.now());
+        res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
+        res.status(429).json({
+          error: 'Too Many Requests',
+          message: 'Rate limit exceeded. Please try again later.',
+          retryAfterMs,
+        });
+        return;
       }
+      next();
+    } catch (error: any) {
+      console.error('[RateLimit] Shared rate limiter unavailable:', error?.message || error);
+      if (IS_PRODUCTION) {
+        res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Please retry shortly.' });
+        return;
+      }
+      next();
     }
-
-    if (rateLimits.size >= 10000 && !rateLimits.has(key)) {
-      res.status(429).json({ error: 'Too Many Requests', message: 'Rate limiter capacity reached; retry shortly.', retryAfterMs: windowMs });
-      return;
-    }
-
-    const entry = rateLimits.get(key);
-    if (!entry || entry.resetAt < now) {
-      rateLimits.set(key, { count: 1, resetAt: now + windowMs });
-      return next();
-    }
-
-    if (entry.count >= limit) {
-      res.status(429).json({
-        error: 'Too Many Requests',
-        message: 'Rate limit exceeded. Please try again later.',
-        retryAfterMs: entry.resetAt - now,
-      });
-      return;
-    }
-
-    entry.count++;
-    next();
   };
 }
 
@@ -75,9 +60,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Initial admin access is determined only from a server-side allowlist and a verified token email.
     const configuredAdminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
     const verifiedEmail = (decoded.email || '').trim().toLowerCase();
-    (req as any).user = configuredAdminEmail && verifiedEmail === configuredAdminEmail
-      ? { ...user, role: 'ADMIN' }
-      : user;
+    // The server-side allow-list is the sole authority for admin access. Never trust a
+    // persisted role alone, so a stale or accidentally elevated DB role cannot grant admin.
+    const isConfiguredAdmin = Boolean(configuredAdminEmail && verifiedEmail === configuredAdminEmail);
+    (req as any).user = { ...user, role: isConfiguredAdmin ? 'ADMIN' : 'USER' };
     next();
   } catch (err: any) {
     res.status(401).json({ error: 'Unauthorized', message: err.message || 'Invalid authentication token' });
@@ -127,7 +113,7 @@ apiRouter.get('/admin/overview', requireAuth, requireAdmin, async (_req: Request
       requests24h: analytics.totalRequests,
       passed24h: analytics.passedRequests,
       blocked24h: analytics.blockedRequests,
-      passRate24h: analytics.totalRequests ? Math.round((analytics.passedRequests / analytics.totalRequests) * 100) : 0,
+      passRate24h: calculatePassRatePercent(analytics.totalRequests, analytics.passedRequests),
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -539,9 +525,9 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   }
 
   let freeTrialReservationUserId: string | undefined;
+  let paidUsageReservationId: string | undefined;
   try {
-    // Free accounts receive 10 CAPTCHA challenges total per account. Reservation is atomic
-    // and account-wide, so parallel requests or deleting/recreating a site cannot reset it.
+    // Each account receives 20 free CAPTCHA challenges across all registered websites.
     const trial = await reserveFreeCaptchaTrial(parsed.data.siteKey);
     if (trial.isFree && !trial.allowed) {
       res.status(429).json({
@@ -549,29 +535,30 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
         code: 'free-trial-exhausted',
         plan: 'free',
         used: trial.used,
-        limit: 10,
+        limit: FREE_TRIAL_CAPTCHA_LIMIT,
         message: parsed.data.lang.toLowerCase().startsWith('fa')
-          ? 'اعتبار رایگان آزمایش کپچا تمام شده است. برای ادامه، اشتراک تهیه کنید.'
-          : 'Your 10 free CAPTCHA tests are used up. Upgrade to a paid subscription to continue.',
+          ? 'اعتبار رایگان ۲۰ کپچای این حساب تمام شده است. برای ادامه، اشتراک تهیه کنید.'
+          : 'Your account has used all 20 free CAPTCHA challenges. Upgrade to a paid subscription to continue.',
       });
       return;
     }
     if (trial.isFree && trial.allowed) freeTrialReservationUserId = trial.userId;
 
-    // Paid subscriptions use their rolling 30-day request allowance.
+    // A paid challenge reserves exactly one unit, regardless of verification retries.
     if (!trial.isFree) {
-      const quota = await checkCaptchaQuota(parsed.data.siteKey, 2);
-      if (!quota.allowed) {
+      const quota = await reservePaidCaptchaUsage(parsed.data.siteKey);
+      if (quota.isPaid && !quota.allowed) {
         res.status(429).json({
           error: 'Monthly usage limit reached',
           code: 'usage-limit-exceeded',
-          plan: quota.plan,
+          plan: 'paid',
           used: quota.used,
           limit: quota.limit,
-          message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
+          message: 'The monthly CAPTCHA challenge allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
         });
         return;
       }
+      paidUsageReservationId = quota.reservationId;
     }
 
     const challenge = await issueCaptchaChallenge(
@@ -579,8 +566,12 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
       requestDomain,
       parsed.data.lang
     );
+    if (paidUsageReservationId) {
+      await completePaidCaptchaUsage(paidUsageReservationId, challenge.token);
+      paidUsageReservationId = undefined;
+    }
 
-    // Keep the reservation only when a challenge was successfully created.
+    // Keep the free reservation only when a challenge was successfully created.
     freeTrialReservationUserId = undefined;
     res.json({
       challengeId: challenge.challengeId,
@@ -594,6 +585,9 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   } catch (err: any) {
     if (freeTrialReservationUserId) {
       await releaseFreeCaptchaTrial(freeTrialReservationUserId).catch(() => undefined);
+    }
+    if (paidUsageReservationId) {
+      await releasePaidCaptchaUsage(paidUsageReservationId).catch(() => undefined);
     }
     if (err.message === 'SITE_KEY_NOT_FOUND') {
       res.status(404).json({ error: 'Invalid Site Key', code: 'site-key-not-found' });
@@ -632,36 +626,8 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
     return;
   }
 
-  // Enforce the account's rolling usage quota on verification requests too.
-  // The challenge is looked up server-side; callers cannot choose another site's quota.
-  try {
-    const storedChallenge = await dbRepository.getChallengeByToken(parsed.data.token);
-    if (storedChallenge) {
-      const quota = await checkCaptchaQuota(storedChallenge.siteKey, 1);
-      if (!quota.allowed) {
-        res.status(429).json({
-          success: false,
-          score: 0,
-          error_codes: ['usage-limit-exceeded'],
-          error: 'Monthly usage limit reached',
-          plan: quota.plan,
-          used: quota.used,
-          limit: quota.limit,
-          message: 'The monthly CAPTCHA request allowance has been reached. Upgrade the plan or wait for the rolling 30-day window to renew.',
-        });
-        return;
-      }
-    }
-  } catch (error: any) {
-    console.error('[Quota] Verification quota check failed:', error?.message);
-    res.status(503).json({
-      success: false,
-      score: 0,
-      error_codes: ['quota-check-unavailable'],
-      error: 'Usage quota could not be checked. Please retry shortly.',
-    });
-    return;
-  }
+  // Quota is reserved atomically when a challenge is issued. Verification attempts do not
+  // consume extra units, and a challenge issued within quota remains verifiable until expiry.
 
   // Express resolves req.ip using only the configured trusted proxy chain.
   // Ignore caller-supplied X-Forwarded-For and JSON remoteIp values.
@@ -714,9 +680,7 @@ apiRouter.get('/analytics/usage', requireAuth, async (req: Request, res: Respons
       totalRequests: summary.totalRequests,
       passedRequests: summary.passedRequests,
       blockedRequests: summary.blockedRequests,
-      passRatePercent: summary.totalRequests > 0
-        ? Math.round((summary.passedRequests / summary.totalRequests) * 100)
-        : 0,
+      passRatePercent: calculatePassRatePercent(summary.totalRequests, summary.passedRequests),
     },
     recentEvents: summary.recentEvents.slice(0, 50),
     hourlyTraffic: summary.hourlyTraffic,
