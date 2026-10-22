@@ -48,5 +48,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shieldcaptcha
         run: bun run db:migrate
+      - name: Standalone admin console build
+        run: cd admin-console && npm install && npm run build
       - name: Production build
         run: bun run build

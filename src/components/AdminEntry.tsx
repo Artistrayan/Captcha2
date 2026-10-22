@@ -3,6 +3,7 @@ import { LockKeyhole, ShieldCheck, AlertCircle, LoaderCircle, ArrowRight } from 
 import AdminPanel from './AdminPanel.tsx';
 
 export default function AdminEntry() {
+  const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || '/';
   const [hasSession, setHasSession] = useState(() => Boolean(sessionStorage.getItem('shieldcaptcha_id_token')));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,7 +68,7 @@ export default function AdminEntry() {
         </button>
         <p className="text-xs leading-6 text-slate-500">اگر ورود موفق بود اما پیام نداشتن دسترسی مدیر دیدید، مقدار ADMIN_EMAIL در Environment Variables سرویس Render باید با ایمیل همین حساب یکسان باشد.</p>
       </form>
-      <div className="border-t border-slate-800 p-4"><a href="/" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowRight className="h-4 w-4" />بازگشت به برنامه</a></div>
+      <div className="border-t border-slate-800 p-4"><a href={mainAppUrl} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowRight className="h-4 w-4" />بازگشت به برنامه</a></div>
     </section>
   </main>;
 }
