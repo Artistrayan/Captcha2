@@ -326,15 +326,15 @@ export async function verifyCaptchaReceipt(input: { token: string; secretKey: st
   if (!Number.isFinite(solvedAt) || Date.now() - solvedAt > 120000 || solvedAt > Date.now()) {
     return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
   }
+  const riskEvent = await dbRepository.getVerificationEventByToken(input.token);
+  const riskScore = typeof riskEvent?.score === 'number' ? Math.max(0, Math.min(100, riskEvent.score)) : 50;
+  const riskSignals = riskEvent
+    ? (riskEvent.errorCodes || []).filter(code => code.startsWith('risk:')).map(code => code.slice(5))
+    : ['missing-risk-event'];
   const claimed = await dbRepository.markChallengeServerVerified(input.token);
   if (!claimed) {
     return { success: false, score: 0, hostname, challenge_ts: timestamp, action: 'server-verify', development_mode: !IS_PRODUCTION, error_codes: ['timeout-or-duplicate'] };
   }
-  const riskEvent = await dbRepository.getVerificationEventByToken(input.token);
-  const riskScore = typeof riskEvent?.score === 'number' ? Math.max(0, Math.min(100, riskEvent.score)) : 95;
-  const riskSignals = (riskEvent?.errorCodes || [])
-    .filter(code => code.startsWith('risk:'))
-    .map(code => code.slice(5));
   return {
     success: true,
     score: riskScore,
