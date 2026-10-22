@@ -19,5 +19,6 @@ export default defineConfig({
     ],
     dedupe: ['react', 'react-dom'],
   },
+  preview: { allowedHosts: ['shieldcaptcha-admin.onrender.com'] },
   build: { outDir: 'dist', emptyOutDir: true },
 });
