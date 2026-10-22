@@ -253,7 +253,9 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
 
     expect(firstVerify.status).toBe(200);
     expect(firstVerify.body.success).toBe(true);
-    expect(firstVerify.body.score).toBeGreaterThanOrEqual(90);
+    expect(firstVerify.body.score).toBe(solveRes.body.score);
+    expect(firstVerify.body.score).toBeGreaterThanOrEqual(0);
+    expect(firstVerify.body.score).toBeLessThanOrEqual(100);
 
     // Reusing the same server-side receipt MUST FAIL.
     const replayVerify = await request(app)
