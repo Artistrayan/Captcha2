@@ -7,13 +7,15 @@ type Overview = { users: number; sites: number; tickets: number; openTickets: nu
 type AdminUser = { id: string; email: string; name: string; role: string; createdAt: string };
 type AdminSite = { id: string; name: string; siteKey: string; ownerEmail: string; domains: string[]; challengeDifficulty: string; invisibleEnabled: boolean; rateLimitPerMinute: number; createdAt: string };
 type AdminEvent = { id: string; siteKey: string; success: boolean; score: number; hostname: string; action: string; errorCodes: string[]; createdAt: string };
-type FinanceSummary = { generatedAt: string; totals: { total_invoices: number; paid_invoices: number; pending_invoices: number; expired_invoices: number; revenue_all: string | number; revenue_month: string | number; paid_this_month: number; invoices_30d: number }; plans: { plan_id: string; paid_count: number; revenue: string | number }[]; recentInvoices: { id: string; plan_id: string; amount_usdt: string | number; status: string; txid: string | null; created_at: string; paid_at: string | null; email: string }[]; subscriptions: { active: number; inactive: number }; accountingNote: string };\ntype Section = 'overview' | 'users' | 'sites' | 'tickets' | 'activity' | 'finance';
+type FinanceSummary = { generatedAt: string; totals: { total_invoices: number; paid_invoices: number; pending_invoices: number; expired_invoices: number; revenue_all: string | number; revenue_month: string | number; paid_this_month: number; invoices_30d: number }; plans: { plan_id: string; paid_count: number; revenue: string | number }[]; recentInvoices: { id: string; plan_id: string; amount_usdt: string | number; status: string; txid: string | null; created_at: string; paid_at: string | null; email: string }[]; subscriptions: { active: number; inactive: number }; accountingNote: string };
+type Section = 'overview' | 'users' | 'sites' | 'tickets' | 'activity' | 'finance';
 const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'نمای کلی سامانه', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'users', label: 'مدیریت کاربران', icon: <Users className="h-4 w-4" /> },
   { id: 'sites', label: 'وب‌سایت‌ها و کلیدها', icon: <Building2 className="h-4 w-4" /> },
   { id: 'tickets', label: 'تیکت‌های پشتیبانی', icon: <LifeBuoy className="h-4 w-4" /> },
-  { id: 'activity', label: 'رویدادهای امنیتی', icon: <Activity className="h-4 w-4" /> },\n  { id: 'finance', label: 'حسابداری و اشتراک‌ها', icon: <Wallet className="h-4 w-4" /> },
+  { id: 'activity', label: 'رویدادهای امنیتی', icon: <Activity className="h-4 w-4" /> },
+  { id: 'finance', label: 'حسابداری و اشتراک‌ها', icon: <Wallet className="h-4 w-4" /> },
 ];
 const statuses = ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'];
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
@@ -27,7 +29,9 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [sites, setSites] = useState<AdminSite[]>([]);
   const [events, setEvents] = useState<AdminEvent[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);\n  const [finance, setFinance] = useState<FinanceSummary | null>(null);\n  const [financeError, setFinanceError] = useState('');
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [finance, setFinance] = useState<FinanceSummary | null>(null);
+  const [financeError, setFinanceError] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [reply, setReply] = useState('');
   const [status, setStatus] = useState('open');
@@ -65,7 +69,9 @@ export default function AdminPanel() {
       const nextTickets: Ticket[] = ticketData.tickets || [];
       setTickets(nextTickets);
       setSelectedId(current => nextTickets.some(ticket => ticket.id === current) ? current : (nextTickets[0]?.id || ''));
-      setIsAdmin(true);\n      setFinanceError('');\n      void api('/api/v1/billing/admin/summary').then((data: FinanceSummary) => { setFinance(data); setFinanceError(''); }).catch((err: unknown) => { setFinance(null); setFinanceError(err instanceof Error ? err.message : 'دریافت اطلاعات حسابداری ناموفق بود.'); });
+      setIsAdmin(true);
+      setFinanceError('');
+      void api('/api/v1/billing/admin/summary').then((data: FinanceSummary) => { setFinance(data); setFinanceError(''); }).catch((err: unknown) => { setFinance(null); setFinanceError(err instanceof Error ? err.message : 'دریافت اطلاعات حسابداری ناموفق بود.'); });
     } catch (err) {
       setIsAdmin(false);
       setError(err instanceof Error ? err.message : 'خطای ناشناخته هنگام دریافت اطلاعات');
