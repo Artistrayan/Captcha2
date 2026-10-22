@@ -18,7 +18,7 @@ export function assessCaptchaRisk(input: RiskInput): RiskAssessment {
     /scrapy|go-http-client|java\/\d/,
   ];
   if (ua && automationPatterns.some(pattern => pattern.test(ua))) {
-    score -= 55; signals.push('automation-user-agent');
+    score -= 40; signals.push('automation-user-agent');
   } else if (!ua) { score -= 8; signals.push('missing-user-agent'); }
   if (!input.acceptLanguage) { score -= 4; signals.push('missing-language-header'); }
 
