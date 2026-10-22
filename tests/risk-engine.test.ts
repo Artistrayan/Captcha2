@@ -8,10 +8,10 @@ describe('Adaptive anti-bot risk engine', () => {
     expect(result.action).toBe('allow');
     expect(result.signals).toEqual([]);
   });
-  it('requests a harder challenge for explicit browser automation and impossible speed', () => {
+  it('blocks high-confidence browser automation combined with impossible solve speed', () => {
     const result = assessCaptchaRisk({ elapsedMs: 120, userAgent: 'Mozilla/5.0 HeadlessChrome Playwright', acceptLanguage: 'en-US', remoteIp: '203.0.113.11', recentEvents: [] });
-    expect(result.score).toBeLessThan(80);
-    expect(result.action).toBe('challenge');
+    expect(result.score).toBeLessThan(25);
+    expect(result.action).toBe('block');
     expect(result.signals).toContain('automation-user-agent');
     expect(result.signals).toContain('impossibly-fast-solve');
   });
