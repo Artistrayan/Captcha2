@@ -113,7 +113,7 @@ export function getCaptchaMLStatus(): {
   mode: 'shadow-only';
   configured: boolean;
   modelLoaded: boolean;
-  status: 'not-configured' | 'ready-shadow-only' | 'invalid-model';
+  status: 'not-configured' | 'model-unavailable' | 'ready-shadow-only' | 'invalid-model';
   modelVersion?: string;
 } {
   const configured = Boolean(process.env.SHIELDCAPTCHA_ML_MODEL_PATH);
@@ -123,7 +123,7 @@ export function getCaptchaMLStatus(): {
       mode: 'shadow-only',
       configured,
       modelLoaded: Boolean(model),
-      status: model ? 'ready-shadow-only' : 'not-configured',
+      status: model ? 'ready-shadow-only' : configured ? 'model-unavailable' : 'not-configured',
       ...(model ? { modelVersion: model.modelVersion } : {}),
     };
   } catch {
