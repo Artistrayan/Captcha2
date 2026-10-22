@@ -31,6 +31,12 @@ describe('ShieldCaptcha Security and Verification Suite', () => {
     testSiteId = site.id;
   });
 
+  it('Adaptive risk escalation can issue a harder eight-option challenge', async () => {
+    const challenge = await issueCaptchaChallenge(testSiteKey, 'localhost', 'en', true);
+    expect(challenge.options).toHaveLength(8);
+    expect(challenge.options.every(option => /^opt_[0-9a-f]{12}$/.test(option.id))).toBe(true);
+  });
+
   it('1. GET /api/v1/health should return system status and active engines', async () => {
     const res = await request(app).get('/api/v1/health');
     expect(res.status).toBe(200);
