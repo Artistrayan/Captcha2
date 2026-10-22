@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { dbRepository } from '../db/index.ts';
+import { assessCaptchaRisk } from './risk-engine.ts';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const SERVER_SALT = process.env.CAPTCHA_SERVER_SALT || (IS_PRODUCTION ? '' : 'shield_captcha_internal_salt_dev_98741');
@@ -108,7 +109,8 @@ export function generatePromptForLanguage(category: string, lang = 'en'): string
 export async function issueCaptchaChallenge(
   siteKey: string,
   domain?: string,
-  lang: string = 'en'
+  lang: string = 'en',
+  forceHighDifficulty = false
 ): Promise<GeneratedChallenge> {
   const site = await dbRepository.getSiteByKey(siteKey);
   if (!site) {
@@ -158,7 +160,7 @@ export async function issueCaptchaChallenge(
   const targetCategory = targetPool[crypto.randomInt(0, targetPool.length)];
 
   // Difficulty controls the number of visually plausible distractors.
-  const optionCount = site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
+  const optionCount = forceHighDifficulty || site.challengeDifficulty === 'HIGH' ? 8 : site.challengeDifficulty === 'LOW' ? 4 : 6;
   const otherCategories = CATEGORIES.filter(c => c !== targetCategory);
   for (let i = otherCategories.length - 1; i > 0; i--) {
     const j = crypto.randomInt(0, i + 1);
@@ -288,6 +290,8 @@ export interface VerificationInput {
   remoteIp?: string;
   hostname?: string;
   action?: string;
+  userAgent?: string;
+  acceptLanguage?: string;
 }
 
 export interface VerificationOutput {
@@ -298,6 +302,8 @@ export interface VerificationOutput {
   action: string;
   development_mode: boolean;
   error_codes: string[];
+  risk_action?: 'allow' | 'challenge' | 'block';
+  risk_signals?: string[];
 }
 
 export async function verifyCaptchaReceipt(input: { token: string; secretKey: string; hostname?: string; action?: string; remoteIp?: string }): Promise<VerificationOutput> {
@@ -461,6 +467,29 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     };
   }
 
+  const recentEvents = await dbRepository.getRecentEvents(challenge.siteKey);
+  const risk = assessCaptchaRisk({
+    elapsedMs: Date.now() - new Date(challenge.createdAt).getTime(),
+    attemptsCount: challenge.attemptsCount,
+    remoteIp: input.remoteIp,
+    userAgent: input.userAgent,
+    acceptLanguage: input.acceptLanguage,
+    recentEvents: recentEvents.filter(event => event.token !== input.token),
+  });
+  if (risk.action === 'block') {
+    await dbRepository.consumeChallengeToken(input.token);
+    await dbRepository.recordVerificationEvent({
+      siteKey: challenge.siteKey, token: input.token, success: false, score: risk.score,
+      hostname, action: input.action, clientIp: input.remoteIp,
+      errorCodes: ['high-risk-traffic', ...risk.signals.map(signal => `risk:${signal}`)],
+    });
+    return {
+      success: false, score: risk.score, hostname, challenge_ts: challengeTs,
+      action: input.action || 'verify', development_mode: !IS_PRODUCTION,
+      error_codes: ['high-risk-traffic'], risk_action: risk.action, risk_signals: risk.signals,
+    };
+  }
+
   // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
     const candidateHash = crypto
@@ -532,11 +561,13 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
 
   return {
     success: true,
-    score: 95,
+    score: risk.score,
     hostname,
     challenge_ts: challengeTs,
     action: input.action || 'verify',
     development_mode: !IS_PRODUCTION,
     error_codes: [],
+    risk_action: risk.action,
+    risk_signals: risk.signals,
   };
 }
