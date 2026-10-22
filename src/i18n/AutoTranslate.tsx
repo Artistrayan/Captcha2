@@ -159,7 +159,10 @@ const extraFa: Record<string, string> = {
   'Could not retrieve data.': 'دریافت اطلاعات ناموفق بود.',
   'Could not retrieve accounting data.': 'دریافت اطلاعات حسابداری ناموفق بود.',
   'Unknown error while loading data': 'خطای ناشناخته هنگام دریافت اطلاعات',
-  'Failed to send reply.': 'ارسال پاسخ ناموفق بود.'
+  'Failed to send reply.': 'ارسال پاسخ ناموفق بود.',
+  'Verified': 'تأیید',
+  'Blocked': 'مسدود',
+  'Ticket ID: ': 'شناسه: '
 };
 
 function translateNode(node: React.ReactNode, lang: LanguageCode): React.ReactNode {
