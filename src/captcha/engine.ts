@@ -488,8 +488,8 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     acceptLanguagePresent: Boolean(input.acceptLanguage),
     elapsedMs: Math.max(0, Math.min(120000, Date.now() - new Date(challenge.createdAt).getTime())),
     attemptsCount: challenge.attemptsCount,
-    sameIpRecentCount: 0,
-    sameIpRecentFailureCount: 0,
+    sameIpRecentCount: recentEvents.filter(event => event.clientIp === input.remoteIp).length,
+    sameIpRecentFailureCount: recentEvents.filter(event => event.clientIp === input.remoteIp && !event.success).length,
   };
 
   // Verify the selected option using the server-only HMAC.
