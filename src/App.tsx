@@ -765,7 +765,7 @@ export default function App() {
               {authError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm leading-6 text-rose-300">{authError}</p>}
               {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY is not set in the build configuration.</p>}
               {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Server-side Firebase Admin is not ready; check the Firebase configuration.</p>}
-              <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized || (authMode === 'signup' && !emailCodeSent)} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="submit" disabled={isSigningIn || !import.meta.env.VITE_FIREBASE_API_KEY || !health?.firebaseAuth.isInitialized || (authMode === 'login' && !loginCaptchaVerified) || (authMode === 'signup' && !emailCodeSent)} className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
                 {isSigningIn ? t('authPleaseWait') : authMode === 'login' ? t('authSignInButton') : 'Verify code and create account'}
               </button>
               <div className="relative py-1 text-center text-xs text-slate-500"><span className="bg-slate-900 px-3">or</span></div>
