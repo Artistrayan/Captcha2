@@ -56,6 +56,12 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   const isRtl = lang === 'fa' || lang === 'ar';
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Keep consumer callbacks current without letting inline callback identities
+  // restart challenges or reset the countdown on every React render.
+  const onErrorRef = useRef(onError);
+  const onExpireRef = useRef(onExpire);
+  onErrorRef.current = onError;
+  onExpireRef.current = onExpire;
 
   const fetchChallenge = useCallback(async () => {
     setStatus('loading');
@@ -97,9 +103,9 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       console.error('Failed to load challenge:', err);
       setStatus('error');
       setErrorMessage(err.message || (lang === 'fa' ? 'خطا در برقراری ارتباط با سرور کپچا' : 'Failed to connect to CAPTCHA server'));
-      onError?.(err.message || 'challenge_fetch_error');
+      onErrorRef.current?.(err.message || 'challenge_fetch_error');
     }
-  }, [siteKey, lang, usageType, onError]);
+  }, [siteKey, lang, usageType]);
 
   // Handle countdown timer
   useEffect(() => {
@@ -108,7 +114,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         setTimeLeft(prev => {
           if (prev <= 1) {
             setStatus('expired');
-            onExpire?.();
+            onExpireRef.current?.();
             return 0;
           }
           return prev - 1;
@@ -118,7 +124,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [status, timeLeft, onExpire]);
+  }, [status, timeLeft]);
 
   useEffect(() => {
     if (autoStart && siteKey) {
@@ -166,7 +172,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
           // The server consumes the challenge at the attempt limit. Fetch a fresh
           // challenge immediately so the widget never remains stuck on a dead token.
-          onError?.(primaryError);
+          onErrorRef.current?.(primaryError);
           await fetchChallenge();
           return;
         } else {
@@ -174,12 +180,12 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
           setErrorMessage(t('widgetIncorrectAnswer'));
         }
 
-        onError?.(primaryError);
+        onErrorRef.current?.(primaryError);
       }
     } catch (err: any) {
       setStatus('error');
       setErrorMessage('Network error while verifying the answer');
-      onError?.('network_error');
+      onErrorRef.current?.('network_error');
     }
   };
 
