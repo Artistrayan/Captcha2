@@ -210,7 +210,15 @@ apiRouter.get('/admin/events', requireAuth, requireAdmin, async (_req: Request, 
     res.json({ events: events.map(event => ({
       id: event.id, siteKey: event.siteKey, success: event.success, score: event.score,
       hostname: event.hostname, action: event.action, errorCodes: event.errorCodes,
-      createdAt: event.createdAt,
+      createdAt: event.createdAt, mlLabel: (event as any).mlLabel ?? null,
+      mlFeatures: {
+        userAgent: (event as any).userAgent || '',
+        acceptLanguagePresent: Boolean((event as any).acceptLanguagePresent),
+        elapsedMs: (event as any).elapsedMs ?? 0,
+        attemptsCount: (event as any).attemptsCount ?? 0,
+        sameIpRecentCount: (event as any).sameIpRecentCount ?? 0,
+        sameIpRecentFailureCount: (event as any).sameIpRecentFailureCount ?? 0,
+      },
     })) });
   } catch (error) {
     console.error('[Admin] Events list failed:', error);
