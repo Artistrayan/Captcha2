@@ -7,6 +7,7 @@ export interface CaptchaWidgetProps {
   onVerify?: (token: string, verificationResult: any) => void;
   onError?: (errorCode: string) => void;
   onExpire?: () => void;
+  onChallenge?: () => void;
   theme?: 'dark' | 'light';
   action?: string;
   autoStart?: boolean;
@@ -34,6 +35,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   onVerify,
   onError,
   onExpire,
+  onChallenge,
   theme = 'dark',
   action = 'submit',
   autoStart = true,
@@ -60,10 +62,15 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   // restart challenges or reset the countdown on every React render.
   const onErrorRef = useRef(onError);
   const onExpireRef = useRef(onExpire);
+  const onChallengeRef = useRef(onChallenge);
   onErrorRef.current = onError;
   onExpireRef.current = onExpire;
+  onChallengeRef.current = onChallenge;
 
   const fetchChallenge = useCallback(async () => {
+    // Any new challenge invalidates a prior success, so the host form cannot
+    // reuse an old verification after refresh, expiry, or a failed attempt.
+    onChallengeRef.current?.();
     setStatus('loading');
     setErrorMessage(null);
     setChallenge(null);
