@@ -7,7 +7,7 @@ import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } fr
 import { calculatePassRatePercent } from '../utils/analytics.ts';
 import { assessCaptchaRisk } from '../captcha/risk-engine.ts';
 import { getCaptchaMLStatus } from '../captcha/ml-risk-engine.ts';
-import { FREE_TRIAL_CAPTCHA_LIMIT, FREE_TRIAL_TOTAL_LIMIT, type FreeTrialUsageType, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
+import { FREE_TRIAL_CAPTCHA_LIMIT, FREE_TRIAL_TOTAL_LIMIT, type FreeTrialUsageType, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit, getLoginCaptchaIpLockout, recordLoginCaptchaIpFailure, clearLoginCaptchaIpFailures } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -509,12 +509,32 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
     domain: z.string().optional(),
     lang: z.string().optional().default('en'),
     usageType: z.enum(['test', 'production']).optional().default('production'),
+    action: z.string().max(128).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Validation failed', details: parsed.error.format() });
     return;
+  }
+
+  const challengeAction = (parsed.data.action || '').trim().toLowerCase();
+  if (challengeAction === 'login') {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const lockout = await getLoginCaptchaIpLockout(clientIp);
+    if (lockout.locked) {
+      res.setHeader('Retry-After', String(lockout.retryAfterSeconds));
+      res.status(429).json({
+        error: 'Login temporarily blocked',
+        code: 'login-ip-locked',
+        failedAttempts: lockout.failedAttempts,
+        retryAfterSeconds: lockout.retryAfterSeconds,
+        message: parsed.data.lang.toLowerCase().startsWith('fa')
+          ? 'به‌دلیل سه پاسخ اشتباه کپچا، ورود از این آدرس IP تا ۲۴ ساعت قفل شده است.'
+          : 'Login from this IP is locked for 24 hours after three incorrect CAPTCHA answers.',
+      });
+      return;
+    }
   }
 
   // In production, derive the hostname from browser Origin/Referer headers only.
@@ -646,13 +666,31 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
     return;
   }
 
+  const isLoginAction = (parsed.data.action || '').trim().toLowerCase() === 'login';
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  if (isLoginAction) {
+    const lockout = await getLoginCaptchaIpLockout(clientIp);
+    if (lockout.locked) {
+      res.setHeader('Retry-After', String(lockout.retryAfterSeconds));
+      res.status(429).json({
+        success: false,
+        score: 0,
+        hostname: req.hostname || 'unknown',
+        action: 'login',
+        error_codes: ['login-ip-locked'],
+        failedAttempts: lockout.failedAttempts,
+        retryAfterSeconds: lockout.retryAfterSeconds,
+        message: 'Login is temporarily blocked after three incorrect CAPTCHA answers.',
+      });
+      return;
+    }
+  }
+
   // Quota is reserved atomically when a challenge is issued. Verification attempts do not
   // consume extra units, and a challenge issued within quota remains verifiable until expiry.
 
   // Express resolves req.ip using only the configured trusted proxy chain.
   // Ignore caller-supplied X-Forwarded-For and JSON remoteIp values.
-  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-
   // Hostname supplied in JSON is client-controlled. Prefer browser Origin/Referer
   // when present, and otherwise report the API request host.
   let verifyHostname = req.hostname || 'unknown';
@@ -685,6 +723,27 @@ apiRouter.post('/captcha/verify', rateLimiter(configuredRateLimit('RATE_LIMIT_VE
         acceptLanguage: req.get('accept-language') || '',
       });
 
+  if (isLoginAction) {
+    if (result.success) {
+      await clearLoginCaptchaIpFailures(clientIp);
+    } else if (result.error_codes?.includes('incorrect-captcha-sol')) {
+      const lockout = await recordLoginCaptchaIpFailure(clientIp);
+      if (lockout.locked) {
+        res.setHeader('Retry-After', String(lockout.retryAfterSeconds));
+        res.status(429).json({
+          ...result,
+          success: false,
+          error_codes: [...(result.error_codes || []), 'login-ip-locked'],
+          failedAttempts: lockout.failedAttempts,
+          retryAfterSeconds: lockout.retryAfterSeconds,
+          message: 'Login is temporarily blocked after three incorrect CAPTCHA answers.',
+        });
+        return;
+      }
+      res.json({ ...result, failedAttempts: lockout.failedAttempts, attemptsRemainingBeforeIpLock: Math.max(0, 3 - lockout.failedAttempts) });
+      return;
+    }
+  }
   res.json(result);
 });
 
