@@ -312,7 +312,7 @@ export async function releaseFreeCaptchaTrial(userId: string, usageType: FreeTri
   );
 }
 
-export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1, usageType: FreeTrialUsageType = 'production'): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
   if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
   const account = await getCaptchaAccount(siteKey);
   if (!account) return { allowed: false, used: 0, limit: 0, plan: 'invalid-site' };
@@ -320,11 +320,13 @@ export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): P
   if (account.paidQuota <= 0) {
     await ensureFreeTrialTable();
     const result = await getPool().query(
-      'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
+      'SELECT used_count, test_used_count, production_used_count FROM captcha_free_trial_usage WHERE user_id = $1',
       [account.userId],
     );
-    const used = Number(result.rows[0]?.used_count || 0);
-    return { allowed: quotaAllows(used, FREE_TRIAL_CAPTCHA_LIMIT, reserveRequests), used, limit: FREE_TRIAL_CAPTCHA_LIMIT, plan: 'free-trial' };
+    const totalUsed = Number(result.rows[0]?.used_count || 0);
+    const used = Number(result.rows[0]?.[usageType === 'test' ? 'test_used_count' : 'production_used_count'] || 0);
+    const allowed = quotaAllows(used, FREE_TRIAL_CAPTCHA_LIMIT, reserveRequests) && quotaAllows(totalUsed, FREE_TRIAL_TOTAL_LIMIT, reserveRequests);
+    return { allowed, used, limit: FREE_TRIAL_CAPTCHA_LIMIT, plan: 'free-trial' };
   }
 
   await ensureBillingUsageTable();
