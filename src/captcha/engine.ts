@@ -520,6 +520,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
         action: input.action || 'verify',
         development_mode: !IS_PRODUCTION,
         error_codes: errorCodes,
+        challenge_consumed: newAttempts >= challenge.maxAttempts,
       };
     }
   }
