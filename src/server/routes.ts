@@ -190,10 +190,10 @@ apiRouter.get('/admin/ml/training.csv', requireAuth, requireAdmin, async (_req: 
     const headers = ['label','userAgent','acceptLanguage','elapsedMs','attemptsCount','sameIpRecentCount','sameIpRecentFailureCount'];
     const cell = (value: unknown) => {
       let v = String(value ?? '');
-      if (/^[\\u0000-\\u0020]*[=+\\-@]/.test(v)) v = "'" + v;
+      if (/^[\u0000-\u0020]*[=+\-@]/.test(v)) v = "'" + v;
       return '"' + v.replace(/"/g, '""') + '"';
     };
-    const csv = [headers.join(','), ...rows.map(row => headers.map(key => cell((row as any)[key])).join(','))].join('\\n') + '\\n';
+    const csv = [headers.join(','), ...rows.map(row => headers.map(key => cell((row as any)[key])).join(','))].join('\n') + '\n';
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="shieldcaptcha-ml-reviewed-training.csv"');
     res.setHeader('Cache-Control', 'no-store');
