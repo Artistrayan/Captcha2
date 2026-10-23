@@ -270,6 +270,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             <h5 className="text-xs font-semibold text-amber-400">{t('widgetExpiredTitle')}</h5>
             <p className="text-[11px] text-slate-400">{t('widgetExpiredDesc')}</p>
             <button
+              type="button"
               onClick={fetchChallenge}
               className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -286,6 +287,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
             <h5 className="text-xs font-semibold text-rose-400">{t('widgetErrorTitle')}</h5>
             <p className="text-[11px] text-slate-400 max-w-[260px]">{errorMessage}</p>
             {!freeTrialExhausted && <button
+              type="button"
               onClick={fetchChallenge}
               className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
