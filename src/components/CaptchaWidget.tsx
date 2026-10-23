@@ -11,6 +11,7 @@ export interface CaptchaWidgetProps {
   action?: string;
   autoStart?: boolean;
   lang?: LanguageCode;
+  usageType?: 'test' | 'production';
 }
 
 interface ChallengeOption {
@@ -37,6 +38,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
   action = 'submit',
   autoStart = true,
   lang = 'en',
+  usageType = 'production',
 }) => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'challenge' | 'verifying' | 'success' | 'error' | 'expired'>('idle');
   const [challenge, setChallenge] = useState<ChallengeData | null>(null);
@@ -68,7 +70,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       const res = await fetch('/api/v1/captcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteKey, lang }),
+        body: JSON.stringify({ siteKey, lang, usageType }),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -97,7 +99,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       setErrorMessage(err.message || (lang === 'fa' ? 'خطا در برقراری ارتباط با سرور کپچا' : 'Failed to connect to CAPTCHA server'));
       onError?.(err.message || 'challenge_fetch_error');
     }
-  }, [siteKey, lang, onError]);
+  }, [siteKey, lang, usageType, onError]);
 
   // Handle countdown timer
   useEffect(() => {

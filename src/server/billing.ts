@@ -8,7 +8,9 @@ export const billingRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const BONUS_REQUESTS_BY_PLAN = { starter: 50, pro: 500, business: 2500 } as const;
-export const FREE_TRIAL_CAPTCHA_LIMIT = 20;
+export const FREE_TRIAL_CAPTCHA_LIMIT = 10;
+export const FREE_TRIAL_TOTAL_LIMIT = 20;
+export type FreeTrialUsageType = 'test' | 'production';
 
 export function matchesTronUsdtTransferEvent(
   event: any,
@@ -160,7 +162,15 @@ async function ensureFreeTrialTable(): Promise<void> {
         used_count integer NOT NULL DEFAULT 0 CHECK (used_count >= 0 AND used_count <= 20),
         updated_at timestamptz NOT NULL DEFAULT NOW()
       )
-    `).then(() => undefined).catch((error) => {
+    `).then(() => getPool().query(`
+      ALTER TABLE captcha_free_trial_usage
+      ADD COLUMN IF NOT EXISTS test_used_count integer NOT NULL DEFAULT 0 CHECK (test_used_count >= 0 AND test_used_count <= 10),
+      ADD COLUMN IF NOT EXISTS production_used_count integer NOT NULL DEFAULT 0 CHECK (production_used_count >= 0 AND production_used_count <= 10)
+    `)).then(() => getPool().query(`
+      UPDATE captcha_free_trial_usage
+      SET production_used_count = LEAST(used_count, 10), test_used_count = 0
+      WHERE test_used_count = 0 AND production_used_count = 0 AND used_count > 0
+    `)).then(() => undefined).catch((error) => {
       freeTrialTableReady = null;
       throw error;
     });
@@ -189,8 +199,8 @@ async function ensureBillingUsageTable(): Promise<void> {
   await billingUsageTableReady;
 }
 
-export async function reserveFreeCaptchaTrial(siteKey: string): Promise<{
-  isFree: boolean; allowed: boolean; used: number; limit: number; userId?: string;
+export async function reserveFreeCaptchaTrial(siteKey: string, usageType: FreeTrialUsageType = 'production'): Promise<{
+  isFree: boolean; allowed: boolean; used: number; limit: number; totalUsed?: number; totalLimit?: number; userId?: string; usageType?: FreeTrialUsageType;
 }> {
   if (!process.env.DATABASE_URL) {
     return { isFree: false, allowed: true, used: 0, limit: 10000 };
@@ -203,27 +213,34 @@ export async function reserveFreeCaptchaTrial(siteKey: string): Promise<{
 
   await ensureFreeTrialTable();
   const reserved = await getPool().query(
-    `INSERT INTO captcha_free_trial_usage (user_id, used_count, updated_at)
-     VALUES ($1, 1, NOW())
+    `INSERT INTO captcha_free_trial_usage (user_id, used_count, test_used_count, production_used_count, updated_at)
+     VALUES ($1, 1, CASE WHEN $2 = 'test' THEN 1 ELSE 0 END, CASE WHEN $2 = 'production' THEN 1 ELSE 0 END, NOW())
      ON CONFLICT (user_id) DO UPDATE
-       SET used_count = captcha_free_trial_usage.used_count + 1, updated_at = NOW()
-       WHERE captcha_free_trial_usage.used_count < ${FREE_TRIAL_CAPTCHA_LIMIT}
-     RETURNING used_count`,
-    [account.userId],
+       SET used_count = captcha_free_trial_usage.used_count + 1,
+           test_used_count = captcha_free_trial_usage.test_used_count + CASE WHEN $2 = 'test' THEN 1 ELSE 0 END,
+           production_used_count = captcha_free_trial_usage.production_used_count + CASE WHEN $2 = 'production' THEN 1 ELSE 0 END,
+           updated_at = NOW()
+       WHERE captcha_free_trial_usage.used_count < ${FREE_TRIAL_TOTAL_LIMIT}
+         AND (CASE WHEN $2 = 'test' THEN captcha_free_trial_usage.test_used_count ELSE captcha_free_trial_usage.production_used_count END) < ${FREE_TRIAL_CAPTCHA_LIMIT}
+     RETURNING used_count, test_used_count, production_used_count`,
+    [account.userId, usageType],
   );
   if (reserved.rows[0]) {
-    return { isFree: true, allowed: true, used: Number(reserved.rows[0].used_count), limit: FREE_TRIAL_CAPTCHA_LIMIT, userId: account.userId };
+    return { isFree: true, allowed: true, used: Number(usageType === 'test' ? reserved.rows[0].test_used_count : reserved.rows[0].production_used_count), limit: FREE_TRIAL_CAPTCHA_LIMIT, totalUsed: Number(reserved.rows[0].used_count), totalLimit: FREE_TRIAL_TOTAL_LIMIT, userId: account.userId, usageType };
   }
   const current = await getPool().query(
-    'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
+    'SELECT used_count, test_used_count, production_used_count FROM captcha_free_trial_usage WHERE user_id = $1',
     [account.userId],
   );
   return {
     isFree: true,
     allowed: false,
-    used: Number(current.rows[0]?.used_count ?? FREE_TRIAL_CAPTCHA_LIMIT),
+    used: Number(current.rows[0]?.[usageType === 'test' ? 'test_used_count' : 'production_used_count'] ?? FREE_TRIAL_CAPTCHA_LIMIT),
     limit: FREE_TRIAL_CAPTCHA_LIMIT,
+    totalUsed: Number(current.rows[0]?.used_count ?? FREE_TRIAL_TOTAL_LIMIT),
+    totalLimit: FREE_TRIAL_TOTAL_LIMIT,
     userId: account.userId,
+    usageType,
   };
 }
 
@@ -281,16 +298,21 @@ export async function releasePaidCaptchaUsage(reservationId: string): Promise<vo
   await getPool().query('DELETE FROM captcha_billing_usage WHERE reservation_id = $1 AND challenge_token IS NULL', [reservationId]);
 }
 
-export async function releaseFreeCaptchaTrial(userId: string): Promise<void> {
+export async function releaseFreeCaptchaTrial(userId: string, usageType: FreeTrialUsageType = 'production'): Promise<void> {
   if (!process.env.DATABASE_URL || !userId) return;
   await ensureFreeTrialTable();
   await getPool().query(
-    'UPDATE captcha_free_trial_usage SET used_count = GREATEST(used_count - 1, 0), updated_at = NOW() WHERE user_id = $1',
-    [userId],
+    `UPDATE captcha_free_trial_usage
+     SET used_count = GREATEST(used_count - 1, 0),
+         test_used_count = GREATEST(test_used_count - CASE WHEN $2 = 'test' THEN 1 ELSE 0 END, 0),
+         production_used_count = GREATEST(production_used_count - CASE WHEN $2 = 'production' THEN 1 ELSE 0 END, 0),
+         updated_at = NOW()
+     WHERE user_id = $1`,
+    [userId, usageType],
   );
 }
 
-export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
+export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1, usageType: FreeTrialUsageType = 'production'): Promise<{ allowed: boolean; used: number; limit: number; plan: string }> {
   if (!process.env.DATABASE_URL) return { allowed: true, used: 0, limit: 10000, plan: 'free' };
   const account = await getCaptchaAccount(siteKey);
   if (!account) return { allowed: false, used: 0, limit: 0, plan: 'invalid-site' };
@@ -298,11 +320,13 @@ export async function checkCaptchaQuota(siteKey: string, reserveRequests = 1): P
   if (account.paidQuota <= 0) {
     await ensureFreeTrialTable();
     const result = await getPool().query(
-      'SELECT used_count FROM captcha_free_trial_usage WHERE user_id = $1',
+      'SELECT used_count, test_used_count, production_used_count FROM captcha_free_trial_usage WHERE user_id = $1',
       [account.userId],
     );
-    const used = Number(result.rows[0]?.used_count || 0);
-    return { allowed: quotaAllows(used, FREE_TRIAL_CAPTCHA_LIMIT, reserveRequests), used, limit: FREE_TRIAL_CAPTCHA_LIMIT, plan: 'free-trial' };
+    const totalUsed = Number(result.rows[0]?.used_count || 0);
+    const used = Number(result.rows[0]?.[usageType === 'test' ? 'test_used_count' : 'production_used_count'] || 0);
+    const allowed = quotaAllows(used, FREE_TRIAL_CAPTCHA_LIMIT, reserveRequests) && quotaAllows(totalUsed, FREE_TRIAL_TOTAL_LIMIT, reserveRequests);
+    return { allowed, used, limit: FREE_TRIAL_CAPTCHA_LIMIT, plan: 'free-trial' };
   }
 
   await ensureBillingUsageTable();

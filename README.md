@@ -7,7 +7,7 @@ Privacy-focused CAPTCHA-as-a-Service MVP built with React, TypeScript, Vite, Exp
 ## Current capabilities
 
 - Website/site-key management with a one-time display of the secret key.
-- 20 free CAPTCHA challenges per account across all registered websites; the account-level allowance cannot be reset by refreshing or recreating a site.
+- 20 free CAPTCHA challenges per account across all registered websites: 10 for the dashboard Playground/security tests and 10 for production integration; neither bucket can be reset by refreshing or recreating a site.
 - Paid usage is reserved once per issued challenge; verification retries do not double-count a single CAPTCHA.
 - Shared PostgreSQL-backed API and billing rate limits that persist across server restarts and instances.
 - USDT TRC20 verification checks the exact token contract and destination address; duplicate transaction submissions are serialized and rejected.
@@ -166,7 +166,7 @@ After adding the variables, deploy the service and confirm the database migratio
 
 ### Important billing scope
 
-Invoices and 30-day subscription records are persisted. Accounts without an active paid plan receive 20 free challenge issuances total across all registered sites; refreshing the page or adding another site does not reset this allowance. Paid plans use a rolling 30-day challenge-issuance quota based on the purchased plan allowance plus its configured bonus. Verification retries for a single issued challenge do not consume extra quota. The current implementation does not meter every HTTP endpoint uniformly and does not provide automatic refunds, automatic renewals, or a payment-provider webhook. The admin-only accounting CSV export includes invoice and subscription fields, supports optional `from`/`to` date filters, and caps each file at 50,000 rows to avoid oversized exports. Expired pending invoices are marked expired when billing history, the accounting summary, or the export is requested. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
+Invoices and 30-day subscription records are persisted. Accounts without an active paid plan receive 20 free challenge issuances total across all registered sites: 10 reserved for dashboard Playground/security testing and 10 for production integration. Each bucket is independently capped, and the shared account total is also capped at 20; refreshing the page or adding another site does not reset either bucket. Paid plans use a rolling 30-day challenge-issuance quota based on the purchased plan allowance plus its configured bonus. Verification retries for a single issued challenge do not consume extra quota. The current implementation does not meter every HTTP endpoint uniformly and does not provide automatic refunds, automatic renewals, or a payment-provider webhook. The admin-only accounting CSV export includes invoice and subscription fields, supports optional `from`/`to` date filters, and caps each file at 50,000 rows to avoid oversized exports. Expired pending invoices are marked expired when billing history, the accounting summary, or the export is requested. Review local legal/tax requirements and run small-value end-to-end tests before offering paid service publicly.
 
 
 ## Adaptive anti-bot risk engine

@@ -456,7 +456,7 @@ export default function App() {
       const chRes = await fetch('/api/v1/captcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteKey: selectedSiteKey, domain: 'localhost' }),
+        body: JSON.stringify({ siteKey: selectedSiteKey, domain: 'localhost', usageType: 'test' }),
       });
       const challenge = await chRes.json();
       if (!chRes.ok || !challenge.token) throw new Error(challenge.message || challenge.code || 'Challenge issuance failed');
@@ -1188,6 +1188,7 @@ export default function App() {
                 {/* Embedded Widget */}
                 {selectedSiteKey ? (
                   <CaptchaWidget
+                    usageType="test"
                     key={selectedSiteKey}
                     siteKey={selectedSiteKey}
                     lang={meta.code as any}

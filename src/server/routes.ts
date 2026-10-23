@@ -7,7 +7,7 @@ import { issueCaptchaChallenge, verifyCaptchaResponse, verifyCaptchaReceipt } fr
 import { calculatePassRatePercent } from '../utils/analytics.ts';
 import { assessCaptchaRisk } from '../captcha/risk-engine.ts';
 import { getCaptchaMLStatus } from '../captcha/ml-risk-engine.ts';
-import { FREE_TRIAL_CAPTCHA_LIMIT, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
+import { FREE_TRIAL_CAPTCHA_LIMIT, FREE_TRIAL_TOTAL_LIMIT, type FreeTrialUsageType, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit } from './billing.ts';
 
 export const apiRouter = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
@@ -508,6 +508,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
     siteKey: z.string().min(1),
     domain: z.string().optional(),
     lang: z.string().optional().default('en'),
+    usageType: z.enum(['test', 'production']).optional().default('production'),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -532,10 +533,11 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
   }
 
   let freeTrialReservationUserId: string | undefined;
+  let freeTrialReservationType: FreeTrialUsageType = parsed.data.usageType as FreeTrialUsageType;
   let paidUsageReservationId: string | undefined;
   try {
-    // Each account receives 20 free CAPTCHA challenges across all registered websites.
-    const trial = await reserveFreeCaptchaTrial(parsed.data.siteKey);
+    // Free accounts receive separate 10-challenge test and production buckets, with a hard 20 total cap.
+    const trial = await reserveFreeCaptchaTrial(parsed.data.siteKey, parsed.data.usageType as FreeTrialUsageType);
     if (trial.isFree && !trial.allowed) {
       res.status(429).json({
         error: 'Free trial allowance exhausted',
@@ -543,9 +545,12 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
         plan: 'free',
         used: trial.used,
         limit: FREE_TRIAL_CAPTCHA_LIMIT,
+        totalUsed: trial.totalUsed,
+        totalLimit: FREE_TRIAL_TOTAL_LIMIT,
+        usageType: parsed.data.usageType,
         message: parsed.data.lang.toLowerCase().startsWith('fa')
-          ? 'اعتبار رایگان ۲۰ کپچای این حساب تمام شده است. برای ادامه، اشتراک تهیه کنید.'
-          : 'Your account has used all 20 free CAPTCHA challenges. Upgrade to a paid subscription to continue.',
+          ? ((trial.totalUsed ?? 0) >= FREE_TRIAL_TOTAL_LIMIT ? 'اعتبار رایگان ۲۰ کپچا (۱۰ تست و ۱۰ استفاده واقعی) تمام شده است. برای ادامه اشتراک تهیه کنید.' : parsed.data.usageType === 'test' ? 'سهمیه ۱۰ کپچای آزمایشی تمام شده است؛ برای استفاده واقعی از سهمیه جداگانه استفاده کنید.' : 'سهمیه ۱۰ کپچای استفاده واقعی تمام شده است؛ برای تست از سهمیه آزمایشی استفاده کنید.')
+          : ((trial.totalUsed ?? 0) >= FREE_TRIAL_TOTAL_LIMIT ? 'Your 20 free challenges (10 test and 10 production) are exhausted. Upgrade to continue.' : parsed.data.usageType === 'test' ? 'Your 10 test challenges are exhausted. Production usage has a separate allowance.' : 'Your 10 production challenges are exhausted. Test usage has a separate allowance.'),
       });
       return;
     }
@@ -599,7 +604,7 @@ apiRouter.post('/captcha/challenge', rateLimiter(configuredRateLimit('RATE_LIMIT
     });
   } catch (err: any) {
     if (freeTrialReservationUserId) {
-      await releaseFreeCaptchaTrial(freeTrialReservationUserId).catch(() => undefined);
+      await releaseFreeCaptchaTrial(freeTrialReservationUserId, freeTrialReservationType).catch(() => undefined);
     }
     if (paidUsageReservationId) {
       await releasePaidCaptchaUsage(paidUsageReservationId).catch(() => undefined);
