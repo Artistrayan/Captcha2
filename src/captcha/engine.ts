@@ -482,6 +482,15 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     sameIpRecentFailureCount: recentEvents.filter(event => event.clientIp === input.remoteIp && !event.success).length,
   });
   const mlAuditCodes = mlShadow.available ? [`ml-shadow-score:${mlShadow.humanScore}`, `ml-shadow-model:${mlShadow.modelVersion}`] : [];
+  // Store bounded behavioral features; do not export raw IP addresses to training data.
+  const mlTrainingFeatures = {
+    userAgent: (input.userAgent || '').slice(0, 512),
+    acceptLanguagePresent: Boolean(input.acceptLanguage),
+    elapsedMs: Math.max(0, Math.min(120000, Date.now() - new Date(challenge.createdAt).getTime())),
+    attemptsCount: challenge.attemptsCount,
+    sameIpRecentCount: 0,
+    sameIpRecentFailureCount: 0,
+  };
 
   // Verify the selected option using the server-only HMAC.
   if (input.selectedOptionId) {
@@ -529,6 +538,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     await dbRepository.recordVerificationEvent({
       siteKey: challenge.siteKey, token: input.token, success: false, score: risk.score,
       hostname, action: input.action, clientIp: input.remoteIp,
+      ...mlTrainingFeatures,
       errorCodes: ['high-risk-traffic', ...risk.signals.map(signal => `risk:${signal}`)],
     });
     return {
@@ -563,6 +573,7 @@ export async function verifyCaptchaResponse(input: VerificationInput): Promise<V
     hostname,
     action: input.action,
     clientIp: input.remoteIp,
+    ...mlTrainingFeatures,
     errorCodes: [...(risk.signals.length ? risk.signals.map(signal => `risk:${signal}`) : []), ...mlAuditCodes],
   });
 
