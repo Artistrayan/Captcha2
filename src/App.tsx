@@ -52,6 +52,8 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [loginCaptchaVerified, setLoginCaptchaVerified] = useState(false);
+  const loginCaptchaSiteKey = 'sc_site_198d2ad04c0f73b7c2ec03a4';
   const [emailCode, setEmailCode] = useState('');
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -718,12 +720,12 @@ export default function App() {
           </div>
           <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
             <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1">
-              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setEmailCodeSent(false); setEmailCode(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authLogin')}</button>
-              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); setEmailCodeSent(false); setEmailCode(''); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authSignup')}</button>
+              <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setEmailCodeSent(false); setEmailCode(''); setLoginCaptchaVerified(false); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authLogin')}</button>
+              <button type="button" onClick={() => { setAuthMode('signup'); setAuthError(''); setEmailCodeSent(false); setEmailCode(''); setLoginCaptchaVerified(false); }} className={'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ' + (authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white')}>{t('authSignup')}</button>
             </div>
             <h2 className="text-lg font-semibold text-white">{authMode === 'login' ? t('authWelcomeBack') : t('authCreateAccount')}</h2>
             <p className="mt-1 mb-5 text-xs leading-6 text-slate-400">{authMode === 'login' ? t('authLoginDescription') : t('authSignupDescription')}</p>
-            <form className="space-y-4" onSubmit={authMode === 'login' ? async (event) => { event.preventDefault(); await loginUser(userEmail.trim(), authPassword); } : handleSignUp}>
+            <form className="space-y-4" onSubmit={authMode === 'login' ? async (event) => { event.preventDefault(); setAuthError(''); if (!loginCaptchaVerified) { setAuthError(meta.code === 'fa' ? 'ابتدا کپچا را با موفقیت تأیید کنید.' : 'Please complete the CAPTCHA verification first.'); return; } await loginUser(userEmail.trim(), authPassword); } : handleSignUp}>
               <div>
                 <label htmlFor="auth-email" className="mb-1.5 block text-sm text-slate-300">{t('authEmail')}</label>
                 <input id="auth-email" type="email" required autoComplete="email" value={userEmail} onChange={(event) => setUserEmail(event.target.value)} placeholder="name@example.com" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
@@ -745,6 +747,20 @@ export default function App() {
                 <label htmlFor="auth-password" className="mb-1.5 block text-sm text-slate-300">{t('authPassword')}</label>
                 <input id="auth-password" type="password" required minLength={authMode === 'login' ? 6 : 8} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={authMode === 'signup' ? 'At least 8 characters' : t('authPasswordHint')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-left text-sm text-white outline-none focus:border-emerald-500" />
               </div>
+              {authMode === 'login' && <div className="pt-2 space-y-2">
+                <p className="text-xs text-slate-400">{meta.code === 'fa' ? 'برای ورود، ابتدا بررسی امنیتی را کامل کنید.' : 'Complete the security check before signing in.'}</p>
+                <CaptchaWidget
+                  key={loginCaptchaSiteKey}
+                  siteKey={loginCaptchaSiteKey}
+                  usageType="test"
+                  action="login"
+                  lang={meta.code as any}
+                  onVerify={() => { setLoginCaptchaVerified(true); setAuthError(''); }}
+                  onError={() => setLoginCaptchaVerified(false)}
+                  onExpire={() => setLoginCaptchaVerified(false)}
+                />
+                {loginCaptchaVerified && <p role="status" className="text-xs text-emerald-300">{meta.code === 'fa' ? 'کپچا تأیید شد؛ اکنون می‌توانید وارد شوید.' : 'CAPTCHA verified. You can now sign in.'}</p>}
+              </div>}
               {authError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm leading-6 text-rose-300">{authError}</p>}
               {!import.meta.env.VITE_FIREBASE_API_KEY && <p className="text-xs leading-5 text-amber-300">VITE_FIREBASE_API_KEY is not set in the build configuration.</p>}
               {health && !health.firebaseAuth.isInitialized && <p className="text-xs leading-5 text-amber-300">Server-side Firebase Admin is not ready; check the Firebase configuration.</p>}
