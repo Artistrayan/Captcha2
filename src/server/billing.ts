@@ -131,6 +131,108 @@ export async function consumeApiRateLimit(key: string, limit: number, windowMs: 
   return { allowed: count <= limit, count, resetAt: windowStart + windowMs };
 }
 
+
+// Login CAPTCHA lockout: persist hashed client IPs in PostgreSQL so blocks survive
+// restarts and apply consistently across Render instances. Raw IPs are never stored.
+const localLoginIpFailures = new Map<string, { count: number; lockedUntil: number | null }>();
+let loginIpLockoutTableReady: Promise<void> | null = null;
+
+function loginIpHash(ip: string): string {
+  return crypto.createHash('sha256')
+    .update(`shieldcaptcha-login-ip:${process.env.SESSION_JWT_SECRET || 'rotate-this-login-ip-salt'}:${ip}`)
+    .digest('hex');
+}
+
+async function ensureLoginIpLockoutTable(): Promise<void> {
+  if (!loginIpLockoutTableReady) {
+    loginIpLockoutTableReady = getPool().query(`
+      CREATE TABLE IF NOT EXISTS captcha_login_ip_lockouts (
+        ip_hash text PRIMARY KEY,
+        failed_count integer NOT NULL DEFAULT 0 CHECK (failed_count >= 0),
+        locked_until timestamptz,
+        updated_at timestamptz NOT NULL DEFAULT NOW()
+      )
+    `).then(() => undefined).catch((error) => {
+      loginIpLockoutTableReady = null;
+      throw error;
+    });
+  }
+  await loginIpLockoutTableReady;
+}
+
+export async function getLoginCaptchaIpLockout(ip: string): Promise<{ locked: boolean; retryAfterSeconds: number; failedAttempts: number }> {
+  const key = loginIpHash(ip || 'unknown');
+  if (!process.env.DATABASE_URL) {
+    const row = localLoginIpFailures.get(key);
+    if (!row) return { locked: false, retryAfterSeconds: 0, failedAttempts: 0 };
+    if (row.lockedUntil && row.lockedUntil > Date.now()) {
+      return { locked: true, retryAfterSeconds: Math.ceil((row.lockedUntil - Date.now()) / 1000), failedAttempts: row.count };
+    }
+    if (row.lockedUntil && row.lockedUntil <= Date.now()) localLoginIpFailures.delete(key);
+    return { locked: false, retryAfterSeconds: 0, failedAttempts: row.lockedUntil ? 0 : row.count };
+  }
+  await ensureLoginIpLockoutTable();
+  const result = await getPool().query(
+    'SELECT failed_count, locked_until FROM captcha_login_ip_lockouts WHERE ip_hash = $1 LIMIT 1',
+    [key],
+  );
+  const row = result.rows[0];
+  if (!row) return { locked: false, retryAfterSeconds: 0, failedAttempts: 0 };
+  const lockedUntil = row.locked_until ? new Date(row.locked_until).getTime() : 0;
+  if (lockedUntil > Date.now()) {
+    return { locked: true, retryAfterSeconds: Math.ceil((lockedUntil - Date.now()) / 1000), failedAttempts: Number(row.failed_count) || 0 };
+  }
+  return { locked: false, retryAfterSeconds: 0, failedAttempts: lockedUntil ? 0 : Number(row.failed_count) || 0 };
+}
+
+export async function recordLoginCaptchaIpFailure(ip: string): Promise<{ locked: boolean; retryAfterSeconds: number; failedAttempts: number }> {
+  const key = loginIpHash(ip || 'unknown');
+  if (!process.env.DATABASE_URL) {
+    const now = Date.now();
+    const current = localLoginIpFailures.get(key);
+    const count = current?.lockedUntil && current.lockedUntil <= now ? 1 : (current?.count || 0) + 1;
+    const lockedUntil = current?.lockedUntil && current.lockedUntil > now
+      ? current.lockedUntil
+      : count >= 3 ? now + 24 * 60 * 60 * 1000 : null;
+    localLoginIpFailures.set(key, { count, lockedUntil });
+    return { locked: lockedUntil !== null && lockedUntil > now, retryAfterSeconds: lockedUntil && lockedUntil > now ? Math.ceil((lockedUntil - now) / 1000) : 0, failedAttempts: count };
+  }
+  await ensureLoginIpLockoutTable();
+  const result = await getPool().query(
+    `INSERT INTO captcha_login_ip_lockouts (ip_hash, failed_count, locked_until, updated_at)
+     VALUES ($1, 1, NULL, NOW())
+     ON CONFLICT (ip_hash) DO UPDATE SET
+       failed_count = CASE
+         WHEN captcha_login_ip_lockouts.locked_until IS NOT NULL AND captcha_login_ip_lockouts.locked_until <= NOW() THEN 1
+         ELSE captcha_login_ip_lockouts.failed_count + 1
+       END,
+       locked_until = CASE
+         WHEN captcha_login_ip_lockouts.locked_until > NOW() THEN captcha_login_ip_lockouts.locked_until
+         WHEN (CASE
+           WHEN captcha_login_ip_lockouts.locked_until IS NOT NULL AND captcha_login_ip_lockouts.locked_until <= NOW() THEN 1
+           ELSE captcha_login_ip_lockouts.failed_count + 1
+         END) >= 3 THEN NOW() + INTERVAL '24 hours'
+         ELSE NULL
+       END,
+       updated_at = NOW()
+     RETURNING failed_count, locked_until`,
+    [key],
+  );
+  const row = result.rows[0];
+  const lockedUntil = row?.locked_until ? new Date(row.locked_until).getTime() : 0;
+  return { locked: lockedUntil > Date.now(), retryAfterSeconds: lockedUntil > Date.now() ? Math.ceil((lockedUntil - Date.now()) / 1000) : 0, failedAttempts: Number(row?.failed_count) || 0 };
+}
+
+export async function clearLoginCaptchaIpFailures(ip: string): Promise<void> {
+  const key = loginIpHash(ip || 'unknown');
+  if (!process.env.DATABASE_URL) {
+    localLoginIpFailures.delete(key);
+    return;
+  }
+  await ensureLoginIpLockoutTable();
+  await getPool().query('DELETE FROM captcha_login_ip_lockouts WHERE ip_hash = $1', [key]);
+}
+
 let freeTrialTableReady: Promise<void> | null = null;
 let billingUsageTableReady: Promise<void> | null = null;
 
