@@ -99,7 +99,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       setErrorMessage(err.message || (lang === 'fa' ? 'خطا در برقراری ارتباط با سرور کپچا' : 'Failed to connect to CAPTCHA server'));
       onError?.(err.message || 'challenge_fetch_error');
     }
-  }, [siteKey, lang, onError]);
+  }, [siteKey, lang, usageType, onError]);
 
   // Handle countdown timer
   useEffect(() => {
