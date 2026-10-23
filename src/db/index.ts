@@ -578,6 +578,8 @@ export const dbRepository = {
     action?: string;
     clientIp?: string;
     errorCodes?: string[];
+    userAgent?: string; acceptLanguagePresent?: boolean; elapsedMs?: number; attemptsCount?: number;
+    sameIpRecentCount?: number; sameIpRecentFailureCount?: number;
   }): Promise<schema.VerificationEvent> {
     const event: schema.VerificationEvent = {
       id: `ve_${crypto.randomBytes(8).toString('hex')}`,
@@ -590,6 +592,13 @@ export const dbRepository = {
       clientIp: data.clientIp || '',
       errorCodes: data.errorCodes || [],
       consumedAt: new Date(),
+      userAgent: (data.userAgent || '').slice(0, 512),
+      acceptLanguagePresent: Boolean(data.acceptLanguagePresent),
+      elapsedMs: Math.max(0, Math.min(120000, Math.floor(data.elapsedMs || 0))),
+      attemptsCount: Math.max(0, Math.min(10, Math.floor(data.attemptsCount || 0))),
+      sameIpRecentCount: Math.max(0, Math.min(1000, Math.floor(data.sameIpRecentCount || 0))),
+      sameIpRecentFailureCount: Math.max(0, Math.min(1000, Math.floor(data.sameIpRecentFailureCount || 0))),
+      mlLabel: null,
       createdAt: new Date(),
     };
 
@@ -606,6 +615,43 @@ export const dbRepository = {
     }
     saveState(state);
     return event;
+  },
+
+  // Only administrator-reviewed labels become ML ground truth.
+  async labelVerificationEvent(id: string, label: 'human' | 'bot'): Promise<boolean> {
+    if (isPgConnected && pgPool) {
+      const result = await pgPool.query("UPDATE verification_events SET ml_label = $2 WHERE id = $1 RETURNING id", [id, label]);
+      return result.rowCount === 1;
+    }
+    const state = loadState();
+    const event = state.verificationEvents.find(item => item.id === id);
+    if (!event) return false;
+    (event as any).mlLabel = label;
+    saveState(state);
+    return true;
+  },
+
+  async getLabeledMLTrainingRows(): Promise<Array<{
+    label: 'human' | 'bot'; userAgent: string; acceptLanguage: string;
+    elapsedMs: number; attemptsCount: number; sameIpRecentCount: number; sameIpRecentFailureCount: number;
+  }>> {
+    if (isPgConnected && pgPool) {
+      const result = await pgPool.query("SELECT ml_label AS label, user_agent, accept_language_present, elapsed_ms, attempts_count, same_ip_recent_count, same_ip_recent_failure_count FROM verification_events WHERE ml_label IN ('human','bot') ORDER BY created_at ASC LIMIT 20000");
+      return result.rows.map((row: any) => ({
+        label: row.label, userAgent: String(row.user_agent || '').slice(0, 512),
+        acceptLanguage: row.accept_language_present ? 'present' : '',
+        elapsedMs: Number(row.elapsed_ms || 0), attemptsCount: Number(row.attempts_count || 0),
+        sameIpRecentCount: Number(row.same_ip_recent_count || 0),
+        sameIpRecentFailureCount: Number(row.same_ip_recent_failure_count || 0),
+      }));
+    }
+    return loadState().verificationEvents.filter((event: any) => event.mlLabel === 'human' || event.mlLabel === 'bot').slice(-20000).map((event: any) => ({
+      label: event.mlLabel, userAgent: String(event.userAgent || '').slice(0, 512),
+      acceptLanguage: event.acceptLanguagePresent ? 'present' : '',
+      elapsedMs: Number(event.elapsedMs || 0), attemptsCount: Number(event.attemptsCount || 0),
+      sameIpRecentCount: Number(event.sameIpRecentCount || 0),
+      sameIpRecentFailureCount: Number(event.sameIpRecentFailureCount || 0),
+    }));
   },
 
   async getAnalyticsSummary(siteKeys: string[], since: Date): Promise<{ totalRequests: number; passedRequests: number; blockedRequests: number; recentEvents: schema.VerificationEvent[]; hourlyTraffic: Array<{ hour: string; passed: number; blocked: number }> }> {

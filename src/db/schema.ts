@@ -75,6 +75,14 @@ export const verificationEvents = pgTable('verification_events', {
   clientIp: text('client_ip').notNull().default(''),
   errorCodes: jsonb('error_codes').$type<string[]>().notNull().default([]),
   consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  // Bounded behavior features for reviewed ML training. Raw IP is never exported.
+  userAgent: text('user_agent').notNull().default(''),
+  acceptLanguagePresent: boolean('accept_language_present').notNull().default(false),
+  elapsedMs: integer('elapsed_ms').notNull().default(0),
+  attemptsCount: integer('attempts_count').notNull().default(0),
+  sameIpRecentCount: integer('same_ip_recent_count').notNull().default(0),
+  sameIpRecentFailureCount: integer('same_ip_recent_failure_count').notNull().default(0),
+  mlLabel: text('ml_label'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('verification_events_token_idx').on(table.token),
