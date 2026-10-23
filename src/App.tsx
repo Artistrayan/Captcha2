@@ -756,6 +756,7 @@ export default function App() {
                   action="login"
                   lang={meta.code as any}
                   onVerify={() => { setLoginCaptchaVerified(true); setAuthError(''); }}
+                  onChallenge={() => setLoginCaptchaVerified(false)}
                   onError={() => setLoginCaptchaVerified(false)}
                   onExpire={() => setLoginCaptchaVerified(false)}
                 />
