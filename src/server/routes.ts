@@ -154,6 +154,56 @@ apiRouter.get('/admin/sites', requireAuth, requireAdmin, async (_req: Request, r
   }
 });
 
+// ML labels must be reviewed by an administrator; failed challenges are not automatically "bots".
+apiRouter.get('/admin/ml/status', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const rows = await dbRepository.getLabeledMLTrainingRows();
+    const humans = rows.filter(row => row.label === 'human').length;
+    const bots = rows.filter(row => row.label === 'bot').length;
+    res.json({ mode: 'shadow-only', trainingRows: rows.length, humans, bots, minimumRows: 500, minimumPerClass: 100,
+      readyForTraining: rows.length >= 500 && humans >= 100 && bots >= 100,
+      note: 'Only administrator-reviewed labels are exported; model predictions and failed challenges are not ground truth.' });
+  } catch (error) {
+    console.error('[Admin ML] Status failed:', error);
+    res.status(500).json({ error: 'Could not read ML training status.' });
+  }
+});
+
+apiRouter.post('/admin/ml/events/:id/label', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const parsed = z.object({ label: z.enum(['human', 'bot']) }).safeParse(req.body);
+  if (!parsed.success || !/^[a-zA-Z0-9_-]{1,100}$/.test(req.params.id)) {
+    res.status(400).json({ error: 'Provide a valid event ID and label: human or bot.' }); return;
+  }
+  try {
+    const updated = await dbRepository.labelVerificationEvent(req.params.id, parsed.data.label);
+    if (!updated) { res.status(404).json({ error: 'Verification event not found.' }); return; }
+    res.json({ ok: true, id: req.params.id, label: parsed.data.label });
+  } catch (error) {
+    console.error('[Admin ML] Label update failed:', error);
+    res.status(500).json({ error: 'Could not save the reviewed label.' });
+  }
+});
+
+apiRouter.get('/admin/ml/training.csv', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const rows = await dbRepository.getLabeledMLTrainingRows();
+    const headers = ['label','userAgent','acceptLanguage','elapsedMs','attemptsCount','sameIpRecentCount','sameIpRecentFailureCount'];
+    const cell = (value: unknown) => {
+      let v = String(value ?? '');
+      if (/^[\\u0000-\\u0020]*[=+\\-@]/.test(v)) v = "'" + v;
+      return '"' + v.replace(/"/g, '""') + '"';
+    };
+    const csv = [headers.join(','), ...rows.map(row => headers.map(key => cell((row as any)[key])).join(','))].join('\\n') + '\\n';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="shieldcaptcha-ml-reviewed-training.csv"');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(csv);
+  } catch (error) {
+    console.error('[Admin ML] CSV export failed:', error);
+    res.status(500).json({ error: 'Could not export reviewed training data.' });
+  }
+});
+
 apiRouter.get('/admin/events', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   try {
     const events = await dbRepository.getRecentEvents();
