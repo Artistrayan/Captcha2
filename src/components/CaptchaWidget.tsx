@@ -83,7 +83,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       const res = await fetch('/api/v1/captcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteKey, lang, usageType }),
+        body: JSON.stringify({ siteKey, lang, usageType, action }),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -112,7 +112,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
       setErrorMessage(err.message || (lang === 'fa' ? 'خطا در برقراری ارتباط با سرور کپچا' : 'Failed to connect to CAPTCHA server'));
       onErrorRef.current?.(err.message || 'challenge_fetch_error');
     }
-  }, [siteKey, lang, usageType]);
+  }, [siteKey, lang, usageType, action]);
 
   // Handle countdown timer
   useEffect(() => {
@@ -173,10 +173,19 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         const newAttempts = attempts + 1;
         setAttempts(newAttempts);
 
+        if (primaryError === 'login-ip-locked') {
+          setStatus('error');
+          setErrorMessage(data.message || (lang === 'fa'
+            ? 'به‌دلیل سه پاسخ اشتباه، ورود از این آدرس IP موقتاً قفل شده است.'
+            : 'Login from this IP is temporarily locked after three incorrect answers.'));
+          onErrorRef.current?.(primaryError);
+          return;
+        }
+
         if (primaryError === 'challenge-expired' || primaryError === 'timeout-or-duplicate') {
           setStatus('expired');
           setErrorMessage(t('widgetExpiredDesc'));
-        } else if (primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
+        } else if (data.challenge_consumed === true || primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
           // The server consumes the challenge at the attempt limit. Fetch a fresh
           // challenge immediately so the widget never remains stuck on a dead token.
           onErrorRef.current?.(primaryError);
