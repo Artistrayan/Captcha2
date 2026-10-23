@@ -36,3 +36,8 @@ Training refuses datasets below 500 rows or below 100 examples in either class. 
 
 ## Limits
 The trainer only makes an artifact from data supplied by the operator. It does not manufacture labels, retrieve private user data, or make the model production-ready by itself. Real labeled data and live shadow evaluation are required before claiming the ML work is complete.
+
+
+## Administrator review workflow
+
+Use `GET /api/v1/admin/ml/status` to check reviewed row counts. An authenticated administrator can label a security event using `POST /api/v1/admin/ml/events/:id/label` with a `human` or `bot` label, then download the reviewed dataset from `GET /api/v1/admin/ml/training.csv`. Review context carefully: a failed CAPTCHA, fast solve, mobile browser, shared IP, VPN, or missing header alone does not prove automation. Never label an event based on the model prediction itself. The CSV export omits raw IP addresses and site keys.
