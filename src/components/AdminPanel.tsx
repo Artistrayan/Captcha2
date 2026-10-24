@@ -20,7 +20,7 @@ const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
 ];
 const statuses = ['open', 'in_progress', 'waiting_user', 'resolved', 'closed'];
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || 'https://shieldcaptcha-web.onrender.com';
+const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || '';
 const dateText = (value: string) => value ? new Date(value).toLocaleString(sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa-IR' : 'en-US') : '—';
 
 export default function AdminPanel() {
