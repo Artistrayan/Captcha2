@@ -73,7 +73,7 @@ export default function AdminEntry() {
           {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
           {busy ? 'در حال بررسی...' : 'ورود به پنل مدیریت'}
         </button>
-        <p className="text-xs leading-6 text-slate-500">اگر ورود موفق بود اما پیام نداشتن دسترسی مدیر دیدید، مقدار ADMIN_EMAIL در Environment Variables سرویس Render باید با ایمیل همین حساب یکسان باشد.</p>
+        <p className="text-xs leading-6 text-slate-500">اگر ورود موفق بود اما پیام نداشتن دسترسی مدیر دیدید، مقدار ADMIN_EMAIL در متغیرهای محیطی سرویس API باید با ایمیل همین حساب یکسان باشد.</p>
       </form>
       <div className="border-t border-slate-800 p-4"><a href={mainAppUrl} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowRight className="h-4 w-4" />بازگشت به برنامه</a></div>
     </section>
