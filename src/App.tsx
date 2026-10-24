@@ -984,7 +984,7 @@ export default function App() {
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
               <div className="flex items-center gap-2 mb-2"><span className={`h-2.5 w-2.5 rounded-full ${billingConfig?.ready ? 'bg-emerald-400' : 'bg-amber-400'}`} /><span className="font-semibold text-white">{billingConfig?.ready ? 'Crypto payment gateway is configured' : 'Payment gateway is not ready to receive funds'}</span></div>
-              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'Network: TRON (TRC20) · Currency: USDT' : 'The service administrator must configure the receiving wallet address and TRON provider API key in the server's private environment variables.')}</p>
+              <p className="text-sm leading-6 text-slate-400">{billingConfig?.message || (billingConfig?.ready ? 'Network: TRON (TRC20) · Currency: USDT' : 'The service administrator must configure the receiving wallet address and TRON provider API key in the private server environment variables.')}</p>
               {billingConfig?.ready && <div className="mt-3 break-all rounded-lg bg-slate-950 border border-slate-700 p-3 font-mono text-sm text-emerald-300">{billingConfig.walletAddress}<button className="ml-3 text-xs text-slate-300 underline" onClick={() => copyToClipboard(billingConfig.walletAddress, 'billing-wallet')}>{copiedKey === 'billing-wallet' ? 'Copied' : 'Copy address'}</button></div>}
             </div>
             <div className="grid gap-3 md:grid-cols-3">
