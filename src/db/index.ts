@@ -166,14 +166,13 @@ if (process.env.DATABASE_URL) {
       dbHostname = parsedUrl.hostname;
     } catch {}
 
-    // Render internal hostnames (e.g. dpg-xxxx-a) only resolve inside Render's private network.
-    // If running in development/preview outside Render, gracefully use persistent local storage.
+    // Reject private or malformed database hosts in local/preview environments; production requires a reachable PostgreSQL endpoint.
     const isInternalOrInvalidHost =
       !dbHostname.includes('.') || dbHostname.endsWith('.internal') || dbHostname.startsWith('dpg-');
 
     if (isInternalOrInvalidHost) {
-      console.log(`[Database] Render internal host (${dbHostname}) is private to Render. Using local persistent storage in development/preview.`);
-      lastPgError = `Render internal host (${dbHostname}) is private to Render. Local storage active in preview.`;
+      console.log(`[Database] PostgreSQL host (${dbHostname}) is private or invalid. Using local persistent storage in development/preview.`);
+      lastPgError = `PostgreSQL host (${dbHostname}) is private or invalid. Local storage active in preview.`;
       isPgConnected = false;
     } else {
       pgPool = new Pool({
@@ -199,7 +198,21 @@ if (process.env.DATABASE_URL) {
               if (!fs.existsSync(migrationsDir)) {
                 throw new Error('Drizzle migrations directory is missing');
               }
-              await migrate(drizzleDb!, { migrationsFolder: migrationsDir });
+              const migrationUrl = process.env.DATABASE_URL_UNPOOLED || dbUrl;
+              const migrationIsLocalhost = migrationUrl.includes('localhost') || migrationUrl.includes('127.0.0.1');
+              const migrationPool = new Pool({
+                connectionString: migrationUrl,
+                max: 1,
+                connectionTimeoutMillis: 30000,
+                idleTimeoutMillis: 10000,
+                ssl: migrationIsLocalhost ? false : { rejectUnauthorized: false },
+              });
+              try {
+                await migrationPool.query('SELECT 1');
+                await migrate(drizzle(migrationPool, { schema }), { migrationsFolder: migrationsDir });
+              } finally {
+                await migrationPool.end().catch(() => undefined);
+              }
               isPgConnected = true;
               lastPgError = undefined;
               console.log('[Database] Drizzle migrations applied; PostgreSQL is ready');
@@ -216,8 +229,8 @@ if (process.env.DATABASE_URL) {
               err.code === 'ENOTFOUND' ||
               err.message?.includes('getaddrinfo');
 
-            if (isDnsFailure && !process.env.RENDER) {
-              console.log(`[Database] Hostname resolution unavailable outside Render (${err.message}). Using local storage.`);
+            if (isDnsFailure && !IS_PRODUCTION) {
+              console.log(`[Database] Hostname resolution unavailable outside production (${err.message}). Using local storage.`);
               return;
             }
 
