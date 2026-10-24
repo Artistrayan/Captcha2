@@ -5,6 +5,10 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 COPY . .
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN bun run build
 
 FROM oven/bun:1.4.4 AS runtime
