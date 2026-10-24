@@ -4,11 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 
-// Port 3000 is required in AI Studio preview environment.
-// In external deployments (e.g. Render), use process.env.PORT if specified.
-const PORT = process.env.NODE_ENV === 'production' && process.env.PORT && process.env.PORT !== '8080'
-  ? parseInt(process.env.PORT, 10)
-  : 3000;
+// Use the platform-assigned port in production (Railway or local development).
+const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 
 const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
