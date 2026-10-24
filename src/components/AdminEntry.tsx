@@ -4,7 +4,7 @@ import AdminPanel from './AdminPanel.tsx';
 import { AutoTranslate } from '../i18n/AutoTranslate.tsx';
 
 export default function AdminEntry() {
-  const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || 'https://shieldcaptcha-web.onrender.com';
+  const mainAppUrl = import.meta.env.VITE_MAIN_APP_URL || '';
   const [language, setLanguage] = useState<'en' | 'fa'>(() => sessionStorage.getItem('shieldcaptcha_admin_language') === 'fa' ? 'fa' : 'en');
   const toggleLanguage = () => {
     const next = language === 'en' ? 'fa' : 'en';
