@@ -1,4 +1,4 @@
-name: Migrate Render PostgreSQL to Neon test branch
+name: Migrate legacy PostgreSQL to Neon test branch
 
 on:
   workflow_dispatch:
@@ -17,11 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
       - name: Validate connection secrets
         env:
           SOURCE_URL: ${{ secrets.RENDER_DATABASE_URL }}
@@ -40,25 +35,36 @@ jobs:
             exit 1
           fi
 
-      - name: Dump source database without storing an artifact
+      - name: Dump legacy source with matching PostgreSQL 18 client
         env:
           SOURCE_URL: ${{ secrets.RENDER_DATABASE_URL }}
+        shell: bash
         run: |
           set -euo pipefail
-          pg_dump --no-owner --no-acl --format=custom "$SOURCE_URL" --file=/tmp/render-source.dump
+          mkdir -p "$RUNNER_TEMP/migration"
+          docker run --rm -e SOURCE_URL -v "$RUNNER_TEMP/migration:/backup" postgres:18 \
+            pg_dump --no-owner --no-acl --format=custom "$SOURCE_URL" --file=/backup/source.dump
+          test -s "$RUNNER_TEMP/migration/source.dump"
 
       - name: Restore into Neon migration-test target
         env:
           TARGET_URL: ${{ secrets.NEON_DATABASE_URL }}
+        shell: bash
         run: |
           set -euo pipefail
-          pg_restore --verbose --no-owner --no-acl --clean --if-exists --exit-on-error --dbname="$TARGET_URL" /tmp/render-source.dump
+          docker run --rm -e TARGET_URL -v "$RUNNER_TEMP/migration:/backup" postgres:18 \
+            pg_restore --verbose --no-owner --no-acl --clean --if-exists --exit-on-error \
+            --dbname="$TARGET_URL" /backup/source.dump
 
-      - name: Verify target tables and row counts
+      - name: Verify restored schema and key table counts
         env:
           TARGET_URL: ${{ secrets.NEON_DATABASE_URL }}
+        shell: bash
         run: |
           set -euo pipefail
-          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -c "SELECT current_database() AS database, current_schema() AS schema;"
-          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
-          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -c "SELECT 'users' AS table_name, count(*) FROM public.users UNION ALL SELECT 'sites', count(*) FROM public.sites UNION ALL SELECT 'captcha_challenges', count(*) FROM public.captcha_challenges;"
+          docker run --rm -e TARGET_URL postgres:18 psql "$TARGET_URL" -v ON_ERROR_STOP=1 \
+            -c "SELECT current_database() AS database, current_schema() AS schema, version();"
+          docker run --rm -e TARGET_URL postgres:18 psql "$TARGET_URL" -v ON_ERROR_STOP=1 \
+            -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
+          docker run --rm -e TARGET_URL postgres:18 psql "$TARGET_URL" -v ON_ERROR_STOP=1 \
+            -c "SELECT 'users' AS table_name, count(*) FROM public.users UNION ALL SELECT 'sites', count(*) FROM public.sites UNION ALL SELECT 'captcha_challenges', count(*) FROM public.captcha_challenges UNION ALL SELECT 'captcha_billing_usage', count(*) FROM public.captcha_billing_usage UNION ALL SELECT 'billing_invoices', count(*) FROM public.billing_invoices UNION ALL SELECT 'captcha_free_trial_usage', count(*) FROM public.captcha_free_trial_usage UNION ALL SELECT 'support_tickets', count(*) FROM public.support_tickets UNION ALL SELECT 'api_keys', count(*) FROM public.api_keys;"
