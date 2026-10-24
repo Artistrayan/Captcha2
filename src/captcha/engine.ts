@@ -284,6 +284,7 @@ export interface VerificationOutput {
   action: string;
   development_mode: boolean;
   error_codes: string[];
+  challenge_consumed?: boolean;
   risk_action?: 'allow' | 'challenge' | 'block';
   risk_signals?: string[];
 }
