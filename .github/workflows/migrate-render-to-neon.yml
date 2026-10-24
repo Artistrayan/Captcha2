@@ -1,6 +1,9 @@
 name: Migrate legacy PostgreSQL to Neon test branch
 
 on:
+  push:
+    branches:
+      - migration-run-once
   workflow_dispatch:
     inputs:
       confirm:
@@ -13,7 +16,7 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ inputs.confirm == 'RESTORE_TO_MIGRATION_TEST' }}
+    if: ${{ inputs.confirm == 'RESTORE_TO_MIGRATION_TEST' || github.ref == 'refs/heads/migration-run-once' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -52,6 +55,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # pg_restore must use the direct Neon endpoint; convert a copied pooled URL safely if needed.
+          TARGET_URL="${TARGET_URL/-pooler./.}"
           docker run --rm -e TARGET_URL -v "$RUNNER_TEMP/migration:/backup" postgres:18 \
             pg_restore --verbose --no-owner --no-acl --clean --if-exists --exit-on-error \
             --dbname="$TARGET_URL" /backup/source.dump
@@ -62,6 +67,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # pg_restore/verification use the direct Neon endpoint, not PgBouncer.
+          TARGET_URL="${TARGET_URL/-pooler./.}"
           docker run --rm -e TARGET_URL postgres:18 psql "$TARGET_URL" -v ON_ERROR_STOP=1 \
             -c "SELECT current_database() AS database, current_schema() AS schema, version();"
           docker run --rm -e TARGET_URL postgres:18 psql "$TARGET_URL" -v ON_ERROR_STOP=1 \
