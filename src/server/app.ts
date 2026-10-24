@@ -6,7 +6,7 @@ import { billingRouter } from './billing.ts';
 export const app = express();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
 
-app.set('trust proxy', process.env.RENDER ? 1 : false);
+app.set('trust proxy', process.env.NODE_ENV === 'production' && process.env.TRUST_PROXY !== 'false' ? 1 : false);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -21,8 +21,6 @@ const configuredOrigins = [
   ...(process.env.CORS_ALLOWED_ORIGINS || '').split(','),
   process.env.APP_URL || '',
   process.env.ADMIN_APP_URL || '',
-  'https://shieldcaptcha-web.onrender.com',
-  'https://shieldcaptcha-admin.onrender.com',
 ].map(value => value.trim().replace(/\/$/, '')).filter(Boolean);
 const allowedDashboardOrigins = new Set(configuredOrigins);
 
