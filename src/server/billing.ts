@@ -5,7 +5,7 @@ import { verifyTokenServerSide, getOrCreateUser } from '../auth/firebase.ts';
 
 const { Pool } = pg;
 export const billingRouter = Router();
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const BONUS_REQUESTS_BY_PLAN = { starter: 50, pro: 500, business: 2500 } as const;
 export const FREE_TRIAL_CAPTCHA_LIMIT = 10;

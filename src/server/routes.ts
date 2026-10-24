@@ -10,7 +10,7 @@ import { getCaptchaMLStatus } from '../captcha/ml-risk-engine.ts';
 import { FREE_TRIAL_CAPTCHA_LIMIT, FREE_TRIAL_TOTAL_LIMIT, type FreeTrialUsageType, checkSiteRegistrationQuota, reserveFreeCaptchaTrial, releaseFreeCaptchaTrial, reservePaidCaptchaUsage, completePaidCaptchaUsage, releasePaidCaptchaUsage, consumeApiRateLimit, getLoginCaptchaIpLockout, recordLoginCaptchaIpFailure, clearLoginCaptchaIpFailures } from './billing.ts';
 
 export const apiRouter = Router();
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 // Shared fixed-window rate limiting uses PostgreSQL in production and an in-memory fallback in local development.
 function configuredRateLimit(name: string, fallback: number): number {

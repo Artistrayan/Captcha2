@@ -15,7 +15,7 @@ export interface DBStatus {
   connectionError?: string;
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 if (IS_PRODUCTION && !process.env.DATABASE_URL) {
   throw new Error('[Database] DATABASE_URL is required in production; refusing to start with local file storage.');
 }
@@ -168,11 +168,10 @@ if (process.env.DATABASE_URL) {
 
     // Render internal hostnames (e.g. dpg-xxxx-a) only resolve inside Render's private network.
     // If running in development/preview outside Render, gracefully use persistent local storage.
-    const isRenderInternalHost =
-      !process.env.RENDER &&
-      (!dbHostname.includes('.') || dbHostname.endsWith('.internal') || dbHostname.startsWith('dpg-'));
+    const isInternalOrInvalidHost =
+      !dbHostname.includes('.') || dbHostname.endsWith('.internal') || dbHostname.startsWith('dpg-');
 
-    if (isRenderInternalHost) {
+    if (isInternalOrInvalidHost) {
       console.log(`[Database] Render internal host (${dbHostname}) is private to Render. Using local persistent storage in development/preview.`);
       lastPgError = `Render internal host (${dbHostname}) is private to Render. Local storage active in preview.`;
       isPgConnected = false;

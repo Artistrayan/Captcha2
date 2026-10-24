@@ -4,7 +4,7 @@ import { apiRouter } from './routes.ts';
 import { billingRouter } from './billing.ts';
 
 export const app = express();
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', process.env.NODE_ENV === 'production' && process.env.TRUST_PROXY !== 'false' ? 1 : false);
 

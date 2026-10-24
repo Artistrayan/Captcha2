@@ -7,7 +7,7 @@ import express from 'express';
 // Use the platform-assigned port in production (Railway or local development).
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 
-const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const isProduction = process.env.NODE_ENV === 'production';
 
 async function startServer() {
   if (!isProduction) {

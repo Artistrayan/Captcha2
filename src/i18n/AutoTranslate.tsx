@@ -53,7 +53,7 @@ const extraFa: Record<string, string> = {
   'Sign-in failed. Check Firebase settings.': 'ورود انجام نشد. تنظیمات Firebase را بررسی کنید.',
   'Firebase public API key is not configured in the app build settings.': 'کلید عمومی Firebase در تنظیمات Build برنامه تنظیم نشده است.',
   'Sign-in failed.': 'ورود انجام نشد.',
-  'If sign-in succeeds but admin access is denied, ADMIN_EMAIL in the Render service environment must match this account email.': 'اگر ورود موفق بود اما پیام نداشتن دسترسی مدیر دیدید، مقدار ADMIN_EMAIL در Environment Variables سرویس Render باید با ایمیل همین حساب یکسان باشد.',
+  'If sign-in succeeds but admin access is denied, ADMIN_EMAIL in the main API service environment must match this account email.': 'اگر ورود موفق بود اما پیام نداشتن دسترسی مدیر دیدید، مقدار ADMIN_EMAIL در متغیرهای محیطی سرویس API باید با ایمیل همین حساب یکسان باشد.',
   'Back to app': 'بازگشت به برنامه',
   'System overview': 'نمای کلی سامانه',
   'User management': 'مدیریت کاربران',

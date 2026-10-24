@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { dbRepository } from '../db/index.ts';
 import { User } from '../db/schema.ts';
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.SESSION_JWT_SECRET || (IS_PRODUCTION ? '' : 'local-development-only-jwt-secret-change-before-deploy');
 
 if (IS_PRODUCTION && !JWT_SECRET) {
