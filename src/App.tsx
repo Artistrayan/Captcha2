@@ -259,7 +259,7 @@ export default function App() {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
     if (!clientId || !apiKey) {
-      setAuthError('Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID and VITE_FIREBASE_API_KEY in Render.');
+      setAuthError('Google sign-in is not configured. Set the public Google client ID and Firebase API key in the main service environment.');
       return;
     }
     setGoogleBusy(true);
