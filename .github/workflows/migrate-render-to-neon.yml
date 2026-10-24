@@ -1,0 +1,64 @@
+name: Migrate Render PostgreSQL to Neon test branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RESTORE_TO_MIGRATION_TEST to authorize restoring into the isolated migration-test branch'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirm == 'RESTORE_TO_MIGRATION_TEST' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Validate connection secrets
+        env:
+          SOURCE_URL: ${{ secrets.RENDER_DATABASE_URL }}
+          TARGET_URL: ${{ secrets.NEON_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_URL" || { echo "Missing RENDER_DATABASE_URL secret"; exit 1; }
+          test -n "$TARGET_URL" || { echo "Missing NEON_DATABASE_URL secret"; exit 1; }
+          case "$SOURCE_URL" in postgresql://*|postgres://*) ;; *) echo "Source must be a PostgreSQL connection URL"; exit 1;; esac
+          case "$TARGET_URL" in postgresql://*|postgres://*) ;; *) echo "Target must be a PostgreSQL connection URL"; exit 1;; esac
+          SOURCE_HOST="$(printf '%s' "$SOURCE_URL" | sed -E 's#^[^:]+://([^/@]+@)?([^:/?]+).*#\2#')"
+          TARGET_HOST="$(printf '%s' "$TARGET_URL" | sed -E 's#^[^:]+://([^/@]+@)?([^:/?]+).*#\2#')"
+          if [ "$SOURCE_HOST" = "$TARGET_HOST" ]; then
+            echo "Source and target hosts are identical; refusing to proceed."
+            exit 1
+          fi
+
+      - name: Dump source database without storing an artifact
+        env:
+          SOURCE_URL: ${{ secrets.RENDER_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          pg_dump --no-owner --no-acl --format=custom "$SOURCE_URL" --file=/tmp/render-source.dump
+
+      - name: Restore into Neon migration-test target
+        env:
+          TARGET_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          pg_restore --verbose --no-owner --no-acl --clean --if-exists --exit-on-error --dbname="$TARGET_URL" /tmp/render-source.dump
+
+      - name: Verify target tables and row counts
+        env:
+          TARGET_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -c "SELECT current_database() AS database, current_schema() AS schema;"
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -c "SELECT 'users' AS table_name, count(*) FROM public.users UNION ALL SELECT 'sites', count(*) FROM public.sites UNION ALL SELECT 'captcha_challenges', count(*) FROM public.captcha_challenges;"
