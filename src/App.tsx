@@ -1591,7 +1591,7 @@ export function LoginForm() {
 app.post('/api/login', async (req, res) => {
   const { email, password, captchaToken } = req.body;
 
-  const verifyResponse = await fetch('https://shieldcaptcha-web.onrender.com/api/v1/captcha/verify', {
+  const verifyResponse = await fetch(process.env.SHIELDCAPTCHA_API_URL + '/api/v1/captcha/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
