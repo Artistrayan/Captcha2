@@ -1,0 +1,13 @@
+FROM node:22-alpine AS build
+WORKDIR /repo
+COPY . .
+WORKDIR /repo/admin-console
+RUN npm install --no-audit --no-fund && npm run build
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /repo/admin-console/dist ./dist
+COPY --from=build /repo/admin-console/server.mjs ./server.mjs
+EXPOSE 3000
+CMD ["node", "server.mjs"]
