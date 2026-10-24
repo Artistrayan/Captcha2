@@ -24,7 +24,7 @@ const extraFa: Record<string, string> = {
   'Recent Invoices': 'فاکتورهای اخیر', 'No invoices yet.': 'هنوز فاکتوری وجود ندارد.',
   'Loading websites from the database...': 'در حال بارگذاری وب‌سایت‌ها از پایگاه داده...',
   'Test in Playground': 'آزمایش در محیط تست', 'Server-verified response:': 'پاسخ تأییدشده توسط سرور:',
-  'Four incorrect answers are allowed; the fifth attempt should be rejected': 'چهار پاسخ اشتباه مجاز است؛ تلاش پنجم باید رد شود',
+  'Two incorrect answers are allowed; the third attempt should be rejected': 'دو پاسخ اشتباه مجاز است؛ تلاش سوم باید رد شود',
   'Verify that an invalid test Secret Key is rejected; the real key is never sent to the browser': 'بررسی کنید کلید محرمانه آزمایشی نامعتبر رد شود؛ کلید واقعی هرگز به مرورگر ارسال نمی‌شود',
   'Pass rate': 'نرخ موفقیت', 'Embed the widget in your website form (React / HTML)': 'افزودن ویجت به فرم وب‌سایت (React / HTML)',
   'Server-to-server verification (Node.js / Express)': 'تأیید سرور به سرور (Node.js / Express)',
