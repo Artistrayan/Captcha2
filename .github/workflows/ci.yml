@@ -54,3 +54,7 @@ jobs:
         run: cd admin-console && npm install && npm run build
       - name: Production build
         run: bun run build
+      - name: Build production deployment containers
+        run: |
+          docker build -f Dockerfile -t shieldcaptcha-main:test .
+          docker build -f Dockerfile.admin -t shieldcaptcha-admin:test .
