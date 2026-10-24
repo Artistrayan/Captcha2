@@ -69,7 +69,7 @@ The local file store is written to `.data/shieldcaptcha_db.json` and must not be
 | `CAPTCHA_SERVER_SALT` | Private server-only HMAC salt; required in production. |
 | `SESSION_JWT_SECRET` | Strong server-side session secret; required in production. |
 | `FIREBASE_PROJECT_ID` | Firebase project used by Firebase Admin. |
-| `FIREBASE_SERVICE_ACCOUNT_KEY` | JSON service-account credential; required for production Firebase Admin verification on Render. Keep it server-side only. |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | JSON service-account credential; required for production Firebase Admin verification. Keep it server-side only. |
 | `VITE_FIREBASE_API_KEY` | Public Firebase Web API key used by the browser sign-in form. This is not a service-account credential. |
 | `APP_URL` | Optional canonical app URL for self-testing/domain configuration. |
 | `ADMIN_APP_URL` | Exact origin of the separately deployed admin console. |
@@ -130,7 +130,7 @@ Content-Type: application/json
 
 Keep `secretKey` on the customer's server only. A valid receipt must have been solved, is accepted for up to two minutes after solving, and can be verified server-side only once. A missing, incorrect, expired, or replayed receipt fails closed.
 
-The deployed endpoint URL should be taken from the active deployment configuration. The Render URL currently referenced by the dashboard is `https://shieldcaptcha-web.onrender.com`.
+Use the main application URL supplied by the active deployment configuration; do not hard-code a hosting-provider URL into customer integrations.
 
 ## API endpoints
 
@@ -145,7 +145,7 @@ The deployed endpoint URL should be taken from the active deployment configurati
 
 ## Deployment
 
-The repository includes `render.yaml` for a Render web service and PostgreSQL database. Before production deployment, configure the Render environment variables for the Firebase Web API key, Firebase project ID, valid Firebase service-account JSON, and the generated server secrets. Then verify `GET /api/v1/health` reports `healthy` and test the complete browser-solve plus server-receipt flow against the deployed service.
+The repository includes `Dockerfile` and `railway.json` for the main application and `Dockerfile.admin` plus `railway-admin.json` for the separate admin console. Deploy both services from the same GitHub repository to Railway, select the corresponding config file for each service, and use Neon PostgreSQL as `DATABASE_URL`. Configure the required Firebase Web API key, Firebase project ID, valid Firebase service-account JSON, strong server secrets, the exact app/admin origins, and billing/email variables in private service variables. For the admin service, set `VITE_API_BASE_URL` to the main service URL and `VITE_MAIN_APP_URL` to the main service URL at build time. Verify `GET /api/v1/health` reports `healthy` and test the full browser-solve plus server-receipt flow before switching traffic.
 
 A green CI run verifies type-checking, automated tests, PostgreSQL migrations, the standalone admin console build, and the production build; it does not by itself prove that production environment variables or a live deployment are configured correctly. `/api/v1/health` reports the active geometric and rule-based engines and explicitly reports supervised ML as shadow-only, including whether a trained model artifact is available.
 
@@ -154,9 +154,9 @@ A green CI run verifies type-checking, automated tests, PostgreSQL migrations, t
 
 The billing dashboard is available in the authenticated app under **پرداخت و اشتراک**. It creates a 30-minute invoice for Starter ($9/30 days), Pro ($49/30 days), or Business ($199/30 days). The server validates the submitted transaction ID against the confirmed TRON transaction, the official USDT TRC20 contract, the exact invoice amount, and the configured receiving address before recording a subscription. A transaction ID is single-use.
 
-### Render environment configuration
+### Production environment configuration
 
-Set these values in the **server service's private environment settings** (never commit real values to GitHub):
+Set these values in the **main API service's private environment settings** (never commit real values to GitHub):
 
 - `USDT_TRC20_RECEIVE_ADDRESS`: the public TRON mainnet wallet address that should receive USDT TRC20.
 - `TRON_PRO_API_KEY`: server-side TRONGrid API key used to query transaction events and block confirmations.
