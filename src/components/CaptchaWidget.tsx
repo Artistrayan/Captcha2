@@ -185,7 +185,7 @@ export const CaptchaWidget: React.FC<CaptchaWidgetProps> = ({
         if (primaryError === 'challenge-expired' || primaryError === 'timeout-or-duplicate') {
           setStatus('expired');
           setErrorMessage(t('widgetExpiredDesc'));
-        } else if (data.challenge_consumed === true || primaryError === 'max-attempts-exceeded' || newAttempts >= 4) {
+        } else if (data.challenge_consumed === true || primaryError === 'max-attempts-exceeded' || newAttempts >= 2) {
           // The server consumes the challenge at the attempt limit. Fetch a fresh
           // challenge immediately so the widget never remains stuck on a dead token.
           onErrorRef.current?.(primaryError);
