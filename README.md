@@ -65,15 +65,21 @@ The local file store is written to `.data/shieldcaptcha_db.json` and must not be
 | --- | --- |
 | `NODE_ENV` | Set to `production` for deployment. |
 | `PORT` | HTTP server port; defaults to the configured app port. |
-| `DATABASE_URL` | PostgreSQL connection string; required in production. |
+| `DATABASE_URL` | Runtime PostgreSQL connection string; use the Neon pooled endpoint for the application. Required in production. |
+| `DATABASE_URL_UNPOOLED` | Optional direct Neon URL used for Drizzle migrations; use the same branch's non-pooled endpoint. |
 | `CAPTCHA_SERVER_SALT` | Private server-only HMAC salt; required in production. |
 | `SESSION_JWT_SECRET` | Strong server-side session secret; required in production. |
 | `FIREBASE_PROJECT_ID` | Firebase project used by Firebase Admin. |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | JSON service-account credential; required for production Firebase Admin verification. Keep it server-side only. |
+| `ADMIN_EMAIL` | Exact Firebase account email allowed to access the independent admin console. |
 | `VITE_FIREBASE_API_KEY` | Public Firebase Web API key used by the browser sign-in form. This is not a service-account credential. |
+| `VITE_GOOGLE_CLIENT_ID` | Public Google OAuth Web client ID, if Google sign-in is enabled. |
 | `APP_URL` | Optional canonical app URL for self-testing/domain configuration. |
 | `ADMIN_APP_URL` | Exact origin of the separately deployed admin console. |
+| `TRUST_PROXY` | Set to `true` only when deployed behind the trusted Railway reverse proxy. |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated exact origins allowed to call dashboard, billing, and admin APIs; CAPTCHA embed endpoints remain cross-origin and enforce site-domain binding on the server. |
+| `VITE_API_BASE_URL` | Build-time URL of the main API for the separately deployed admin console. |
+| `VITE_MAIN_APP_URL` | Build-time URL of the main dashboard, linked from the admin console. |
 | `RATE_LIMIT_CHALLENGES_PER_MIN` | Challenge issuance limit per client IP; default 20. |
 | `RATE_LIMIT_VERIFY_PER_MIN` | Verification endpoint limit per client IP; default 30. |
 
@@ -86,7 +92,7 @@ The server applies Drizzle migrations when PostgreSQL connects. CI also applies 
 To apply migrations manually:
 
 ```sh
-DATABASE_URL='postgresql://USER:PASSWORD@HOST:5432/DB' bun run db:migrate
+DATABASE_URL_UNPOOLED='postgresql://USER:PASSWORD@HOST:5432/DB' bun run db:migrate
 ```
 
 ## CAPTCHA integration flow
