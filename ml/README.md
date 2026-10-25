@@ -43,3 +43,21 @@ When a validated artifact is available, set `SHIELDCAPTCHA_ML_MODEL_PATH=ml/mode
 - Do not use raw identifiers as model features.
 - Review performance by device, browser, language, and accessibility usage.
 - Run shadow mode, canary, rollback, and red-team tests before enforcement.
+
+
+## Prepare a review dataset from the existing PostgreSQL database
+
+The repository currently has no reviewed human/bot labels, and existing verification records do not retain browser user-agent or language snapshots. Exporting existing events therefore creates **review candidates only**, not training data.
+
+Install dependencies in a private environment and keep the database URL out of shell history and source control:
+
+```bash
+pip install -r ml/requirements.txt
+export DATABASE_URL='your-private-postgres-connection-string'
+python ml/export_review_candidates.py --output /secure/path/review-candidates.csv --since-days 30
+unset DATABASE_URL
+```
+
+The exporter aggregates recent same-IP activity in SQL but never writes IPs or CAPTCHA tokens into the CSV. The `label`, `userAgent`, and `acceptLanguage` columns are intentionally blank because those facts are not stored in the current schema. A reviewer must add a human/bot label only where independent evidence exists and fill missing features only from a legitimate source. Otherwise discard the row. Do not infer a label from the CAPTCHA result alone.
+
+The existing database currently has fewer than the trainer's minimum 200 labeled examples, and no verified labels were found in its schema. A production-quality model cannot be truthfully trained until a sufficiently large, representative, independently labeled dataset exists. The model remains shadow-only.
